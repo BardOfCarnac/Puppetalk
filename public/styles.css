@@ -1,0 +1,166 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0b0c0e;
+  color: #f2f3f5;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: #0b0c0e; }
+body { min-height: 100vh; }
+button, input { font: inherit; }
+button { color: inherit; }
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.stage-shell {
+  background: #0d0e10;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.stage-topbar {
+  position: fixed;
+  z-index: 20;
+  inset: 14px 14px auto 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.brand, .join-card {
+  pointer-events: auto;
+  border: 1px solid rgba(255,255,255,.13);
+  background: rgba(9,10,12,.72);
+  backdrop-filter: blur(12px);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.brand strong { letter-spacing: .14em; text-transform: uppercase; }
+.muted { color: #9ba0a8; }
+.small { font-size: 12px; }
+.join-card { text-align: right; }
+.room-code { font-size: 28px; line-height: 1; letter-spacing: .14em; font-weight: 800; }
+.join-link { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#stage-canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+
+.controller-shell {
+  width: min(560px, 100%);
+  margin: 0 auto;
+  padding: 18px 14px 28px;
+  gap: 14px;
+}
+
+.controller-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.card {
+  border: 1px solid #282b31;
+  background: #121418;
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.status-dot {
+  width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+  background: #6c727d; margin-right: 7px;
+}
+.status-dot.live { background: #71bb79; }
+.status-dot.bad { background: #cf655f; }
+
+.move-pad {
+  position: relative;
+  min-height: 280px;
+  border-radius: 20px;
+  border: 1px dashed #41454e;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.055), transparent 42%),
+    linear-gradient(#15171b,#101216);
+  touch-action: none;
+  user-select: none;
+  overflow: hidden;
+}
+.move-pad::before, .move-pad::after {
+  content: "";
+  position: absolute;
+  background: rgba(255,255,255,.055);
+  pointer-events: none;
+}
+.move-pad::before { width: 1px; top: 0; bottom: 0; left: 50%; }
+.move-pad::after { height: 1px; left: 0; right: 0; top: 50%; }
+.pad-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #686e78;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  font-size: 12px;
+  pointer-events: none;
+}
+.pad-nub {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 42px; height: 42px;
+  transform: translate(-50%,-50%);
+  border: 2px solid #e7e9ed;
+  border-radius: 50%;
+  background: rgba(255,255,255,.08);
+  pointer-events: none;
+}
+
+.grid { display: grid; gap: 8px; }
+.pose-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.action-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+
+button {
+  min-height: 48px;
+  border: 1px solid #343840;
+  border-radius: 12px;
+  background: #191c21;
+  cursor: pointer;
+}
+button:active, button.active { background: #303640; border-color: #656d7a; }
+button.primary { background: #eceff3; color: #121318; border-color: #fff; font-weight: 800; }
+button.warn.active { background: #6f3431; }
+
+.voice-card { display: grid; gap: 10px; }
+.voice-meter {
+  height: 8px;
+  background: #22252b;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.voice-meter > span { display: block; height: 100%; width: 0%; background: #d8dbe0; transition: width .05s linear; }
+
+.join-form {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+.join-panel { width: min(420px,100%); display: grid; gap: 12px; }
+input {
+  width: 100%; min-height: 50px; border-radius: 12px; border: 1px solid #343840;
+  background: #111318; color: #fff; padding: 0 14px; font-size: 17px;
+}
+
+@media (max-width: 720px) {
+  .stage-topbar { inset: 8px; }
+  .join-card { max-width: 58vw; }
+  .join-link { display: none; }
+  .room-code { font-size: 22px; }
+}
