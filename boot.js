@@ -214,6 +214,9 @@ async function loadAppSource(){
     "const room = clean(qs.get('room'));",
     "const room = String(qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);"
   );
+  // app.js and boot.js both have ordinary top-level const/function names. Execute the
+  // scene engine inside its own function scope so classic-script globals cannot collide.
+  source = `(function(){\n${source}\n})();`;
   return source;
 }
 
@@ -290,9 +293,10 @@ function bootHostPlayer(){
         startVisiblePlayer();
         return;
       }
-      if(doc?.body?.textContent?.includes('startup failed')){
+      const hostError = doc?.querySelector('.home-copy')?.textContent || '';
+      if(hostError.includes('startup failed') || hostError.includes('could not')){
         clearInterval(poll);
-        renderStartupError('The session host could not start.');
+        renderStartupError(`The session host could not start. ${hostError}`);
         return;
       }
     }catch(err){ console.debug('Waiting for host scene',err); }
