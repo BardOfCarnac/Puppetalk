@@ -2,6 +2,7 @@ const app = document.querySelector('#app');
 const params = new URLSearchParams(location.search);
 const mode = params.get('mode');
 const room = String(params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+const isHostPlayer = mode === 'controller' && params.get('host') === '1';
 
 function makeTableId(){
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -13,7 +14,18 @@ function makeTableId(){
 function tableUrl(id){
   const url = new URL(location.href);
   url.search = '';
+  url.searchParams.set('mode','controller');
   url.searchParams.set('room',id);
+  url.searchParams.set('host','1');
+  return url;
+}
+
+function stageUrl(id){
+  const url = new URL(location.href);
+  url.search = '';
+  url.searchParams.set('mode','stage');
+  url.searchParams.set('room',id);
+  url.searchParams.set('embedded','1');
   return url;
 }
 
@@ -38,12 +50,12 @@ function renderHome(){
       <div class="home-panel">
         <div>
           <div class="home-brand">Puppetalk</div>
-          <p class="home-copy">A shared puppet stage. Start a table here, then invite everyone else with a link or QR code.</p>
+          <p class="home-copy">A shared puppet scene. Everyone sees the whole ensemble on their own phone while controlling their own character.</p>
         </div>
         <div class="home-actions">
           <button class="primary" id="start-table" type="button">Start a table</button>
         </div>
-        <div class="home-note">Players do not need to create an account for this prototype. They join directly from the invite you send them.</div>
+        <div class="home-note">Starting a table makes this phone Player 1 and hosts the shared physics. Invite everyone else with a link or QR code.</div>
       </div>
     </section>`;
   document.querySelector('#start-table').addEventListener('click',()=>{
@@ -132,26 +144,29 @@ function enhanceStage(id){
 
 function tidyController(){
   const sub = document.querySelector('.controller-head .muted');
-  if(sub) sub.textContent = 'Live table';
+  if(sub) sub.textContent = isHostPlayer ? 'Hosting · full scene' : 'Live table · full scene';
+}
+
+async function loadAppSource(){
+  const response = await fetch('./app.js',{cache:'no-store'});
+  if(!response.ok) throw new Error(`Could not load app.js (${response.status})`);
+  let source = await response.text();
+  // Guard old/cached app.js builds that read clean() before its const existed.
+  source = source.replace(
+    "const room = clean(qs.get('room'));",
+    "const room = String(qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);"
+  );
+  return source;
 }
 
 async function bootApp(){
   let source;
   try{
-    const response = await fetch('./app.js',{cache:'no-store'});
-    if(!response.ok) throw new Error(`Could not load app.js (${response.status})`);
-    source = await response.text();
+    source = await loadAppSource();
   }catch(err){
     renderStartupError(err?.message || 'Could not load the stage code.');
     return;
   }
-
-  // app.js historically read the room through clean() before that const existed.
-  // Rewrite only that startup line here so old deployed/cached copies cannot black-screen.
-  source = source.replace(
-    "const room = clean(qs.get('room'));",
-    "const room = String(qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);"
-  );
 
   let startupFailed = false;
   const onError = event=>{
@@ -180,6 +195,40 @@ async function bootApp(){
   document.body.appendChild(script);
 }
 
+function bootHostPlayer(){
+  app.innerHTML = `
+    <section class="home-shell">
+      <div class="home-panel">
+        <div class="home-brand">Puppetalk</div>
+        <p class="home-copy">Starting the shared scene…</p>
+        <div class="home-note">This phone will be Player 1 and will also host the session physics.</div>
+      </div>
+    </section>`;
+
+  const iframe = document.createElement('iframe');
+  iframe.src = stageUrl(room).href;
+  iframe.title = 'Puppetalk session host';
+  iframe.setAttribute('aria-hidden','true');
+  Object.assign(iframe.style,{
+    position:'fixed',left:'0',top:'0',width:'320px',height:'360px',
+    border:'0',opacity:'0',pointerEvents:'none',zIndex:'-1'
+  });
+  document.body.appendChild(iframe);
+
+  let started = false;
+  const startVisiblePlayer = ()=>{
+    if(started) return;
+    started = true;
+    // Keep the host iframe alive; replace only the visible app content.
+    bootApp();
+  };
+
+  iframe.addEventListener('load',()=>setTimeout(startVisiblePlayer,900),{once:true});
+  // Fallback if the iframe load event is delayed or swallowed by a mobile browser.
+  setTimeout(startVisiblePlayer,1800);
+}
+
 if(mode === 'controller' && !room) renderBadInvite();
 else if(!room) renderHome();
+else if(isHostPlayer) bootHostPlayer();
 else bootApp();
