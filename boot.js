@@ -68,20 +68,20 @@ function renderBadInvite(){
     <section class="home-shell">
       <div class="home-panel">
         <div class="home-brand">Puppetalk</div>
-        <p class="home-copy">This invite is incomplete. Ask the table host to send you their Puppetalk invite link again.</p>
+        <p class="home-copy">This invite is incomplete. Ask the host to send you their Puppetalk invite link again.</p>
         <div class="home-actions"><button id="go-home" type="button">Puppetalk home</button></div>
       </div>
     </section>`;
   document.querySelector('#go-home').addEventListener('click',()=>{ location.href=homeUrl(); });
 }
 
-function renderStartupError(detail='The stage could not start.'){
+function renderStartupError(detail='The shared scene could not start.'){
   console.error('Puppetalk startup error:',detail);
   app.innerHTML = `
     <section class="home-shell">
       <div class="home-panel">
         <div class="home-brand">Puppetalk</div>
-        <p class="home-copy"><strong>Stage startup failed.</strong><br>${String(detail).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</p>
+        <p class="home-copy"><strong>Scene startup failed.</strong><br>${String(detail).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</p>
         <div class="home-actions"><button class="primary" id="retry-stage" type="button">Try again</button><button id="error-home" type="button">Puppetalk home</button></div>
         <div class="home-note">This error is being shown instead of leaving you on a blank screen.</div>
       </div>
@@ -142,16 +142,74 @@ function enhanceStage(id){
   });
 }
 
+function openHostInvite(){
+  if(document.querySelector('#host-invite-overlay')) return;
+  const invite = joinUrl(room).href;
+  const overlay = document.createElement('section');
+  overlay.id = 'host-invite-overlay';
+  overlay.className = 'home-shell';
+  Object.assign(overlay.style,{
+    position:'fixed',inset:'0',zIndex:'1000',background:'rgba(5,6,8,.88)',backdropFilter:'blur(10px)'
+  });
+  overlay.innerHTML = `
+    <div class="home-panel" role="dialog" aria-modal="true" aria-label="Invite players">
+      <div>
+        <div class="home-brand" style="font-size:28px">Invite players</div>
+        <p class="home-copy">Everyone who joins sees this same full scene and controls their own puppet.</p>
+      </div>
+      <div style="display:grid;place-items:center"><div class="invite-qr" id="host-invite-qr"></div></div>
+      <div class="invite-url" style="font-size:12px">${invite}</div>
+      <div class="home-actions">
+        <button class="primary" id="host-share-invite" type="button">Share invite</button>
+        <button id="host-copy-invite" type="button">Copy link</button>
+        <button id="host-close-invite" type="button">Back to scene</button>
+      </div>
+      <div class="invite-feedback" id="host-invite-feedback"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const qr = document.querySelector('#host-invite-qr');
+  if(window.QRCode && qr){
+    new QRCode(qr,{text:invite,width:80,height:80,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+  }
+  const feedback = document.querySelector('#host-invite-feedback');
+  document.querySelector('#host-copy-invite').addEventListener('click',async()=>{
+    try { await copyText(invite); feedback.textContent='Invite copied.'; }
+    catch { feedback.textContent='Could not copy the invite.'; }
+  });
+  document.querySelector('#host-share-invite').addEventListener('click',async()=>{
+    try{
+      if(navigator.share) await navigator.share({title:'Join my Puppetalk table',text:'Join my Puppetalk table',url:invite});
+      else { await copyText(invite); feedback.textContent='Invite copied.'; }
+    }catch(err){ if(err?.name !== 'AbortError') feedback.textContent='Sharing unavailable — copy the link instead.'; }
+  });
+  document.querySelector('#host-close-invite').addEventListener('click',()=>overlay.remove());
+}
+
+function addHostInviteControl(){
+  if(!isHostPlayer || document.querySelector('#host-invite')) return;
+  const footer = document.querySelector('.controller-footer');
+  if(!footer) return;
+  const button = document.createElement('button');
+  button.id = 'host-invite';
+  button.className = 'primary';
+  button.type = 'button';
+  button.textContent = 'Invite players';
+  button.style.gridColumn = '1 / -1';
+  button.addEventListener('click',openHostInvite);
+  footer.prepend(button);
+}
+
 function tidyController(){
   const sub = document.querySelector('.controller-head .muted');
   if(sub) sub.textContent = isHostPlayer ? 'Hosting · full scene' : 'Live table · full scene';
+  addHostInviteControl();
 }
 
 async function loadAppSource(){
   const response = await fetch('./app.js',{cache:'no-store'});
   if(!response.ok) throw new Error(`Could not load app.js (${response.status})`);
   let source = await response.text();
-  // Guard old/cached app.js builds that read clean() before its const existed.
   source = source.replace(
     "const room = clean(qs.get('room'));",
     "const room = String(qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);"
@@ -164,7 +222,7 @@ async function bootApp(){
   try{
     source = await loadAppSource();
   }catch(err){
-    renderStartupError(err?.message || 'Could not load the stage code.');
+    renderStartupError(err?.message || 'Could not load the scene code.');
     return;
   }
 
@@ -172,7 +230,7 @@ async function bootApp(){
   const onError = event=>{
     if(startupFailed) return;
     startupFailed = true;
-    renderStartupError(event?.error?.message || event?.message || 'The stage code crashed while starting.');
+    renderStartupError(event?.error?.message || event?.message || 'The scene code crashed while starting.');
   };
   window.addEventListener('error',onError,{once:true});
 
@@ -190,7 +248,7 @@ async function bootApp(){
   script.onerror = ()=>{
     URL.revokeObjectURL(blobUrl);
     window.removeEventListener('error',onError);
-    if(!startupFailed) renderStartupError('The stage script could not be executed.');
+    if(!startupFailed) renderStartupError('The scene script could not be executed.');
   };
   document.body.appendChild(script);
 }
@@ -216,16 +274,33 @@ function bootHostPlayer(){
   document.body.appendChild(iframe);
 
   let started = false;
+  let polls = 0;
   const startVisiblePlayer = ()=>{
     if(started) return;
     started = true;
-    // Keep the host iframe alive; replace only the visible app content.
+    clearInterval(poll);
     bootApp();
   };
-
-  iframe.addEventListener('load',()=>setTimeout(startVisiblePlayer,900),{once:true});
-  // Fallback if the iframe load event is delayed or swallowed by a mobile browser.
-  setTimeout(startVisiblePlayer,1800);
+  const poll = setInterval(()=>{
+    polls += 1;
+    try{
+      const doc = iframe.contentDocument;
+      const status = doc?.querySelector('#stage-status')?.textContent || '';
+      if(status.includes('stage live') || status.includes('puppeteer')){
+        startVisiblePlayer();
+        return;
+      }
+      if(doc?.body?.textContent?.includes('startup failed')){
+        clearInterval(poll);
+        renderStartupError('The session host could not start.');
+        return;
+      }
+    }catch(err){ console.debug('Waiting for host scene',err); }
+    if(polls > 80){
+      clearInterval(poll);
+      renderStartupError('The session host did not become ready.');
+    }
+  },125);
 }
 
 if(mode === 'controller' && !room) renderBadInvite();
