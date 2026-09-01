@@ -25,6 +25,12 @@ function joinUrl(id){
   return url;
 }
 
+function homeUrl(){
+  const url = new URL(location.href);
+  url.search = '';
+  return url;
+}
+
 function renderHome(){
   document.title = 'Puppetalk';
   app.innerHTML = `
@@ -54,9 +60,22 @@ function renderBadInvite(){
         <div class="home-actions"><button id="go-home" type="button">Puppetalk home</button></div>
       </div>
     </section>`;
-  document.querySelector('#go-home').addEventListener('click',()=>{
-    const url = new URL(location.href); url.search=''; location.href=url;
-  });
+  document.querySelector('#go-home').addEventListener('click',()=>{ location.href=homeUrl(); });
+}
+
+function renderStartupError(detail='The stage could not start.'){
+  console.error('Puppetalk startup error:',detail);
+  app.innerHTML = `
+    <section class="home-shell">
+      <div class="home-panel">
+        <div class="home-brand">Puppetalk</div>
+        <p class="home-copy"><strong>Stage startup failed.</strong><br>${String(detail).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</p>
+        <div class="home-actions"><button class="primary" id="retry-stage" type="button">Try again</button><button id="error-home" type="button">Puppetalk home</button></div>
+        <div class="home-note">This error is being shown instead of leaving you on a blank screen.</div>
+      </div>
+    </section>`;
+  document.querySelector('#retry-stage').addEventListener('click',()=>location.reload());
+  document.querySelector('#error-home').addEventListener('click',()=>{ location.href=homeUrl(); });
 }
 
 function copyText(text){
@@ -116,14 +135,48 @@ function tidyController(){
   if(sub) sub.textContent = 'Live table';
 }
 
-function bootApp(){
+async function bootApp(){
+  let source;
+  try{
+    const response = await fetch('./app.js',{cache:'no-store'});
+    if(!response.ok) throw new Error(`Could not load app.js (${response.status})`);
+    source = await response.text();
+  }catch(err){
+    renderStartupError(err?.message || 'Could not load the stage code.');
+    return;
+  }
+
+  // app.js historically read the room through clean() before that const existed.
+  // Rewrite only that startup line here so old deployed/cached copies cannot black-screen.
+  source = source.replace(
+    "const room = clean(qs.get('room'));",
+    "const room = String(qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);"
+  );
+
+  let startupFailed = false;
+  const onError = event=>{
+    if(startupFailed) return;
+    startupFailed = true;
+    renderStartupError(event?.error?.message || event?.message || 'The stage code crashed while starting.');
+  };
+  window.addEventListener('error',onError,{once:true});
+
+  const blob = new Blob([source],{type:'text/javascript'});
+  const blobUrl = URL.createObjectURL(blob);
   const script = document.createElement('script');
-  script.src = './app.js';
+  script.src = blobUrl;
   script.onload = ()=>{
+    URL.revokeObjectURL(blobUrl);
+    if(startupFailed) return;
+    window.removeEventListener('error',onError);
     if(mode === 'controller') tidyController();
     else enhanceStage(room);
   };
-  script.onerror = ()=>{ app.textContent='Puppetalk failed to start.'; };
+  script.onerror = ()=>{
+    URL.revokeObjectURL(blobUrl);
+    window.removeEventListener('error',onError);
+    if(!startupFailed) renderStartupError('The stage script could not be executed.');
+  };
   document.body.appendChild(script);
 }
 
