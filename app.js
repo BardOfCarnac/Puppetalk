@@ -12,11 +12,13 @@ const POSES = {
   shrug:  [1.02,1.9,-1.02,-1.9,.03,0,-.03,0,0],
   crouch: [.25,.5,-.25,-.5,.38,-.55,-.38,.55,.13]
 };
+const GRAB_PARTS = new Set(['torso','head','leftHand','rightHand','leftFoot','rightFoot']);
 
-const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 const clean = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
 const peerId = r => `puppetalk-${r.toLowerCase()}`;
-const send = (conn,msg) => { if (conn?.open) conn.send(msg); };
+const send = (conn,msg) => { if(conn?.open) conn.send(msg); };
+
 function roomCode(){
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return Array.from({length:5},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
@@ -74,8 +76,8 @@ function startStage(room){
   let W = 1;
   let H = 1;
   let last = performance.now();
-  let bounds = [];
   let lastSceneSent = 0;
+  let bounds = [];
   const puppets = new Map();
   const conns = new Map();
 
@@ -88,7 +90,7 @@ function startStage(room){
     canvas.style.width = `${W}px`;
     canvas.style.height = `${H}px`;
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    bounds.forEach(b=>Composite.remove(engine.world,b));
+    bounds.forEach(body=>Composite.remove(engine.world,body));
     bounds = [
       Bodies.rectangle(W/2,H+10,W+160,80,{isStatic:true,friction:.9}),
       Bodies.rectangle(-30,H/2,60,H*2,{isStatic:true}),
@@ -98,13 +100,12 @@ function startStage(room){
   }
 
   const joint = (a,pa,b,pb,stiff=.97) => Constraint.create({
-    bodyA:a, pointA:pa, bodyB:b, pointB:pb,
-    length:1, stiffness:stiff, damping:.13
+    bodyA:a,pointA:pa,bodyB:b,pointB:pb,length:1,stiffness:stiff,damping:.13
   });
 
   function makePuppet(slot){
     if(puppets.has(slot)) return puppets.get(slot);
-    const x = W*(.16 + slot*.135);
+    const x = W*(.16+slot*.135);
     const y = Math.min(H-170,H*.62);
     const group = Body.nextGroup(true);
     const opt = {collisionFilter:{group},frictionAir:.04,restitution:.08,friction:.8};
@@ -137,6 +138,9 @@ function startStage(room){
       bodies:[torso,head,uaL,faL,uaR,faR,thL,shL,thR,shR],
       constraints,
       target:{x:x/W,y:y/H},
+      grabTarget:{x:x/W,y:y/H},
+      grabPart:'torso',
+      grabbing:false,
       pose:'stand',
       rag:false,
       mouth:0
@@ -154,24 +158,7 @@ function startStage(room){
   }
 
   function servo(body,target,strength=.006){
-    body.torque += clamp(angleDelta(target,body.angle)*strength - body.angularVelocity*strength*.72,-.028,.028);
-  }
-
-  function drivePuppet(p){
-    const t = p.torso;
-    const dx = clamp(p.target.x*W,70,W-70)-t.position.x;
-    const dy = clamp(p.target.y*H,120,H-86)-t.position.y;
-    const pull = p.rag ? .000055 : .000075;
-    Body.applyForce(t,t.position,{
-      x:dx*pull-t.velocity.x*.0024,
-      y:dy*pull-t.velocity.y*.0024
-    });
-    if(p.rag) return;
-    const q = POSES[p.pose] || POSES.stand;
-    const base = q[8];
-    servo(t,base,.008);
-    servo(p.head,base*.35,.0045);
-    [p.uaL,p.faL,p.uaR,p.faR,p.thL,p.shL,p.thR,p.shR].forEach((body,i)=>servo(body,base+q[i],i%2?.005:.006));
+    body.torque += clamp(angleDelta(target,body.angle)*strength-body.angularVelocity*strength*.72,-.028,.028);
   }
 
   function worldPoint(body,local){
@@ -179,49 +166,77 @@ function startStage(room){
     return {x:body.position.x+r.x,y:body.position.y+r.y};
   }
 
-  function chain(points,color,width){
-    ctx.beginPath();
-    ctx.moveTo(points[0].x,points[0].y);
-    points.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
-    ctx.lineCap = ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#08090a';
-    ctx.lineWidth = width+6;
-    ctx.stroke();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.stroke();
+  function grabBody(p,part){
+    if(part === 'head') return p.head;
+    if(part === 'leftHand') return p.faL;
+    if(part === 'rightHand') return p.faR;
+    if(part === 'leftFoot') return p.shL;
+    if(part === 'rightFoot') return p.shR;
+    return p.torso;
   }
 
+  function grabWorldPoint(p,part){
+    if(part === 'leftHand') return worldPoint(p.faL,{x:0,y:23});
+    if(part === 'rightHand') return worldPoint(p.faR,{x:0,y:23});
+    if(part === 'leftFoot') return worldPoint(p.shL,{x:0,y:25});
+    if(part === 'rightFoot') return worldPoint(p.shR,{x:0,y:25});
+    return grabBody(p,part).position;
+  }
+
+  function drivePuppet(p){
+    const t = p.torso;
+    const limbGrab = p.grabbing && p.grabPart !== 'torso';
+    const anchorPull = p.rag ? .000045 : limbGrab ? .000034 : .000075;
+    const anchorX = clamp(p.target.x*W,70,W-70);
+    const anchorY = clamp(p.target.y*H,110,H-82);
+    Body.applyForce(t,t.position,{
+      x:(anchorX-t.position.x)*anchorPull-t.velocity.x*.0022,
+      y:(anchorY-t.position.y)*anchorPull-t.velocity.y*.0022
+    });
+
+    if(limbGrab){
+      const body = grabBody(p,p.grabPart);
+      const point = grabWorldPoint(p,p.grabPart);
+      const gx = clamp(p.grabTarget.x*W,20,W-20);
+      const gy = clamp(p.grabTarget.y*H,40,H-30);
+      const handOrFoot = p.grabPart.includes('Hand') || p.grabPart.includes('Foot');
+      const pull = p.rag ? .000026 : handOrFoot ? .000032 : .000041;
+      Body.applyForce(body,point,{
+        x:(gx-point.x)*pull-body.velocity.x*.0011,
+        y:(gy-point.y)*pull-body.velocity.y*.0011
+      });
+    }
+
+    if(p.rag) return;
+    const q = POSES[p.pose] || POSES.stand;
+    const base = q[8];
+    const muscle = limbGrab ? .72 : 1;
+    servo(t,base,.008*muscle);
+    servo(p.head,base*.35,.0045*muscle);
+    [p.uaL,p.faL,p.uaR,p.faR,p.thL,p.shL,p.thR,p.shR].forEach((body,i)=>{
+      servo(body,base+q[i],(i%2?.005:.006)*muscle);
+    });
+  }
+
+  function norm(point){ return {x:point.x/W,y:point.y/H}; }
   function anatomy(p){
     const t = p.torso;
     return {
       slot:p.slot,name:p.name,color:p.color,mouth:p.mouth,rag:p.rag,
       torso:{x:t.position.x/W,y:t.position.y/H,a:t.angle},
       head:{x:p.head.position.x/W,y:p.head.position.y/H,a:p.head.angle},
-      sl:norm(worldPoint(t,{x:-24,y:-27})),
-      sr:norm(worldPoint(t,{x:24,y:-27})),
-      el:norm(worldPoint(p.uaL,{x:0,y:25})),
-      er:norm(worldPoint(p.uaR,{x:0,y:25})),
-      wl:norm(worldPoint(p.faL,{x:0,y:23})),
-      wr:norm(worldPoint(p.faR,{x:0,y:23})),
-      hl:norm(worldPoint(t,{x:-14,y:38})),
-      hr:norm(worldPoint(t,{x:14,y:38})),
-      kl:norm(worldPoint(p.thL,{x:0,y:27})),
-      kr:norm(worldPoint(p.thR,{x:0,y:27})),
-      al:norm(worldPoint(p.shL,{x:0,y:25})),
-      ar:norm(worldPoint(p.shR,{x:0,y:25}))
+      sl:norm(worldPoint(t,{x:-24,y:-27})),sr:norm(worldPoint(t,{x:24,y:-27})),
+      el:norm(worldPoint(p.uaL,{x:0,y:25})),er:norm(worldPoint(p.uaR,{x:0,y:25})),
+      wl:norm(worldPoint(p.faL,{x:0,y:23})),wr:norm(worldPoint(p.faR,{x:0,y:23})),
+      hl:norm(worldPoint(t,{x:-14,y:38})),hr:norm(worldPoint(t,{x:14,y:38})),
+      kl:norm(worldPoint(p.thL,{x:0,y:27})),kr:norm(worldPoint(p.thR,{x:0,y:27})),
+      al:norm(worldPoint(p.shL,{x:0,y:25})),ar:norm(worldPoint(p.shR,{x:0,y:25}))
     };
-  }
-  function norm(point){ return {x:point.x/W,y:point.y/H}; }
-
-  function drawPuppet(p){
-    const a = anatomy(p);
-    drawAnatomy(ctx,a,W,H,false);
   }
 
   function drawStage(){
     drawBackdrop(ctx,W,H);
-    puppets.forEach(drawPuppet);
+    puppets.forEach(p=>drawAnatomy(ctx,anatomy(p),W,H,false));
   }
 
   function broadcastScene(now){
@@ -245,7 +260,6 @@ function startStage(room){
     const n = conns.size;
     status.textContent = `${n} puppeteer${n===1?'':'s'} connected${extra ? ' — '+extra : ''}`;
   }
-
   function freeSlot(){
     for(let i=0;i<6;i++) if(!conns.has(i)) return i;
     return -1;
@@ -255,8 +269,14 @@ function startStage(room){
     if(msg?.type !== 'input') return;
     const p = makePuppet(slot);
     const input = msg.input || {};
-    if(Number.isFinite(input.x)) p.target.x = clamp(input.x,.04,.96);
-    if(Number.isFinite(input.y)) p.target.y = clamp(input.y,.18,.9);
+    if(GRAB_PARTS.has(input.grabPart)) p.grabPart = input.grabPart;
+    if(Number.isFinite(input.x)) p.grabTarget.x = clamp(input.x,.02,.98);
+    if(Number.isFinite(input.y)) p.grabTarget.y = clamp(input.y,.08,.94);
+    if(typeof input.grabbing === 'boolean') p.grabbing = input.grabbing;
+    if(p.grabbing && p.grabPart === 'torso'){
+      if(Number.isFinite(input.x)) p.target.x = clamp(input.x,.04,.96);
+      if(Number.isFinite(input.y)) p.target.y = clamp(input.y,.18,.9);
+    }
     if(POSES[input.pose]) p.pose = input.pose;
     if(typeof input.rag === 'boolean') p.rag = input.rag;
     if(Number.isInteger(input.mouth)) p.mouth = clamp(input.mouth,0,2);
@@ -289,7 +309,7 @@ function startStage(room){
   });
   peer.on('error',err=>{
     console.error(err);
-    status.textContent = err.type === 'unavailable-id' ? 'room code already in use — reload' : `network error: ${err.type || 'unknown'}`;
+    status.textContent = err.type === 'unavailable-id' ? 'table already in use — start another' : `network error: ${err.type || 'unknown'}`;
   });
 
   addEventListener('resize',resize,{passive:true});
@@ -302,37 +322,15 @@ function startController(room){
     app.textContent = 'Puppetalk network library failed to load.';
     return;
   }
-
   if(!room){
-    app.innerHTML = `
-      <section class="join-form">
-        <form class="join-panel card" id="join">
-          <strong>Puppetalk</strong>
-          <div class="muted small">Join a stage</div>
-          <label>Room code<input id="code" maxlength="8" placeholder="ABCDE" required></label>
-          <button class="primary">Join</button>
-        </form>
-      </section>`;
-    document.querySelector('#join').addEventListener('submit',event=>{
-      event.preventDefault();
-      const next = clean(document.querySelector('#code').value);
-      if(!next) return;
-      const url = new URL(location.href);
-      url.search = '';
-      url.searchParams.set('mode','controller');
-      url.searchParams.set('room',next);
-      location.href = url;
-    });
+    app.innerHTML = `<section class="join-form"><div class="join-panel card"><strong>Puppetalk</strong><div class="muted small">This invite is incomplete.</div></div></section>`;
     return;
   }
 
   app.innerHTML = `
     <section class="shell controller-shell personal-controller">
       <header class="controller-head">
-        <div>
-          <strong>Puppetalk</strong>
-          <div class="small muted">room ${room}</div>
-        </div>
+        <div><strong>Puppetalk</strong><div class="small muted">room ${room}</div></div>
         <div class="small"><span class="status-dot" id="dot"></span><span id="controller-status">connecting</span></div>
       </header>
 
@@ -343,7 +341,7 @@ function startController(room){
       </section>
 
       <section class="card compact-controls">
-        <div class="control-title"><span>Pose</span><span class="small muted">drag your character in the scene</span></div>
+        <div class="control-title"><span>Pose</span><span class="small muted">grab body, head, hands or feet</span></div>
         <div class="pose-strip" id="poses">
           ${Object.keys(POSES).map((pose,i)=>`<button data-pose="${pose}" class="${i?'':'active'}">${pose}</button>`).join('')}
           <button data-rag>Go limp</button>
@@ -382,11 +380,12 @@ function startController(room){
   let scene = [];
   let micStop = null;
   let manualTimer = null;
+  let centreTimer = null;
   let cw = 1;
   let ch = 1;
   let dragging = false;
   let lastSent = '';
-  const input = {x:.5,y:.55,pose:'stand',rag:false,mouth:0};
+  const input = {x:.5,y:.55,pose:'stand',rag:false,mouth:0,grabPart:'torso',grabbing:false};
 
   function setStatus(text,state=''){
     status.textContent = text;
@@ -428,8 +427,8 @@ function startController(room){
           slot = msg.slot;
           setStatus(`you are ${NAMES[slot] || msg.name}`,'live');
           youChip.hidden = false;
-          hint.textContent = 'Touch and drag your character';
-          setTimeout(()=>{ if(hint) hint.classList.add('quiet'); },2200);
+          hint.textContent = 'Grab the body, head, hands or feet';
+          setTimeout(()=>hint.classList.add('quiet'),3000);
           lastSent = '';
           transmit(true);
         }
@@ -438,55 +437,98 @@ function startController(room){
           renderPersonalScene();
         }
         if(msg?.type === 'full'){
-          setStatus('room is full','bad');
-          hint.textContent = 'This stage already has six puppeteers.';
+          setStatus('table is full','bad');
+          hint.textContent = 'This table already has six puppeteers.';
         }
       });
-      conn.on('close',()=>setStatus('stage disconnected','bad'));
+      conn.on('close',()=>setStatus('table disconnected','bad'));
       conn.on('error',()=>setStatus('connection error','bad'));
     });
     peer.on('error',err=>{
-      setStatus(err.type === 'peer-unavailable' ? 'stage not found' : `network error: ${err.type || 'unknown'}`,'bad');
+      setStatus(err.type === 'peer-unavailable' ? 'table not found' : `network error: ${err.type || 'unknown'}`,'bad');
     });
   }
 
   function myPuppet(){ return scene.find(p=>p.slot === slot); }
+  function grabSpots(p){
+    if(!p) return [];
+    return [
+      {part:'head',label:'head',q:p.head,r:42},
+      {part:'leftHand',label:'left hand',q:p.wl,r:34},
+      {part:'rightHand',label:'right hand',q:p.wr,r:34},
+      {part:'leftFoot',label:'left foot',q:p.al,r:34},
+      {part:'rightFoot',label:'right foot',q:p.ar,r:34},
+      {part:'torso',label:'body',q:p.torso,r:58}
+    ];
+  }
+
+  function renderGrabHandles(p){
+    if(!p) return;
+    ctx.save();
+    grabSpots(p).forEach(spot=>{
+      const x = spot.q.x*cw;
+      const y = spot.q.y*ch;
+      const selected = dragging && input.grabPart === spot.part;
+      ctx.beginPath();
+      ctx.arc(x,y,selected ? 12 : 7,0,Math.PI*2);
+      ctx.fillStyle = selected ? 'rgba(255,255,255,.24)' : 'rgba(255,255,255,.07)';
+      ctx.fill();
+      ctx.strokeStyle = selected ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.27)';
+      ctx.lineWidth = selected ? 2 : 1;
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
 
   function renderPersonalScene(){
     drawBackdrop(ctx,cw,ch);
     if(!scene.length) return;
-    const others = scene.filter(p=>p.slot !== slot);
-    others.forEach(p=>drawAnatomy(ctx,p,cw,ch,false,.48));
+    scene.filter(p=>p.slot !== slot).forEach(p=>drawAnatomy(ctx,p,cw,ch,false,.48));
     const mine = myPuppet();
-    if(mine) drawAnatomy(ctx,mine,cw,ch,true,1);
+    if(mine){
+      drawAnatomy(ctx,mine,cw,ch,true,1);
+      renderGrabHandles(mine);
+    }
   }
 
   function pointerToWorld(event){
     const rect = canvas.getBoundingClientRect();
     return {
-      x:clamp((event.clientX-rect.left)/rect.width,.04,.96),
-      y:clamp((event.clientY-rect.top)/rect.height,.18,.9)
+      x:clamp((event.clientX-rect.left)/rect.width,.02,.98),
+      y:clamp((event.clientY-rect.top)/rect.height,.08,.94)
     };
   }
 
-  function nearMine(event){
+  function pickGrab(event){
     const mine = myPuppet();
-    if(!mine) return false;
+    if(!mine) return null;
     const rect = canvas.getBoundingClientRect();
-    const px = (event.clientX-rect.left);
-    const py = (event.clientY-rect.top);
-    const mx = mine.torso.x*rect.width;
-    const my = mine.torso.y*rect.height;
-    return Math.hypot(px-mx,py-my) < 74;
+    const px = event.clientX-rect.left;
+    const py = event.clientY-rect.top;
+    let best = null;
+    for(const spot of grabSpots(mine)){
+      const x = spot.q.x*rect.width;
+      const y = spot.q.y*rect.height;
+      const distance = Math.hypot(px-x,py-y);
+      if(distance <= spot.r && (!best || distance < best.distance)) best = {...spot,distance};
+    }
+    return best;
   }
 
   canvas.addEventListener('pointerdown',event=>{
-    if(!nearMine(event)) return;
+    const grab = pickGrab(event);
+    if(!grab) return;
+    if(centreTimer){ clearTimeout(centreTimer); centreTimer = null; }
     dragging = true;
+    input.grabPart = grab.part;
+    input.grabbing = true;
     canvas.setPointerCapture(event.pointerId);
     const p = pointerToWorld(event);
     input.x = p.x;
     input.y = p.y;
+    hint.classList.remove('quiet');
+    hint.textContent = `Pulling ${grab.label}`;
+    renderPersonalScene();
     transmit(true);
   });
   canvas.addEventListener('pointermove',event=>{
@@ -496,7 +538,15 @@ function startController(room){
     input.y = p.y;
     transmit();
   });
-  const stopDrag = ()=>{ dragging = false; };
+  const stopDrag = ()=>{
+    if(!dragging) return;
+    dragging = false;
+    input.grabbing = false;
+    hint.textContent = 'Grab another part, or choose a pose';
+    hint.classList.add('quiet');
+    renderPersonalScene();
+    transmit(true);
+  };
   canvas.addEventListener('pointerup',stopDrag);
   canvas.addEventListener('pointercancel',stopDrag);
 
@@ -522,9 +572,17 @@ function startController(room){
   });
 
   document.querySelector('#centre').addEventListener('click',()=>{
+    input.grabPart = 'torso';
+    input.grabbing = true;
     input.x = .5;
     input.y = .55;
     transmit(true);
+    if(centreTimer) clearTimeout(centreTimer);
+    centreTimer = setTimeout(()=>{
+      input.grabbing = false;
+      transmit(true);
+      centreTimer = null;
+    },120);
   });
   document.querySelector('#retry').addEventListener('click',connect);
 
