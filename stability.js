@@ -15,8 +15,13 @@
   const pendingGroups = [];
   const slotToGroup = new Map();
   const groupState = new Map();
+  let recoverIntentUntil = 0;
 
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const smoothstep = t=>{
+    t = clamp(t,0,1);
+    return t*t*(3-2*t);
+  };
 
   function angleDelta(a,b){
     let d = a-b;
@@ -57,13 +62,25 @@
       input:null,
       lastGrabs:new Set(),
       released:new Map(),
-      recover:false,
+      recover:null,
+      recoverVersion:0,
+      poseRampStartedAt:0,
       slot:null
     });
     return groupState.get(group);
   }
 
   function groupForSlot(slot){ return slotToGroup.get(slot); }
+
+  // Recover is intentionally distinguished from merely leaving ragdoll mode.
+  // Clicking a pose while limp should let the tangled body try that pose as-is.
+  document.addEventListener('click',event=>{
+    const button = event.target?.closest?.('[data-rag]');
+    if(!button) return;
+    if(button.classList.contains('active') || /recover/i.test(button.textContent || '')){
+      recoverIntentUntil = performance.now()+350;
+    }
+  },true);
 
   function observeStageInput(conn,data){
     if(data?.type !== 'input' || !Number.isInteger(conn.__puppetalkSlot)) return;
@@ -73,6 +90,7 @@
     const input = data.input || {};
     const nextGrabs = new Set((Array.isArray(input.grabs)?input.grabs:[]).map(g=>g?.part).filter(Boolean));
     const now = performance.now();
+    const previous = state.input;
 
     for(const part of state.lastGrabs){
       if(!nextGrabs.has(part) && ['head','leftHand','rightHand','leftFoot','rightFoot'].includes(part)){
@@ -81,14 +99,33 @@
     }
     for(const part of nextGrabs) state.released.delete(part);
 
-    if(state.input?.rag === true && input.rag === false) state.recover = true;
+    const incomingRecoverVersion = Number.isInteger(input.recoverVersion) ? input.recoverVersion : state.recoverVersion;
+    if(previous && incomingRecoverVersion !== state.recoverVersion){
+      state.recover = {startedAt:now,x:null,standingY:null};
+      state.released.clear();
+    }
+
+    const poseChanged = !!previous && (input.pose || 'stand') !== previous.pose;
+    const ordinaryStandUp = !!previous && previous.rag === true && input.rag === false && incomingRecoverVersion === state.recoverVersion;
+    if(poseChanged || ordinaryStandUp) state.poseRampStartedAt = now;
+
+    state.recoverVersion = incomingRecoverVersion;
     state.lastGrabs = nextGrabs;
     state.input = {
       pose:input.pose || 'stand',
       poseVersion:Number.isInteger(input.poseVersion)?input.poseVersion:0,
+      recoverVersion:incomingRecoverVersion,
       rag:!!input.rag,
       grabs:Array.isArray(input.grabs)?input.grabs.map(g=>({...g})):[]
     };
+  }
+
+  function markStandSelected(){
+    queueMicrotask(()=>{
+      document.querySelectorAll('[data-pose]').forEach(button=>{
+        button.classList.toggle('active',button.dataset.pose === 'stand');
+      });
+    });
   }
 
   function patchConnection(conn,side){
@@ -129,34 +166,55 @@
         const grabs = Array.isArray(input.grabs) ? input.grabs : [];
         const previousGrabCount = conn.__puppetalkGrabCount || 0;
         const previousRag = conn.__puppetalkRag;
+        const explicitRecover = previousRag === true && input.rag === false && performance.now() <= recoverIntentUntil;
 
         if(conn.__puppetalkRelaxTimer && grabs.length){
           clearTimeout(conn.__puppetalkRelaxTimer);
           conn.__puppetalkRelaxTimer = null;
         }
 
-        // Recover is an explicit reset request: clear stored manual pins immediately
-        // by advancing poseVersion as ragdoll mode is switched off.
-        if(previousRag === true && input.rag === false){
-          input.poseVersion = (Number.isInteger(input.poseVersion)?input.poseVersion:0)+1;
+        if(conn.__puppetalkPoseVersion == null){
+          conn.__puppetalkPoseVersion = Number.isInteger(input.poseVersion) ? input.poseVersion : 0;
+        }
+        if(conn.__puppetalkRecoverVersion == null){
+          conn.__puppetalkRecoverVersion = Number.isInteger(input.recoverVersion) ? input.recoverVersion : 0;
+        }
+
+        // The old controller increments poseVersion whenever any pose button is
+        // pressed. Suppress that: pose buttons should never secretly untangle.
+        // The only ordinary poseVersion increment left is our delayed manual-pin release.
+        if(!explicitRecover && Number.isInteger(input.poseVersion) && input.poseVersion !== conn.__puppetalkPoseVersion){
+          input.poseVersion = conn.__puppetalkPoseVersion;
+        }
+
+        if(explicitRecover){
+          recoverIntentUntil = 0;
+          input.pose = 'stand';
+          input.poseVersion = conn.__puppetalkPoseVersion+1;
+          input.recoverVersion = conn.__puppetalkRecoverVersion+1;
+          conn.__puppetalkPoseVersion = input.poseVersion;
+          conn.__puppetalkRecoverVersion = input.recoverVersion;
+          markStandSelected();
+        }else{
+          input.recoverVersion = conn.__puppetalkRecoverVersion;
         }
 
         // Manual placement gets a short memory, not an invisible permanent nail.
-        // After release, let the hand/head/foot settle briefly and then hand control
-        // back to the selected pose by clearing the stored pin.
         if(previousGrabCount > 0 && grabs.length === 0){
           if(conn.__puppetalkRelaxTimer) clearTimeout(conn.__puppetalkRelaxTimer);
           const inputRef = input;
           conn.__puppetalkRelaxTimer = setTimeout(()=>{
             conn.__puppetalkRelaxTimer = null;
             if((conn.__puppetalkGrabCount || 0) !== 0 || !conn.open) return;
-            inputRef.poseVersion = (Number.isInteger(inputRef.poseVersion)?inputRef.poseVersion:0)+1;
+            inputRef.poseVersion = conn.__puppetalkPoseVersion+1;
+            conn.__puppetalkPoseVersion = inputRef.poseVersion;
             rawSend({type:'input',input:inputRef});
           },950);
         }
 
         conn.__puppetalkGrabCount = grabs.length;
         conn.__puppetalkRag = !!input.rag;
+        conn.__puppetalkPose = input.pose || 'stand';
       }
       return rawSend(data);
     };
@@ -211,12 +269,16 @@
       const excess = Math.abs(rel)-limit;
       if(excess <= 0) continue;
       const sign = Math.sign(rel) || 1;
-      const correction = Math.min(.07,excess*.055);
+      const correction = Math.min(.075,excess*.06);
       Body.setAngularVelocity(b,b.angularVelocity-sign*correction);
       Body.setAngularVelocity(a,a.angularVelocity+sign*correction*.35);
+
+      // Never teleport the angle. Deeply folded joints get a stronger damped push
+      // back toward range, preserving visible motion while preventing flip loops.
       if(excess > .48){
-        Body.setAngle(b,a.angle+sign*(limit+.16));
-        Body.setAngularVelocity(b,b.angularVelocity*.35);
+        const extra = Math.min(.11,(excess-.48)*.11+.035);
+        Body.setAngularVelocity(b,(b.angularVelocity-sign*extra)*.62);
+        Body.setAngularVelocity(a,(a.angularVelocity+sign*extra*.24)*.78);
       }
     }
   }
@@ -242,52 +304,77 @@
     return best;
   }
 
-  function hardRecover(engine,bodies){
-    const parts = bodiesByPart(bodies);
+  function recoveryLayout(engine,parts,state){
     const torso = parts.torso;
-    if(!torso) return;
+    if(!torso) return null;
     const floor = floorTop(engine);
-    const standingY = floor ? floor.y-145 : torso.position.y;
-    const minX = floor ? floor.minX+70 : 70;
-    const maxX = floor ? floor.maxX-70 : Math.max(minX+1,torso.position.x+300);
-    const x = clamp(torso.position.x,minX,maxX);
-
-    const layout = {
-      torso:[x,standingY,0],
-      head:[x,standingY-65,0],
-      uaL:[x-37,standingY-17,.12],
-      faL:[x-42,standingY+30,.05],
-      uaR:[x+37,standingY-17,-.12],
-      faR:[x+42,standingY+30,-.05],
-      thL:[x-14,standingY+65,.04],
-      shL:[x-14,standingY+118,.02],
-      thR:[x+14,standingY+65,-.04],
-      shR:[x+14,standingY+118,-.02]
+    if(state.recover.x == null){
+      const minX = floor ? floor.minX+70 : 70;
+      const maxX = floor ? floor.maxX-70 : Math.max(minX+1,torso.position.x+300);
+      state.recover.x = clamp(torso.position.x,minX,maxX);
+      state.recover.standingY = floor ? floor.y-145 : torso.position.y;
+    }
+    const x = state.recover.x;
+    const y = state.recover.standingY;
+    return {
+      torso:[x,y,0],
+      head:[x,y-65,0],
+      uaL:[x-37,y-17,.12],
+      faL:[x-42,y+30,.05],
+      uaR:[x+37,y-17,-.12],
+      faR:[x+42,y+30,-.05],
+      thL:[x-14,y+65,.04],
+      shL:[x-14,y+118,.02],
+      thR:[x+14,y+65,-.04],
+      shR:[x+14,y+118,-.02]
     };
+  }
 
-    for(const [part,[px,py,a]] of Object.entries(layout)){
+  function guidedRecover(engine,bodies,state,now){
+    const parts = bodiesByPart(bodies);
+    const layout = recoveryLayout(engine,parts,state);
+    if(!layout) return false;
+
+    const age = now-state.recover.startedAt;
+    const engage = smoothstep(age/280);
+    const finish = smoothstep(age/1250);
+    let maxError = 0;
+
+    for(const [part,[tx,ty,ta]] of Object.entries(layout)){
       const body = parts[part];
       if(!body) continue;
-      Body.setPosition(body,{x:px,y:py});
-      Body.setAngle(body,a);
-      Body.setVelocity(body,{x:0,y:0});
-      Body.setAngularVelocity(body,0);
-      body.force.x = body.force.y = 0;
-      body.torque = 0;
+      const dx = tx-body.position.x;
+      const dy = ty-body.position.y;
+      maxError = Math.max(maxError,Math.hypot(dx,dy));
+      const mass = Math.max(.2,body.mass || 1);
+      const stiffness = (.00007+.00012*engage) * (part === 'torso' ? 1.15 : 1);
+      const damping = .0045+.0032*engage;
+      let fx = (dx*stiffness-body.velocity.x*damping)*mass;
+      let fy = (dy*stiffness-body.velocity.y*damping)*mass;
+      const mag = Math.hypot(fx,fy);
+      const maxForce = .032;
+      if(mag > maxForce){ fx *= maxForce/mag; fy *= maxForce/mag; }
+      Body.applyForce(body,body.position,{x:fx,y:fy});
+
+      const turn = angleDelta(ta,body.angle);
+      body.torque += clamp(turn*(.006+.010*engage)-body.angularVelocity*(.016+.012*engage),-.032,.032);
+
+      // Bleed chaos rapidly at first, but never zero motion or position.
+      if(age < 360) scaleVelocity(body,.90+.07*finish);
     }
+
+    if((age > 1250 && maxError < 24) || age > 1850){
+      state.recover = null;
+      state.poseRampStartedAt = now;
+      return false;
+    }
+    return true;
   }
 
   function preparePuppetControl(engine,group,bodies){
     const state = stateForGroup(group);
     const input = state.input;
     if(!input) return;
-
-    if(state.recover){
-      hardRecover(engine,bodies);
-      state.recover = false;
-      state.released.clear();
-      return;
-    }
 
     const parts = bodiesByPart(bodies);
     const active = new Set((input.grabs || []).map(g=>g?.part).filter(Boolean));
@@ -309,9 +396,26 @@
 
     if(input.rag) return;
 
+    // A normal pose change, including Stand from a collapsed ragdoll, eases its
+    // muscles on rather than suddenly applying full standing force in one frame.
+    if(state.poseRampStartedAt){
+      const ramp = smoothstep((now-state.poseRampStartedAt)/520);
+      const forceBlend = .30+.70*ramp;
+      for(const body of bodies){
+        body.force.x *= forceBlend;
+        body.force.y *= forceBlend;
+        body.torque *= .38+.62*ramp;
+      }
+      if(ramp >= .999) state.poseRampStartedAt = 0;
+    }
+
+    // Recover alone deliberately untangles, but does so by guided springs and
+    // damping over time. There are no position or angle teleports.
+    const recovering = state.recover ? guidedRecover(engine,bodies,state,now) : false;
+
     // Preset poses are muscles, not teleports. Amplify their servo torque when the
     // limb is free, but back it off while that limb is under a finger.
-    const armFactor = 2.35;
+    const armFactor = recovering ? 1.55 : 2.35;
     const leftArmHeld = active.has('leftHand') || active.has('leftShoulder');
     const rightArmHeld = active.has('rightHand') || active.has('rightShoulder');
     const leftLegHeld = active.has('leftFoot') || active.has('pelvis');
@@ -321,10 +425,10 @@
       let factor = 1;
       if(name === 'uaL' || name === 'faL') factor = leftArmHeld ? .62 : armFactor;
       else if(name === 'uaR' || name === 'faR') factor = rightArmHeld ? .62 : armFactor;
-      else if(name === 'thL' || name === 'shL') factor = leftLegHeld ? .78 : 1.35;
-      else if(name === 'thR' || name === 'shR') factor = rightLegHeld ? .78 : 1.35;
-      else if(name === 'head') factor = active.has('head') ? .72 : 1.25;
-      else if(name === 'torso') factor = (active.has('torso') || active.has('pelvis')) ? .82 : 1.18;
+      else if(name === 'thL' || name === 'shL') factor = leftLegHeld ? .78 : (recovering ? 1.08 : 1.35);
+      else if(name === 'thR' || name === 'shR') factor = rightLegHeld ? .78 : (recovering ? 1.08 : 1.35);
+      else if(name === 'head') factor = active.has('head') ? .72 : (recovering ? 1.05 : 1.25);
+      else if(name === 'torso') factor = (active.has('torso') || active.has('pelvis')) ? .82 : (recovering ? 1.04 : 1.18);
       body.torque *= factor;
     }
   }
@@ -408,5 +512,5 @@
     return result;
   };
 
-  window.PuppetalkStability = {version:22};
+  window.PuppetalkStability = {version:23};
 })();
