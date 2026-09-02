@@ -82,7 +82,6 @@
     patched = patched.replace('const amount = .3*fade;','const amount = .10*fade;');
 
     // Carry the finger's true viewport Y as well as the stage/canvas coordinate.
-    // Depth gating uses this value, so "screen edge" really means the phone edge.
     patched = patched.replace(
       "function syncGrabs(){ input.grabs = [...activePointers.values()].slice(0,2).map(g=>({part:g.part,x:g.x,y:g.y})); }",
       "function syncGrabs(){ input.grabs = [...activePointers.values()].slice(0,2).map(g=>({part:g.part,x:g.x,y:g.y,screenY:g.screenY})); }"
@@ -94,6 +93,19 @@
     patched = patched.replace(
       "    grab.x = p.x;\n    grab.y = p.y;\n    syncGrabs();",
       "    grab.x = p.x;\n    grab.y = p.y;\n    grab.screenY = Math.max(0,Math.min(1,event.clientY/Math.max(innerHeight,1)));\n    syncGrabs();"
+    );
+
+    // The phone controller is now a real viewport-sized stage, not a short card.
+    patched = patched.replace(
+      '    ch = Math.max(250,Math.min(cw*.8,430));',
+      '    ch = Math.max(320,stageBox.getBoundingClientRect().height || innerHeight);'
+    );
+
+    // Use the ordinary scene renderer for depth too, so the extra overlay canvas
+    // can be hidden without losing apparent head/body/limb thickness at close-up.
+    patched = patched.replace(
+      '  const scale = Math.min(w/900,h/650);',
+      '  const scale = Math.min(w/900,h/650)*(p.visualScale || 1);'
     );
 
     return patched;
@@ -111,5 +123,5 @@
   PuppetalkBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(PuppetalkBlob,NativeBlob);
   window.Blob = PuppetalkBlob;
-  window.PuppetalkControlFeel = {version:28};
+  window.PuppetalkControlFeel = {version:29};
 })();
