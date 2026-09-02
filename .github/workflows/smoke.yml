@@ -19,3 +19,4 @@ jobs:
       - run: node --check app.js
       - run: node --check boot.js
       - run: node --check stability.js
+      - run: node --check pose-tuning.js
