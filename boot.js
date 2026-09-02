@@ -207,13 +207,95 @@ function tidyController(){
 }
 
 async function loadAppSource(){
-  const response = await fetch('./app.js',{cache:'no-store'});
+  const response = await fetch('./app.js?v=18',{cache:'no-store'});
   if(!response.ok) throw new Error(`Could not load app.js (${response.status})`);
   let source = await response.text();
   source = source.replace(
     "const room = clean(qs.get('room'));",
     "const room = String(qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);"
   );
+
+  // Prototype physics tuning. Keep the head light and make grab springs scale with mass,
+  // then add soft foot planting + balance muscles in every non-ragdoll pose.
+  source = source.replace(
+    "const head = Bodies.circle(x,y-65,26,{...opt,density:.0018});",
+    "const head = Bodies.circle(x,y-65,26,{...opt,density:.00072,frictionAir:.055});"
+  );
+
+  const drivePattern = /  function drivePuppet\(p\)\{[\s\S]*?\n  \}\n\n  function norm\(point\)/;
+  const tunedDrive = `  function springPull(body,point,target,stiffness,damping=.003){
+    const mass = Math.max(.2,body.mass || 1);
+    Body.applyForce(body,point,{
+      x:((target.x-point.x)*stiffness-body.velocity.x*damping)*mass,
+      y:((target.y-point.y)*stiffness-body.velocity.y*damping)*mass
+    });
+  }
+
+  function drivePuppet(p){
+    const t = p.torso;
+    const torsoGrab = p.grabbing && p.grabPart === 'torso';
+    const limbGrab = p.grabbing && p.grabPart !== 'torso';
+    const floorY = H-31;
+    const crouched = p.pose === 'crouch';
+    const anchorX = clamp(p.target.x*W,70,W-70);
+    const standingY = floorY-(crouched ? 112 : 145);
+
+    // Direct manipulation is deliberately stronger than gravity and mass independent.
+    if(p.grabbing){
+      if(torsoGrab){
+        springPull(t,t.position,{
+          x:clamp(p.grabTarget.x*W,35,W-35),
+          y:clamp(p.grabTarget.y*H,45,H-45)
+        },p.rag ? .000105 : .000135,.0028);
+      }else{
+        const body = grabBody(p,p.grabPart);
+        const point = grabWorldPoint(p,p.grabPart);
+        const gx = clamp(p.grabTarget.x*W,20,W-20);
+        const gy = clamp(p.grabTarget.y*H,30,H-24);
+        const handOrFoot = p.grabPart.includes('Hand') || p.grabPart.includes('Foot');
+        const stiffness = p.rag ? .00014 : p.grabPart === 'head' ? .00019 : handOrFoot ? .00016 : .00018;
+        springPull(body,point,{x:gx,y:gy},stiffness,.0024);
+      }
+    }
+
+    // Limp really means limp: no invisible torso tether or pose muscles remain.
+    if(p.rag) return;
+
+    // The puppet carries its own weight when released. This is a soft virtual harness,
+    // not rigid animation, so pushes and limb grabs can still knock the body around.
+    if(!torsoGrab){
+      springPull(t,t.position,{x:anchorX,y:standingY},limbGrab ? .000068 : .000096,.0042);
+    }
+
+    const leftFoot = grabWorldPoint(p,'leftFoot');
+    const rightFoot = grabWorldPoint(p,'rightFoot');
+    const stance = crouched ? 21 : 16;
+    const footY = floorY-2;
+    const footStrength = limbGrab ? .000078 : .000115;
+    if(!torsoGrab && !(p.grabbing && p.grabPart === 'leftFoot')){
+      springPull(p.shL,leftFoot,{x:anchorX-stance,y:footY},footStrength,.0046);
+    }
+    if(!torsoGrab && !(p.grabbing && p.grabPart === 'rightFoot')){
+      springPull(p.shR,rightFoot,{x:anchorX+stance,y:footY},footStrength,.0046);
+    }
+
+    const q = POSES[p.pose] || POSES.stand;
+    const base = q[8];
+    const midFootX = (leftFoot.x+rightFoot.x)*.5;
+    const balanceLean = clamp((midFootX-t.position.x)*.0035-t.velocity.x*.012,-.2,.2);
+    const muscle = limbGrab ? .82 : 1;
+
+    servo(t,base+balanceLean,.014*muscle);
+    servo(p.head,base*.25,.0085*muscle);
+    [p.uaL,p.faL,p.uaR,p.faR,p.thL,p.shL,p.thR,p.shR].forEach((body,i)=>{
+      const strength = i < 4 ? (i%2 ? .0058 : .0065) : (i%2 ? .010 : .011);
+      servo(body,base+q[i],strength*muscle);
+    });
+  }`;
+
+  if(!drivePattern.test(source)) throw new Error('Could not apply the standing-physics update.');
+  source = source.replace(drivePattern,`${tunedDrive}\n\n  function norm(point)`);
+
   // app.js and boot.js both have ordinary top-level const/function names. Execute the
   // scene engine inside its own function scope so classic-script globals cannot collide.
   source = `(function(){\n${source}\n})();`;
