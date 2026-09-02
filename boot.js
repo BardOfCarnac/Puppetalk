@@ -52,40 +52,32 @@ function renderHome(){
           <div class="home-brand">Puppetalk</div>
           <p class="home-copy">A shared puppet scene. Everyone sees the whole ensemble on their own phone while controlling their own character.</p>
         </div>
-        <div class="home-actions">
-          <button class="primary" id="start-table" type="button">Start a table</button>
-        </div>
+        <div class="home-actions"><button class="primary" id="start-table" type="button">Start a table</button></div>
         <div class="home-note">Starting a table makes this phone Player 1 and hosts the shared physics. Invite everyone else with a link or QR code.</div>
       </div>
     </section>`;
-  document.querySelector('#start-table').addEventListener('click',()=>{
-    location.href = tableUrl(makeTableId());
-  });
+  document.querySelector('#start-table').addEventListener('click',()=>{ location.href = tableUrl(makeTableId()); });
 }
 
 function renderBadInvite(){
   app.innerHTML = `
-    <section class="home-shell">
-      <div class="home-panel">
-        <div class="home-brand">Puppetalk</div>
-        <p class="home-copy">This invite is incomplete. Ask the host to send you their Puppetalk invite link again.</p>
-        <div class="home-actions"><button id="go-home" type="button">Puppetalk home</button></div>
-      </div>
-    </section>`;
+    <section class="home-shell"><div class="home-panel">
+      <div class="home-brand">Puppetalk</div>
+      <p class="home-copy">This invite is incomplete. Ask the host to send you their Puppetalk invite link again.</p>
+      <div class="home-actions"><button id="go-home" type="button">Puppetalk home</button></div>
+    </div></section>`;
   document.querySelector('#go-home').addEventListener('click',()=>{ location.href=homeUrl(); });
 }
 
 function renderStartupError(detail='The shared scene could not start.'){
   console.error('Puppetalk startup error:',detail);
   app.innerHTML = `
-    <section class="home-shell">
-      <div class="home-panel">
-        <div class="home-brand">Puppetalk</div>
-        <p class="home-copy"><strong>Scene startup failed.</strong><br>${String(detail).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</p>
-        <div class="home-actions"><button class="primary" id="retry-stage" type="button">Try again</button><button id="error-home" type="button">Puppetalk home</button></div>
-        <div class="home-note">This error is being shown instead of leaving you on a blank screen.</div>
-      </div>
-    </section>`;
+    <section class="home-shell"><div class="home-panel">
+      <div class="home-brand">Puppetalk</div>
+      <p class="home-copy"><strong>Scene startup failed.</strong><br>${String(detail).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</p>
+      <div class="home-actions"><button class="primary" id="retry-stage" type="button">Try again</button><button id="error-home" type="button">Puppetalk home</button></div>
+      <div class="home-note">This error is being shown instead of leaving you on a blank screen.</div>
+    </div></section>`;
   document.querySelector('#retry-stage').addEventListener('click',()=>location.reload());
   document.querySelector('#error-home').addEventListener('click',()=>{ location.href=homeUrl(); });
 }
@@ -104,6 +96,26 @@ function copyText(text){
   return Promise.resolve();
 }
 
+function renderQr(target,invite){
+  if(window.QRCode && target){
+    new QRCode(target,{text:invite,width:80,height:80,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+  }
+}
+
+function wireInviteButtons(prefix,invite){
+  const feedback = document.querySelector(`#${prefix}-feedback`);
+  document.querySelector(`#${prefix}-copy`)?.addEventListener('click',async()=>{
+    try { await copyText(invite); feedback.textContent='Invite copied.'; }
+    catch { feedback.textContent='Could not copy the invite.'; }
+  });
+  document.querySelector(`#${prefix}-share`)?.addEventListener('click',async()=>{
+    try{
+      if(navigator.share) await navigator.share({title:'Join my Puppetalk table',text:'Join my Puppetalk table',url:invite});
+      else { await copyText(invite); feedback.textContent='Invite copied.'; }
+    }catch(err){ if(err?.name !== 'AbortError') feedback.textContent='Sharing unavailable — copy the link instead.'; }
+  });
+}
+
 function enhanceStage(id){
   const card = document.querySelector('.join-card');
   if(!card) return;
@@ -111,35 +123,15 @@ function enhanceStage(id){
   card.classList.add('invite-card');
   card.innerHTML = `
     <div class="invite-label">Invite players</div>
-    <div class="invite-qr" id="invite-qr" aria-label="QR code for joining this table"></div>
+    <div class="invite-qr" id="stage-invite-qr" aria-label="QR code for joining this table"></div>
     <div class="invite-copy">
       <div class="invite-title">Scan or share to join</div>
       <div class="invite-url">${invite}</div>
-      <div class="invite-actions">
-        <button id="share-invite" type="button">Share invite</button>
-        <button id="copy-invite" type="button">Copy link</button>
-      </div>
-      <div class="invite-feedback" id="invite-feedback"></div>
+      <div class="invite-actions"><button id="stage-invite-share" type="button">Share invite</button><button id="stage-invite-copy" type="button">Copy link</button></div>
+      <div class="invite-feedback" id="stage-invite-feedback"></div>
     </div>`;
-
-  const qr = document.querySelector('#invite-qr');
-  if(window.QRCode && qr){
-    new QRCode(qr,{text:invite,width:80,height:80,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-  }
-
-  const feedback = document.querySelector('#invite-feedback');
-  document.querySelector('#copy-invite').addEventListener('click',async()=>{
-    try { await copyText(invite); feedback.textContent='Invite copied.'; }
-    catch { feedback.textContent='Could not copy — use Share invite.'; }
-  });
-  document.querySelector('#share-invite').addEventListener('click',async()=>{
-    try{
-      if(navigator.share) await navigator.share({title:'Join my Puppetalk table',text:'Join my Puppetalk table',url:invite});
-      else { await copyText(invite); feedback.textContent='Invite copied.'; }
-    }catch(err){
-      if(err?.name !== 'AbortError') feedback.textContent='Sharing unavailable — copy the link instead.';
-    }
-  });
+  renderQr(document.querySelector('#stage-invite-qr'),invite);
+  wireInviteButtons('stage-invite',invite);
 }
 
 function openHostInvite(){
@@ -148,42 +140,19 @@ function openHostInvite(){
   const overlay = document.createElement('section');
   overlay.id = 'host-invite-overlay';
   overlay.className = 'home-shell';
-  Object.assign(overlay.style,{
-    position:'fixed',inset:'0',zIndex:'1000',background:'rgba(5,6,8,.88)',backdropFilter:'blur(10px)'
-  });
+  Object.assign(overlay.style,{position:'fixed',inset:'0',zIndex:'1000',background:'rgba(5,6,8,.88)',backdropFilter:'blur(10px)'});
   overlay.innerHTML = `
     <div class="home-panel" role="dialog" aria-modal="true" aria-label="Invite players">
-      <div>
-        <div class="home-brand" style="font-size:28px">Invite players</div>
-        <p class="home-copy">Everyone who joins sees this same full scene and controls their own puppet.</p>
-      </div>
+      <div><div class="home-brand" style="font-size:28px">Invite players</div><p class="home-copy">Everyone who joins sees this same full scene and controls their own puppet.</p></div>
       <div style="display:grid;place-items:center"><div class="invite-qr" id="host-invite-qr"></div></div>
       <div class="invite-url" style="font-size:12px">${invite}</div>
-      <div class="home-actions">
-        <button class="primary" id="host-share-invite" type="button">Share invite</button>
-        <button id="host-copy-invite" type="button">Copy link</button>
-        <button id="host-close-invite" type="button">Back to scene</button>
-      </div>
+      <div class="home-actions"><button class="primary" id="host-invite-share" type="button">Share invite</button><button id="host-invite-copy" type="button">Copy link</button><button id="host-invite-close" type="button">Back to scene</button></div>
       <div class="invite-feedback" id="host-invite-feedback"></div>
     </div>`;
   document.body.appendChild(overlay);
-
-  const qr = document.querySelector('#host-invite-qr');
-  if(window.QRCode && qr){
-    new QRCode(qr,{text:invite,width:80,height:80,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-  }
-  const feedback = document.querySelector('#host-invite-feedback');
-  document.querySelector('#host-copy-invite').addEventListener('click',async()=>{
-    try { await copyText(invite); feedback.textContent='Invite copied.'; }
-    catch { feedback.textContent='Could not copy the invite.'; }
-  });
-  document.querySelector('#host-share-invite').addEventListener('click',async()=>{
-    try{
-      if(navigator.share) await navigator.share({title:'Join my Puppetalk table',text:'Join my Puppetalk table',url:invite});
-      else { await copyText(invite); feedback.textContent='Invite copied.'; }
-    }catch(err){ if(err?.name !== 'AbortError') feedback.textContent='Sharing unavailable — copy the link instead.'; }
-  });
-  document.querySelector('#host-close-invite').addEventListener('click',()=>overlay.remove());
+  renderQr(document.querySelector('#host-invite-qr'),invite);
+  wireInviteButtons('host-invite',invite);
+  document.querySelector('#host-invite-close').addEventListener('click',()=>overlay.remove());
 }
 
 function addHostInviteControl(){
@@ -207,19 +176,18 @@ function tidyController(){
 }
 
 async function loadAppSource(){
-  const response = await fetch('./app.js?v=18',{cache:'no-store'});
+  const response = await fetch('./app.js?v=19',{cache:'no-store'});
   if(!response.ok) throw new Error(`Could not load app.js (${response.status})`);
   let source = await response.text();
+
   source = source.replace(
     "const room = clean(qs.get('room'));",
     "const room = String(qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);"
   );
 
-  // Prototype physics tuning. Keep the head light and make grab springs scale with mass,
-  // then add soft foot planting + balance muscles in every non-ragdoll pose.
   source = source.replace(
     "const head = Bodies.circle(x,y-65,26,{...opt,density:.0018});",
-    "const head = Bodies.circle(x,y-65,26,{...opt,density:.00072,frictionAir:.055});"
+    "const head = Bodies.circle(x,y-65,26,{...opt,density:.00068,frictionAir:.06});"
   );
 
   const drivePattern = /  function drivePuppet\(p\)\{[\s\S]*?\n  \}\n\n  function norm\(point\)/;
@@ -231,85 +199,137 @@ async function loadAppSource(){
     });
   }
 
+  function ensureRig(p){
+    if(p._rig) return p._rig;
+    p._rig = {
+      wasGrabbing:false,
+      session:null,
+      lastPose:p.pose,
+      pins:{head:null,leftHand:null,rightHand:null,leftFoot:null,rightFoot:null}
+    };
+    return p._rig;
+  }
+
   function drivePuppet(p){
     const t = p.torso;
-    const torsoGrab = p.grabbing && p.grabPart === 'torso';
-    const limbGrab = p.grabbing && p.grabPart !== 'torso';
+    const rig = ensureRig(p);
     const floorY = H-31;
     const crouched = p.pose === 'crouch';
-    const anchorX = clamp(p.target.x*W,70,W-70);
     const standingY = floorY-(crouched ? 112 : 145);
 
-    // Direct manipulation is deliberately stronger than gravity and mass independent.
-    if(p.grabbing){
-      if(torsoGrab){
-        springPull(t,t.position,{
-          x:clamp(p.grabTarget.x*W,35,W-35),
-          y:clamp(p.grabTarget.y*H,45,H-45)
-        },p.rag ? .000105 : .000135,.0028);
-      }else{
-        const body = grabBody(p,p.grabPart);
-        const point = grabWorldPoint(p,p.grabPart);
-        const gx = clamp(p.grabTarget.x*W,20,W-20);
-        const gy = clamp(p.grabTarget.y*H,30,H-24);
-        const handOrFoot = p.grabPart.includes('Hand') || p.grabPart.includes('Foot');
-        const stiffness = p.rag ? .00014 : p.grabPart === 'head' ? .00019 : handOrFoot ? .00016 : .00018;
-        springPull(body,point,{x:gx,y:gy},stiffness,.0024);
+    if(rig.lastPose !== p.pose){
+      rig.lastPose = p.pose;
+      rig.pins = {head:null,leftHand:null,rightHand:null,leftFoot:null,rightFoot:null};
+    }
+
+    const desired = {
+      x:clamp(p.grabTarget.x*W,20,W-20),
+      y:clamp(p.grabTarget.y*H,30,H-24)
+    };
+
+    if(p.grabbing && !rig.wasGrabbing){
+      rig.session = {
+        part:p.grabPart,
+        startDesired:{x:desired.x,y:desired.y},
+        startRootX:p.target.x*W,
+        startPoint:grabWorldPoint(p,p.grabPart)
+      };
+    }
+
+    if(p.grabbing && rig.session && rig.session.part === p.grabPart){
+      const dx = desired.x-rig.session.startDesired.x;
+      const dy = desired.y-rig.session.startDesired.y;
+      const follow = p.grabPart === 'torso' ? 1 : p.grabPart === 'head' ? .72 : p.grabPart.includes('Hand') ? .42 : .3;
+      const rootX = clamp(rig.session.startRootX+dx*follow,70,W-70);
+      p.target.x = rootX/W;
+
+      if(p.grabPart !== 'torso'){
+        rig.pins[p.grabPart] = {x:desired.x-rootX,y:desired.y-standingY};
       }
     }
 
-    // Limp really means limp: no invisible torso tether or pose muscles remain.
+    const anchorX = clamp(p.target.x*W,70,W-70);
+    const torsoGrab = p.grabbing && p.grabPart === 'torso';
+    const limbGrab = p.grabbing && p.grabPart !== 'torso';
+
+    if(p.grabbing){
+      const body = grabBody(p,p.grabPart);
+      const point = grabWorldPoint(p,p.grabPart);
+      const strength = p.rag ? .00016 : p.grabPart === 'head' ? .00022 : p.grabPart === 'torso' ? .00018 : .00019;
+      springPull(body,point,desired,strength,.0025);
+
+      if(p.grabPart !== 'torso'){
+        const followY = p.grabPart === 'head' ? .7 : p.grabPart.includes('Hand') ? .38 : .28;
+        const bodyTargetY = standingY+(desired.y-rig.session.startDesired.y)*followY;
+        springPull(t,t.position,{x:anchorX,y:bodyTargetY},.00009,.0042);
+      }
+    }
+
+    rig.wasGrabbing = p.grabbing;
+    if(!p.grabbing) rig.session = null;
+
     if(p.rag) return;
 
-    // The puppet carries its own weight when released. This is a soft virtual harness,
-    // not rigid animation, so pushes and limb grabs can still knock the body around.
     if(!torsoGrab){
-      springPull(t,t.position,{x:anchorX,y:standingY},limbGrab ? .000068 : .000096,.0042);
+      springPull(t,t.position,{x:anchorX,y:standingY},limbGrab ? .000105 : .000145,.0048);
+    }
+
+    const legSpread = crouched ? 22 : 16;
+    const thighY = standingY+(crouched ? 48 : 61);
+    const shinY = standingY+(crouched ? 88 : 112);
+    const footY = floorY-2;
+
+    if(!(p.grabbing && p.grabPart === 'leftFoot') && !rig.pins.leftFoot){
+      springPull(p.thL,p.thL.position,{x:anchorX-13,y:thighY},.000072,.0054);
+      springPull(p.shL,p.shL.position,{x:anchorX-legSpread,y:shinY},.000092,.0056);
+      springPull(p.shL,grabWorldPoint(p,'leftFoot'),{x:anchorX-legSpread,y:footY},.00016,.0058);
+    }
+    if(!(p.grabbing && p.grabPart === 'rightFoot') && !rig.pins.rightFoot){
+      springPull(p.thR,p.thR.position,{x:anchorX+13,y:thighY},.000072,.0054);
+      springPull(p.shR,p.shR.position,{x:anchorX+legSpread,y:shinY},.000092,.0056);
+      springPull(p.shR,grabWorldPoint(p,'rightFoot'),{x:anchorX+legSpread,y:footY},.00016,.0058);
+    }
+
+    for(const part of ['head','leftHand','rightHand','leftFoot','rightFoot']){
+      const pin = rig.pins[part];
+      if(!pin || (p.grabbing && p.grabPart === part)) continue;
+      const body = grabBody(p,part);
+      const point = grabWorldPoint(p,part);
+      const strength = part === 'head' ? .00016 : part.includes('Foot') ? .00014 : .000125;
+      springPull(body,point,{x:anchorX+pin.x,y:standingY+pin.y},strength,.0043);
+    }
+
+    if(!rig.pins.head && !(p.grabbing && p.grabPart === 'head')){
+      springPull(p.head,p.head.position,{x:anchorX,y:standingY-65},.00009,.0045);
     }
 
     const leftFoot = grabWorldPoint(p,'leftFoot');
     const rightFoot = grabWorldPoint(p,'rightFoot');
-    const stance = crouched ? 21 : 16;
-    const footY = floorY-2;
-    const footStrength = limbGrab ? .000078 : .000115;
-    if(!torsoGrab && !(p.grabbing && p.grabPart === 'leftFoot')){
-      springPull(p.shL,leftFoot,{x:anchorX-stance,y:footY},footStrength,.0046);
-    }
-    if(!torsoGrab && !(p.grabbing && p.grabPart === 'rightFoot')){
-      springPull(p.shR,rightFoot,{x:anchorX+stance,y:footY},footStrength,.0046);
-    }
-
     const q = POSES[p.pose] || POSES.stand;
     const base = q[8];
     const midFootX = (leftFoot.x+rightFoot.x)*.5;
-    const balanceLean = clamp((midFootX-t.position.x)*.0035-t.velocity.x*.012,-.2,.2);
-    const muscle = limbGrab ? .82 : 1;
+    const balanceLean = clamp((midFootX-t.position.x)*.0045-t.velocity.x*.014,-.24,.24);
+    const muscle = limbGrab ? .88 : 1;
 
-    servo(t,base+balanceLean,.014*muscle);
-    servo(p.head,base*.25,.0085*muscle);
+    servo(t,base+balanceLean,.018*muscle);
+    servo(p.head,base*.2,.011*muscle);
     [p.uaL,p.faL,p.uaR,p.faR,p.thL,p.shL,p.thR,p.shR].forEach((body,i)=>{
-      const strength = i < 4 ? (i%2 ? .0058 : .0065) : (i%2 ? .010 : .011);
+      const strength = i < 4 ? (i%2 ? .0062 : .0072) : (i%2 ? .014 : .0155);
       servo(body,base+q[i],strength*muscle);
     });
   }`;
 
-  if(!drivePattern.test(source)) throw new Error('Could not apply the standing-physics update.');
+  if(!drivePattern.test(source)) throw new Error('Could not apply Puppetalk rig build 19.');
   source = source.replace(drivePattern,`${tunedDrive}\n\n  function norm(point)`);
 
-  // app.js and boot.js both have ordinary top-level const/function names. Execute the
-  // scene engine inside its own function scope so classic-script globals cannot collide.
   source = `(function(){\n${source}\n})();`;
   return source;
 }
 
 async function bootApp(){
   let source;
-  try{
-    source = await loadAppSource();
-  }catch(err){
-    renderStartupError(err?.message || 'Could not load the scene code.');
-    return;
-  }
+  try{ source = await loadAppSource(); }
+  catch(err){ renderStartupError(err?.message || 'Could not load the scene code.'); return; }
 
   let startupFailed = false;
   const onError = event=>{
@@ -340,22 +360,17 @@ async function bootApp(){
 
 function bootHostPlayer(){
   app.innerHTML = `
-    <section class="home-shell">
-      <div class="home-panel">
-        <div class="home-brand">Puppetalk</div>
-        <p class="home-copy">Starting the shared scene…</p>
-        <div class="home-note">This phone will be Player 1 and will also host the session physics.</div>
-      </div>
-    </section>`;
+    <section class="home-shell"><div class="home-panel">
+      <div class="home-brand">Puppetalk</div>
+      <p class="home-copy">Starting the shared scene…</p>
+      <div class="home-note">This phone will be Player 1 and will also host the session physics.</div>
+    </div></section>`;
 
   const iframe = document.createElement('iframe');
   iframe.src = stageUrl(room).href;
   iframe.title = 'Puppetalk session host';
   iframe.setAttribute('aria-hidden','true');
-  Object.assign(iframe.style,{
-    position:'fixed',left:'0',top:'0',width:'320px',height:'360px',
-    border:'0',opacity:'0',pointerEvents:'none',zIndex:'-1'
-  });
+  Object.assign(iframe.style,{position:'fixed',left:'0',top:'0',width:'320px',height:'360px',border:'0',opacity:'0',pointerEvents:'none',zIndex:'-1'});
   document.body.appendChild(iframe);
 
   let started = false;
@@ -371,10 +386,7 @@ function bootHostPlayer(){
     try{
       const doc = iframe.contentDocument;
       const status = doc?.querySelector('#stage-status')?.textContent || '';
-      if(status.includes('stage live') || status.includes('puppeteer')){
-        startVisiblePlayer();
-        return;
-      }
+      if(status.includes('stage live') || status.includes('puppeteer')){ startVisiblePlayer(); return; }
       const hostError = doc?.querySelector('.home-copy')?.textContent || '';
       if(hostError.includes('startup failed') || hostError.includes('could not')){
         clearInterval(poll);
@@ -382,10 +394,7 @@ function bootHostPlayer(){
         return;
       }
     }catch(err){ console.debug('Waiting for host scene',err); }
-    if(polls > 80){
-      clearInterval(poll);
-      renderStartupError('The session host did not become ready.');
-    }
+    if(polls > 80){ clearInterval(poll); renderStartupError('The session host did not become ready.'); }
   },125);
 }
 
