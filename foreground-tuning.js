@@ -7,9 +7,8 @@
 
   const TOP_EDGE = .18;
   const BOTTOM_EDGE = .82;
-  const POINTER_TOP = .08;
-  const POINTER_BOTTOM = .94;
-  const DEPTH_SPAN = .64;
+  const EDGE_RATE = .72;
+  const MAX_GESTURE_TRAVEL = .72;
 
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
   const smoothstep = t=>{
@@ -39,29 +38,38 @@
       return copy;
     }
 
+    const now = performance.now();
     const rawY = torso.y;
-    const freshGesture = !conn.__puppetalkDepthGesture;
+    let gesture = conn.__puppetalkDepthGesture;
+    const freshGesture = !gesture;
     if(freshGesture){
-      conn.__puppetalkDepthGesture = {anchorY:rawY};
+      gesture = conn.__puppetalkDepthGesture = {
+        virtualY:.5,
+        lastAt:now
+      };
     }
-    const anchorY = conn.__puppetalkDepthGesture.anchorY;
-    let virtualY = anchorY;
 
-    // The first touch only establishes a neutral origin. This matters in the
-    // foreground, where the projected torso itself can already sit in an edge zone.
+    const dt = clamp((now-gesture.lastAt)/1000,0,.08);
+    gesture.lastAt = now;
+
+    // Depth behaves like edge scrolling: the middle of the screen never changes
+    // depth. Once the body reaches an edge, holding/moving there walks continuously
+    // toward or away from camera. This makes the foreground reversible even when
+    // the projected torso itself begins very low in the frame.
     if(!freshGesture){
       if(rawY >= BOTTOM_EDGE){
-        const penetration = smoothstep((rawY-BOTTOM_EDGE)/(POINTER_BOTTOM-BOTTOM_EDGE));
-        virtualY = anchorY + DEPTH_SPAN*penetration;
+        const strength = smoothstep((rawY-BOTTOM_EDGE)/(1-BOTTOM_EDGE));
+        gesture.virtualY += EDGE_RATE*dt*(.35+.65*strength);
       }else if(rawY <= TOP_EDGE){
-        const penetration = smoothstep((TOP_EDGE-rawY)/(TOP_EDGE-POINTER_TOP));
-        virtualY = anchorY - DEPTH_SPAN*penetration;
+        const strength = smoothstep((TOP_EDGE-rawY)/TOP_EDGE);
+        gesture.virtualY -= EDGE_RATE*dt*(.35+.65*strength);
       }
     }
 
-    torso.y = virtualY;
+    gesture.virtualY = clamp(gesture.virtualY,.5-MAX_GESTURE_TRAVEL,.5+MAX_GESTURE_TRAVEL);
+    torso.y = gesture.virtualY;
     if(!Array.isArray(copy.grabs) && copy.grabbing && copy.grabPart === 'torso'){
-      copy.y = virtualY;
+      copy.y = gesture.virtualY;
     }
     return copy;
   }
@@ -144,5 +152,5 @@
     return rawPeerOn.call(this,event,handler,...rest);
   };
 
-  window.PuppetalkForegroundTuning = {version:26,topEdge:TOP_EDGE,bottomEdge:BOTTOM_EDGE};
+  window.PuppetalkForegroundTuning = {version:27,topEdge:TOP_EDGE,bottomEdge:BOTTOM_EDGE};
 })();
