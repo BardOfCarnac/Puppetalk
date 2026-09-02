@@ -1,0 +1,230 @@
+html,body,#app{height:100%;overflow:hidden}
+
+body.puppetalk-fullscreen{overscroll-behavior:none;background:#0b0c0e}
+body.puppetalk-fullscreen .controller-shell{
+  position:fixed;
+  inset:0;
+  width:100%;
+  max-width:none;
+  height:100dvh;
+  margin:0;
+  padding:0;
+  display:block;
+  overflow:hidden;
+  background:#0b0c0e;
+}
+body.puppetalk-fullscreen .personal-controller{overflow:hidden}
+body.puppetalk-fullscreen .personal-stage{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100dvh;
+  min-height:100dvh!important;
+  border:0;
+  border-radius:0;
+  background:#0d0e10;
+  overflow:hidden;
+}
+body.puppetalk-fullscreen .personal-stage canvas{
+  position:absolute;
+  inset:0;
+  width:100%!important;
+  height:100%!important;
+  display:block;
+}
+body.puppetalk-fullscreen #locomotion-canvas{display:none!important}
+body.puppetalk-fullscreen #personal-canvas{opacity:1!important;z-index:1!important}
+
+body.puppetalk-fullscreen .controller-head{
+  position:absolute;
+  z-index:40;
+  top:max(8px,env(safe-area-inset-top));
+  left:8px;
+  right:8px;
+  min-height:0;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  pointer-events:none;
+}
+body.puppetalk-fullscreen .controller-head>div{
+  pointer-events:auto;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(7,8,10,.54);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-radius:999px;
+  padding:6px 9px;
+  box-shadow:0 4px 22px rgba(0,0,0,.18);
+}
+body.puppetalk-fullscreen .controller-head strong{font-size:10px;letter-spacing:.12em}
+body.puppetalk-fullscreen .controller-head .small{font-size:9px;line-height:1.2}
+body.puppetalk-fullscreen .controller-head>div:first-child .muted{display:none}
+
+body.puppetalk-fullscreen .compact-controls{
+  position:absolute;
+  z-index:35;
+  right:max(8px,env(safe-area-inset-right));
+  top:50%;
+  transform:translateY(-50%);
+  width:58px;
+  padding:0;
+  border:0;
+  background:transparent;
+  pointer-events:none;
+}
+body.puppetalk-fullscreen .compact-controls .control-title{display:none}
+body.puppetalk-fullscreen .pose-strip{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:6px;
+}
+body.puppetalk-fullscreen .pose-strip button{
+  pointer-events:auto;
+  min-width:0;
+  width:58px;
+  min-height:42px;
+  padding:6px 5px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(10,12,15,.52);
+  backdrop-filter:blur(11px);
+  -webkit-backdrop-filter:blur(11px);
+  font-size:10px;
+  line-height:1;
+  text-transform:capitalize;
+  box-shadow:0 4px 18px rgba(0,0,0,.16);
+}
+body.puppetalk-fullscreen .pose-strip button.active{
+  background:rgba(238,241,245,.86);
+  color:#111318;
+  border-color:rgba(255,255,255,.92);
+}
+
+body.puppetalk-fullscreen .voice-card{
+  position:absolute;
+  z-index:35;
+  left:max(8px,env(safe-area-inset-left));
+  bottom:70px;
+  width:104px;
+  padding:0;
+  border:0;
+  background:transparent;
+  display:grid;
+  gap:5px;
+  pointer-events:none;
+}
+body.puppetalk-fullscreen .voice-card .control-title{display:none}
+body.puppetalk-fullscreen .voice-actions{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:6px;
+}
+body.puppetalk-fullscreen .voice-actions button{
+  pointer-events:auto;
+  min-height:40px;
+  padding:6px 8px;
+  border-radius:999px;
+  background:rgba(10,12,15,.52);
+  border-color:rgba(255,255,255,.14);
+  backdrop-filter:blur(11px);
+  -webkit-backdrop-filter:blur(11px);
+  font-size:10px;
+}
+body.puppetalk-fullscreen .voice-actions .primary{
+  color:#f2f3f5;
+  font-weight:600;
+}
+body.puppetalk-fullscreen .voice-meter{
+  height:4px;
+  margin:0 9px;
+  background:rgba(255,255,255,.10);
+}
+
+body.puppetalk-fullscreen .controller-footer{
+  position:absolute;
+  z-index:35;
+  left:max(8px,env(safe-area-inset-left));
+  top:64px;
+  width:104px;
+  display:grid;
+  grid-template-columns:1fr;
+  gap:6px;
+  pointer-events:none;
+}
+body.puppetalk-fullscreen .controller-footer button{
+  pointer-events:auto;
+  min-height:38px;
+  padding:6px 8px;
+  border-radius:999px;
+  border-color:rgba(255,255,255,.14);
+  background:rgba(10,12,15,.46);
+  backdrop-filter:blur(11px);
+  -webkit-backdrop-filter:blur(11px);
+  font-size:10px;
+}
+body.puppetalk-fullscreen .controller-footer button.primary{
+  color:#f2f3f5;
+  font-weight:700;
+}
+body.puppetalk-fullscreen #host-invite{grid-column:auto!important}
+
+body.puppetalk-fullscreen .personal-stage-hint{
+  z-index:30;
+  bottom:48px;
+  max-width:66vw;
+  background:rgba(5,6,8,.46);
+  border-color:rgba(255,255,255,.10);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+body.puppetalk-fullscreen .you-chip{
+  z-index:30;
+  top:48px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(6,7,9,.46);
+}
+
+.depth-rim{
+  position:fixed;
+  z-index:28;
+  left:0;
+  right:0;
+  height:30px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .13s ease,filter .13s ease;
+}
+.depth-rim::after{
+  content:attr(data-label);
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  font:700 9px/1 system-ui,sans-serif;
+  letter-spacing:.16em;
+  color:rgba(255,255,255,.74);
+  text-transform:uppercase;
+}
+.depth-rim-top{
+  top:0;
+  background:linear-gradient(to bottom,rgba(255,255,255,.18),rgba(255,255,255,0));
+}
+.depth-rim-top::after{top:max(6px,env(safe-area-inset-top))}
+.depth-rim-bottom{
+  bottom:0;
+  background:linear-gradient(to top,rgba(255,255,255,.18),rgba(255,255,255,0));
+}
+.depth-rim-bottom::after{bottom:max(6px,env(safe-area-inset-bottom))}
+body.depth-body-drag .depth-rim{opacity:.16}
+body.depth-edge-top .depth-rim-top,
+body.depth-edge-bottom .depth-rim-bottom{opacity:.88;filter:brightness(1.5)}
+body.depth-edge-top .depth-rim-bottom,
+body.depth-edge-bottom .depth-rim-top{opacity:.07}
+
+@media (max-height:600px){
+  body.puppetalk-fullscreen .pose-strip{gap:4px}
+  body.puppetalk-fullscreen .pose-strip button{min-height:35px}
+  body.puppetalk-fullscreen .controller-footer{top:48px}
+  body.puppetalk-fullscreen .voice-card{bottom:46px}
+}
