@@ -77,11 +77,9 @@
         springPull(t,t.position,{x:anchorX,y:bodyTargetY},(.000052+.000036*followBlend)/grabs.length,.0045);`
     );
 
-    // The pickup assist should only be a tiny nudge; deliberate knots remain possible.
     patched = patched.replace('const fade = 1-clamp(age/190,0,1);','const fade = 1-clamp(age/120,0,1);');
     patched = patched.replace('const amount = .3*fade;','const amount = .10*fade;');
 
-    // Carry the finger's true viewport Y as well as the stage/canvas coordinate.
     patched = patched.replace(
       "function syncGrabs(){ input.grabs = [...activePointers.values()].slice(0,2).map(g=>({part:g.part,x:g.x,y:g.y})); }",
       "function syncGrabs(){ input.grabs = [...activePointers.values()].slice(0,2).map(g=>({part:g.part,x:g.x,y:g.y,screenY:g.screenY})); }"
@@ -95,17 +93,78 @@
       "    grab.x = p.x;\n    grab.y = p.y;\n    grab.screenY = Math.max(0,Math.min(1,event.clientY/Math.max(innerHeight,1)));\n    syncGrabs();"
     );
 
-    // The phone controller is now a real viewport-sized stage, not a short card.
     patched = patched.replace(
       '    ch = Math.max(250,Math.min(cw*.8,430));',
       '    ch = Math.max(320,stageBox.getBoundingClientRect().height || innerHeight);'
     );
 
-    // Use the ordinary scene renderer for depth too, so the extra overlay canvas
-    // can be hidden without losing apparent head/body/limb thickness at close-up.
+    // Canonical stage coordinates are about 320x360. On a tall phone, preserve
+    // that geometry around a lower-stage floor instead of stretching normalized Y.
+    patched = patched.replace(
+      'function drawBackdrop(ctx,w,h){',
+`function displayPoint(q,w,h){
+  if(mode !== 'controller') return {x:q.x*w,y:q.y*h};
+  const stageH = w*(360/320);
+  const floorY = h*.79;
+  const offsetY = floorY-stageH*.90;
+  return {x:q.x*w,y:offsetY+q.y*stageH};
+}
+function displayNorm(px,py,w,h){
+  if(mode !== 'controller') return {x:px/w,y:py/h};
+  const stageH = w*(360/320);
+  const floorY = h*.79;
+  const offsetY = floorY-stageH*.90;
+  return {x:px/w,y:(py-offsetY)/stageH};
+}
+
+function drawBackdrop(ctx,w,h){`
+    );
+
+    patched = patched.replace(
+      '  const point = q=>({x:q.x*w,y:q.y*h});',
+      '  const point = q=>displayPoint(q,w,h);'
+    );
+    patched = patched.replaceAll(
+      '    const tx = p.torso.x*w;\n    const ty = p.torso.y*h;',
+      '    const torsoPoint = point(p.torso);\n    const tx = torsoPoint.x;\n    const ty = torsoPoint.y;'
+    );
+    patched = patched.replace(
+      '  const hx = p.head.x*w;\n  const hy = p.head.y*h;',
+      '  const headPoint = point(p.head);\n  const hx = headPoint.x;\n  const hy = headPoint.y;'
+    );
     patched = patched.replace(
       '  const scale = Math.min(w/900,h/650);',
-      '  const scale = Math.min(w/900,h/650)*(p.visualScale || 1);'
+      '  const scale = Math.min(w/900,(w*(360/320))/650)*(p.visualScale || 1);'
+    );
+
+    patched = patched.replace(
+`  function pointerToWorld(event){
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x:clamp((event.clientX-rect.left)/rect.width,.02,.98),
+      y:clamp((event.clientY-rect.top)/rect.height,.08,.94)
+    };
+  }`,
+`  function pointerToWorld(event){
+    const rect = canvas.getBoundingClientRect();
+    const q = displayNorm(event.clientX-rect.left,event.clientY-rect.top,rect.width,rect.height);
+    return {x:clamp(q.x,.02,.98),y:clamp(q.y,.08,.94)};
+  }`
+    );
+
+    patched = patched.replace(
+`      const x = spot.q.x*cw;
+      const y = spot.q.y*ch;`,
+`      const screen = displayPoint(spot.q,cw,ch);
+      const x = screen.x;
+      const y = screen.y;`
+    );
+    patched = patched.replace(
+`      const x = spot.q.x*rect.width;
+      const y = spot.q.y*rect.height;`,
+`      const screen = displayPoint(spot.q,rect.width,rect.height);
+      const x = screen.x;
+      const y = screen.y;`
     );
 
     return patched;
@@ -123,5 +182,5 @@
   PuppetalkBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(PuppetalkBlob,NativeBlob);
   window.Blob = PuppetalkBlob;
-  window.PuppetalkControlFeel = {version:29};
+  window.PuppetalkControlFeel = {version:30};
 })();
