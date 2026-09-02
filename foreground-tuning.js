@@ -5,16 +5,27 @@
   const rawConnect = Peer.prototype.connect;
   const rawPeerOn = Peer.prototype.on;
 
-  // These are viewport coordinates, not stage-canvas coordinates.
-  const TOP_EDGE = .08;
-  const BOTTOM_EDGE = .92;
-  const DEPTH_SPAN = .72;
+  const EDGE = .055;
+  const DEPTH_MIN = -.30;
+  const DEPTH_MAX = 1.0;
+  const DEPTH_RATE = .58;
+  const SIGNAL_SCALE = 1/2.15;
+  const slotState = new Map();
 
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
   const smoothstep = t=>{
     t = clamp(t,0,1);
     return t*t*(3-2*t);
   };
+
+  function stateFor(slot){
+    if(!slotState.has(slot)) slotState.set(slot,{
+      depth:0,
+      drive:0,
+      lastTick:performance.now()
+    });
+    return slotState.get(slot);
+  }
 
   function grabsOf(input){
     if(Array.isArray(input?.grabs)) return input.grabs;
@@ -24,7 +35,27 @@
     return [];
   }
 
-  function edgeMappedInput(conn,input){
+  function driveFor(screenY){
+    if(!Number.isFinite(screenY)) return 0;
+    if(screenY <= EDGE){
+      const penetration = smoothstep((EDGE-screenY)/EDGE);
+      return -(.38+.62*penetration);
+    }
+    if(screenY >= 1-EDGE){
+      const penetration = smoothstep((screenY-(1-EDGE))/EDGE);
+      return .38+.62*penetration;
+    }
+    return 0;
+  }
+
+  function advance(state,now){
+    const dt = clamp((now-state.lastTick)/1000,0,.12);
+    state.lastTick = now;
+    if(!state.drive || dt <= 0) return;
+    state.depth = clamp(state.depth+state.drive*DEPTH_RATE*dt,DEPTH_MIN,DEPTH_MAX);
+  }
+
+  function mapStageInput(conn,input){
     if(!input) return input;
     const copy = {
       ...input,
@@ -32,49 +63,36 @@
     };
     const grabs = grabsOf(copy);
     const torso = grabs.find(g=>g?.part === 'torso');
+    const slot = conn.__puppetalkForegroundSlot;
 
-    if(!torso || !Number.isFinite(torso.y)){
-      conn.__puppetalkDepthGesture = null;
+    if(!Number.isInteger(slot)) return copy;
+    const state = stateFor(slot);
+    advance(state,performance.now());
+
+    if(!torso){
+      state.drive = 0;
       return copy;
     }
 
-    const edgeY = Number.isFinite(torso.screenY) ? torso.screenY : null;
-    const freshGesture = !conn.__puppetalkDepthGesture;
-    if(freshGesture){
-      conn.__puppetalkDepthGesture = {virtualY:.5};
-    }
-    const gesture = conn.__puppetalkDepthGesture;
+    state.drive = driveFor(torso.screenY);
 
-    // The first packet only establishes the neutral origin. After that, depth can
-    // change ONLY when the captured finger reaches the actual phone-screen edge.
-    // Once changed, the virtual depth drag stays latched until release, so moving
-    // the finger back through the middle cannot undo it accidentally.
-    if(!freshGesture && edgeY != null){
-      if(edgeY >= BOTTOM_EDGE){
-        const penetration = smoothstep((edgeY-BOTTOM_EDGE)/(1-BOTTOM_EDGE));
-        const candidate = .5 + DEPTH_SPAN*penetration;
-        gesture.virtualY = Math.max(gesture.virtualY,candidate);
-      }else if(edgeY <= TOP_EDGE){
-        const penetration = smoothstep((TOP_EDGE-edgeY)/TOP_EDGE);
-        const candidate = .5 - DEPTH_SPAN*penetration;
-        gesture.virtualY = Math.min(gesture.virtualY,candidate);
-      }
-    }
-
-    torso.y = gesture.virtualY;
+    // The old locomotion layer still uses torso Y as its depth signal. Feed it a
+    // synthetic signal derived only from our explicit depth state, never from the
+    // ordinary canvas drag. This removes the centre-screen depth leak entirely.
+    torso.y = clamp(.5+state.depth*SIGNAL_SCALE,.08,.94);
     if(!Array.isArray(copy.grabs) && copy.grabbing && copy.grabPart === 'torso'){
-      copy.y = gesture.virtualY;
+      copy.y = torso.y;
     }
     return copy;
   }
 
   function targetScale(depth){
-    if(depth >= 0) return clamp(1+depth*1.55,1,2.62);
-    return clamp(1+depth*.72,.72,1);
+    if(depth >= 0) return clamp(1+depth*1.58,1,2.58);
+    return clamp(1+depth*.72,.76,1);
   }
 
   function targetShift(depth){
-    return depth >= 0 ? depth*.235 : depth*.03;
+    return depth >= 0 ? depth*.245 : depth*.025;
   }
 
   function tunePoint(point,center,extraScale,extraShift){
@@ -86,17 +104,20 @@
     };
   }
 
-  function tunePuppet(p){
-    const depth = Number.isFinite(p?.depth) ? p.depth : 0;
-    if(!p?.torso || Math.abs(depth) < .0001) return p;
+  function tunePuppet(p,now){
+    if(!p?.torso || !Number.isInteger(p.slot)) return p;
+    const state = stateFor(p.slot);
+    advance(state,now);
+    const depth = state.depth;
+    if(Math.abs(depth) < .0001) return {...p,depth:0};
 
     const currentScale = Number.isFinite(p.visualScale) && p.visualScale > 0 ? p.visualScale : 1;
     const desiredScale = targetScale(depth);
     const extraScale = desiredScale/currentScale;
-    const baseShift = depth*.035;
-    const extraShift = targetShift(depth)-baseShift;
+    const locomotionShift = Number.isFinite(p.depth) ? p.depth*.035 : 0;
+    const extraShift = targetShift(depth)-locomotionShift;
     const center = {x:p.torso.x,y:p.torso.y};
-    const out = {...p,visualScale:desiredScale};
+    const out = {...p,depth,visualScale:desiredScale};
 
     for(const key of ['torso','head','sl','sr','el','er','wl','wr','hl','hr','kl','kr','al','ar']){
       if(out[key]) out[key] = tunePoint(out[key],center,extraScale,extraShift);
@@ -106,7 +127,9 @@
 
   function tuneScene(data){
     if(data?.type !== 'scene' || !Array.isArray(data.puppets)) return data;
-    return {...data,puppets:data.puppets.map(tunePuppet)};
+    const now = performance.now();
+    const puppets = data.puppets.map(p=>tunePuppet(p,now)).sort((a,b)=>(a.depth||0)-(b.depth||0));
+    return {...data,puppets};
   }
 
   function patchConnection(conn,side){
@@ -119,7 +142,7 @@
       if(event === 'data' && typeof handler === 'function' && side === 'stage'){
         return previousOn(event,data=>{
           if(data?.type === 'input'){
-            return handler({...data,input:edgeMappedInput(conn,data.input || {})});
+            return handler({...data,input:mapStageInput(conn,data.input || {})});
           }
           return handler(data);
         });
@@ -128,6 +151,10 @@
     };
 
     conn.send = function(data){
+      if(side === 'stage' && data?.type === 'welcome' && Number.isInteger(data.slot)){
+        conn.__puppetalkForegroundSlot = data.slot;
+        stateFor(data.slot).lastTick = performance.now();
+      }
       if(side === 'stage' && data?.type === 'scene') return previousSend(tuneScene(data));
       return previousSend(data);
     };
@@ -146,5 +173,10 @@
     return rawPeerOn.call(this,event,handler,...rest);
   };
 
-  window.PuppetalkForegroundTuning = {version:28,topEdge:TOP_EDGE,bottomEdge:BOTTOM_EDGE};
+  window.PuppetalkForegroundTuning = {
+    version:29,
+    edge:EDGE,
+    minDepth:DEPTH_MIN,
+    maxDepth:DEPTH_MAX
+  };
 })();
