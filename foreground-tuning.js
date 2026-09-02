@@ -39,19 +39,24 @@
       return copy;
     }
 
-    if(!conn.__puppetalkDepthGesture){
-      conn.__puppetalkDepthGesture = {anchorY:torso.y};
+    const rawY = torso.y;
+    const freshGesture = !conn.__puppetalkDepthGesture;
+    if(freshGesture){
+      conn.__puppetalkDepthGesture = {anchorY:rawY};
     }
     const anchorY = conn.__puppetalkDepthGesture.anchorY;
-    const rawY = torso.y;
     let virtualY = anchorY;
 
-    if(rawY >= BOTTOM_EDGE){
-      const penetration = smoothstep((rawY-BOTTOM_EDGE)/(POINTER_BOTTOM-BOTTOM_EDGE));
-      virtualY = anchorY + DEPTH_SPAN*penetration;
-    }else if(rawY <= TOP_EDGE){
-      const penetration = smoothstep((TOP_EDGE-rawY)/(TOP_EDGE-POINTER_TOP));
-      virtualY = anchorY - DEPTH_SPAN*penetration;
+    // The first touch only establishes a neutral origin. This matters in the
+    // foreground, where the projected torso itself can already sit in an edge zone.
+    if(!freshGesture){
+      if(rawY >= BOTTOM_EDGE){
+        const penetration = smoothstep((rawY-BOTTOM_EDGE)/(POINTER_BOTTOM-BOTTOM_EDGE));
+        virtualY = anchorY + DEPTH_SPAN*penetration;
+      }else if(rawY <= TOP_EDGE){
+        const penetration = smoothstep((TOP_EDGE-rawY)/(TOP_EDGE-POINTER_TOP));
+        virtualY = anchorY - DEPTH_SPAN*penetration;
+      }
     }
 
     torso.y = virtualY;
