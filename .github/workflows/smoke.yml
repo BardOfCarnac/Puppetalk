@@ -20,4 +20,5 @@ jobs:
       - run: node --check boot.js
       - run: node --check stability.js
       - run: node --check pose-tuning.js
+      - run: node --check foreground-tuning.js
       - run: node --check locomotion.js
