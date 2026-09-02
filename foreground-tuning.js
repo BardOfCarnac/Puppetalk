@@ -5,10 +5,10 @@
   const rawConnect = Peer.prototype.connect;
   const rawPeerOn = Peer.prototype.on;
 
-  const TOP_EDGE = .18;
-  const BOTTOM_EDGE = .82;
-  const EDGE_RATE = .72;
-  const MAX_GESTURE_TRAVEL = .72;
+  // These are viewport coordinates, not stage-canvas coordinates.
+  const TOP_EDGE = .08;
+  const BOTTOM_EDGE = .92;
+  const DEPTH_SPAN = .72;
 
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
   const smoothstep = t=>{
@@ -19,7 +19,7 @@
   function grabsOf(input){
     if(Array.isArray(input?.grabs)) return input.grabs;
     if(input?.grabbing && input?.grabPart){
-      return [{part:input.grabPart,x:input.x,y:input.y}];
+      return [{part:input.grabPart,x:input.x,y:input.y,screenY:input.screenY}];
     }
     return [];
   }
@@ -38,35 +38,29 @@
       return copy;
     }
 
-    const now = performance.now();
-    const rawY = torso.y;
-    let gesture = conn.__puppetalkDepthGesture;
-    const freshGesture = !gesture;
+    const edgeY = Number.isFinite(torso.screenY) ? torso.screenY : null;
+    const freshGesture = !conn.__puppetalkDepthGesture;
     if(freshGesture){
-      gesture = conn.__puppetalkDepthGesture = {
-        virtualY:.5,
-        lastAt:now
-      };
+      conn.__puppetalkDepthGesture = {virtualY:.5};
     }
+    const gesture = conn.__puppetalkDepthGesture;
 
-    const dt = clamp((now-gesture.lastAt)/1000,0,.08);
-    gesture.lastAt = now;
-
-    // Depth behaves like edge scrolling: the middle of the screen never changes
-    // depth. Once the body reaches an edge, holding/moving there walks continuously
-    // toward or away from camera. This makes the foreground reversible even when
-    // the projected torso itself begins very low in the frame.
-    if(!freshGesture){
-      if(rawY >= BOTTOM_EDGE){
-        const strength = smoothstep((rawY-BOTTOM_EDGE)/(1-BOTTOM_EDGE));
-        gesture.virtualY += EDGE_RATE*dt*(.35+.65*strength);
-      }else if(rawY <= TOP_EDGE){
-        const strength = smoothstep((TOP_EDGE-rawY)/TOP_EDGE);
-        gesture.virtualY -= EDGE_RATE*dt*(.35+.65*strength);
+    // The first packet only establishes the neutral origin. After that, depth can
+    // change ONLY when the captured finger reaches the actual phone-screen edge.
+    // Once changed, the virtual depth drag stays latched until release, so moving
+    // the finger back through the middle cannot undo it accidentally.
+    if(!freshGesture && edgeY != null){
+      if(edgeY >= BOTTOM_EDGE){
+        const penetration = smoothstep((edgeY-BOTTOM_EDGE)/(1-BOTTOM_EDGE));
+        const candidate = .5 + DEPTH_SPAN*penetration;
+        gesture.virtualY = Math.max(gesture.virtualY,candidate);
+      }else if(edgeY <= TOP_EDGE){
+        const penetration = smoothstep((TOP_EDGE-edgeY)/TOP_EDGE);
+        const candidate = .5 - DEPTH_SPAN*penetration;
+        gesture.virtualY = Math.min(gesture.virtualY,candidate);
       }
     }
 
-    gesture.virtualY = clamp(gesture.virtualY,.5-MAX_GESTURE_TRAVEL,.5+MAX_GESTURE_TRAVEL);
     torso.y = gesture.virtualY;
     if(!Array.isArray(copy.grabs) && copy.grabbing && copy.grabPart === 'torso'){
       copy.y = gesture.virtualY;
@@ -152,5 +146,5 @@
     return rawPeerOn.call(this,event,handler,...rest);
   };
 
-  window.PuppetalkForegroundTuning = {version:27,topEdge:TOP_EDGE,bottomEdge:BOTTOM_EDGE};
+  window.PuppetalkForegroundTuning = {version:28,topEdge:TOP_EDGE,bottomEdge:BOTTOM_EDGE};
 })();
