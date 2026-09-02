@@ -98,8 +98,6 @@
       '    ch = Math.max(320,stageBox.getBoundingClientRect().height || innerHeight);'
     );
 
-    // Canonical stage coordinates are about 320x360. On a tall phone, preserve
-    // that geometry around a lower-stage floor instead of stretching normalized Y.
     patched = patched.replace(
       'function drawBackdrop(ctx,w,h){',
 `function displayPoint(q,w,h){
@@ -127,6 +125,10 @@ function drawBackdrop(ctx,w,h){`
     patched = patched.replaceAll(
       '    const tx = p.torso.x*w;\n    const ty = p.torso.y*h;',
       '    const torsoPoint = point(p.torso);\n    const tx = torsoPoint.x;\n    const ty = torsoPoint.y;'
+    );
+    patched = patched.replace(
+      '  const tx = p.torso.x*w;\n  const ty = p.torso.y*h;',
+      '  const torsoPoint = point(p.torso);\n  const tx = torsoPoint.x;\n  const ty = torsoPoint.y;'
     );
     patched = patched.replace(
       '  const hx = p.head.x*w;\n  const hy = p.head.y*h;',
@@ -182,5 +184,5 @@ function drawBackdrop(ctx,w,h){`
   PuppetalkBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(PuppetalkBlob,NativeBlob);
   window.Blob = PuppetalkBlob;
-  window.PuppetalkControlFeel = {version:30};
+  window.PuppetalkControlFeel = {version:31};
 })();
