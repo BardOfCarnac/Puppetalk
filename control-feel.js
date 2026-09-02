@@ -77,10 +77,24 @@
         springPull(t,t.position,{x:anchorX,y:bodyTargetY},(.000052+.000036*followBlend)/grabs.length,.0045);`
     );
 
-    // The original pickup assist was doing too much of the untangling for the
-    // performer. Keep only a tiny initial nudge, then let deliberate crossings happen.
+    // The pickup assist should only be a tiny nudge; deliberate knots remain possible.
     patched = patched.replace('const fade = 1-clamp(age/190,0,1);','const fade = 1-clamp(age/120,0,1);');
     patched = patched.replace('const amount = .3*fade;','const amount = .10*fade;');
+
+    // Carry the finger's true viewport Y as well as the stage/canvas coordinate.
+    // Depth gating uses this value, so "screen edge" really means the phone edge.
+    patched = patched.replace(
+      "function syncGrabs(){ input.grabs = [...activePointers.values()].slice(0,2).map(g=>({part:g.part,x:g.x,y:g.y})); }",
+      "function syncGrabs(){ input.grabs = [...activePointers.values()].slice(0,2).map(g=>({part:g.part,x:g.x,y:g.y,screenY:g.screenY})); }"
+    );
+    patched = patched.replace(
+      "activePointers.set(event.pointerId,{part:grab.part,label:grab.label,x:p.x,y:p.y});",
+      "activePointers.set(event.pointerId,{part:grab.part,label:grab.label,x:p.x,y:p.y,screenY:Math.max(0,Math.min(1,event.clientY/Math.max(innerHeight,1)))});"
+    );
+    patched = patched.replace(
+      "    grab.x = p.x;\n    grab.y = p.y;\n    syncGrabs();",
+      "    grab.x = p.x;\n    grab.y = p.y;\n    grab.screenY = Math.max(0,Math.min(1,event.clientY/Math.max(innerHeight,1)));\n    syncGrabs();"
+    );
 
     return patched;
   }
@@ -97,5 +111,5 @@
   PuppetalkBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(PuppetalkBlob,NativeBlob);
   window.Blob = PuppetalkBlob;
-  window.PuppetalkControlFeel = {version:27};
+  window.PuppetalkControlFeel = {version:28};
 })();
