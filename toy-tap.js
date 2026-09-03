@@ -194,9 +194,7 @@
     source = source.replace('        <button id="grip-left" type="button">Grip L</button>\n','');
     source = source.replace('        <button id="grip-right" type="button">Grip R</button>\n','');
 
-    const pointerNeedle = `  canvas.addEventListener('pointercancel',stopDrag);
-
-  document.querySelector('#poses').addEventListener('click',event=>{`;
+    const pointerNeedle = `  canvas.addEventListener('pointercancel',stopDrag);`;
     const pointerCode = `  canvas.addEventListener('pointercancel',stopDrag);
 
   function propDisplayPoint(q){
@@ -235,9 +233,7 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     if(conn?.open && slot !== null) send(conn,{type:'prop',action:'tap',propId:prop.id,hand});
-  },true);
-
-  document.querySelector('#poses').addEventListener('click',event=>{`;
+  },true);`;
     if(!source.includes(pointerNeedle)) throw new Error('Toy tap patch failed: pointer gesture');
     source = source.replace(pointerNeedle,pointerCode);
 
