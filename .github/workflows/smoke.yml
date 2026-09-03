@@ -25,3 +25,4 @@ jobs:
       - run: node --check device-projection.js
       - run: node --check control-feel.js
       - run: node --check fullscreen-controller.js
+      - run: node --check toy-system.js
