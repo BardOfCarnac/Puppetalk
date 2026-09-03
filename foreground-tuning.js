@@ -5,10 +5,10 @@
   const rawConnect = Peer.prototype.connect;
   const rawPeerOn = Peer.prototype.on;
 
-  const DEPTH_MIN = -.28;
+  const DEPTH_MIN = -.48;
   const DEPTH_MAX = 1.0;
-  const CLOSER_STEP = .25;
-  const AWAY_STEP = .20;
+  const CLOSER_STEP = .18;
+  const AWAY_STEP = .16;
   const QUICK_TAP_MAX_MS = 180;
   const LONG_TAP_MIN_MS = 235;
   const LONG_TAP_MAX_MS = 410;
@@ -59,7 +59,7 @@
 
   function targetScale(depth){
     if(depth >= 0) return clamp(1+depth*1.58,1,2.58);
-    return clamp(1+depth*.72,.80,1);
+    return clamp(1+depth*.58,.72,1);
   }
 
   function targetShift(depth){
@@ -232,7 +232,7 @@
     shiftForDepth:targetShift
   };
   window.PuppetalkForegroundTuning = {
-    version:34,
+    version:35,
     minDepth:DEPTH_MIN,
     maxDepth:DEPTH_MAX,
     closerStep:CLOSER_STEP,
