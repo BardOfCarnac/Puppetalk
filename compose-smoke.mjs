@@ -11,7 +11,8 @@ const decorators = [
   'dart-stick.js',
   'balloon-tie.js',
   'toy-throw.js',
-  'prop-extremities.js'
+  'prop-extremities.js',
+  'balloon-buoyancy.js'
 ];
 
 const context = {
@@ -38,7 +39,8 @@ for(const marker of [
   'PUPPETALK_DART_STICK_V1',
   'PUPPETALK_BALLOON_TIE_V1',
   'PUPPETALK_TOY_THROW_V1',
-  'PUPPETALK_PROP_EXTREMITIES_V1'
+  'PUPPETALK_PROP_EXTREMITIES_V1',
+  'PUPPETALK_BALLOON_BUOYANCY_V1'
 ]){
   if(!composed.includes(marker)) throw new Error(`Missing composed marker: ${marker}`);
 }
