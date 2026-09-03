@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0c0f">
+<title>Puppetalk Mouth Lab</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0c0f;--panel:#15171c;--line:#2a2e36;--text:#f3f4f6;--muted:#a8afb9;--head:#cf6c63;--paper:#eee1cf;--ink:#181818}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+body{padding:18px}
+main{max-width:980px;margin:0 auto}
+header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:4px 0 18px}
+h1{font-size:22px;margin:0 0 4px}.sub{font-size:12px;color:var(--muted);max-width:620px;line-height:1.4}.badge{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#c8cdd5;border:1px solid var(--line);border-radius:999px;padding:7px 9px;white-space:nowrap}
+.lab{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(270px,.75fr);gap:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px}.preview-wrap{display:grid;grid-template-columns:minmax(0,1fr) 125px;gap:12px}.stage{min-height:430px;border-radius:14px;background:#0e1014;display:grid;place-items:center;overflow:hidden;position:relative}.size-test{border-radius:14px;background:#101217;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:12px}.size-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}.face{width:min(82%,360px);height:auto;display:block}.tiny{width:68px;height:auto}.mini{width:42px;height:auto}
+.controls{display:grid;gap:14px}.control-title{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#c8cdd5;margin-bottom:7px}.energy-row{display:grid;grid-template-columns:1fr 42px;gap:8px;align-items:center}.energy-row output{font-variant-numeric:tabular-nums;text-align:right;color:#dce0e6;font-size:12px}input[type=range]{width:100%;accent-color:#e7e9ed}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}button{min-height:44px;border-radius:12px;border:1px solid #343943;background:#1d2026;color:#f3f4f6;font:700 12px system-ui;cursor:pointer}button.primary{background:#eceef1;color:#111318;border-color:#fff}button.active{outline:2px solid #eceef1;outline-offset:1px}.status{min-height:34px;font-size:11px;color:var(--muted);line-height:1.35;padding-top:2px}.meter{height:6px;background:#242831;border-radius:999px;overflow:hidden}.meter>i{display:block;height:100%;width:0;background:#f1f2f4;transition:width .04s linear}
+.mouth-section{margin-top:14px}.mouth-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.mouth-btn{padding:8px;min-height:104px;background:#111318;border-radius:14px;text-align:left}.mouth-btn svg{display:block;width:100%;height:54px;background:var(--paper);color:var(--ink);border-radius:9px;padding:10px}.mouth-btn span{display:block;margin-top:7px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#d8dce2}.mouth-btn.selected{border-color:#fff;background:#20242b}.hint{font-size:11px;line-height:1.45;color:var(--muted);margin:10px 2px 0}.legend{display:flex;gap:9px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--muted)}.legend b{color:#fff}.credit{margin-top:12px;font-size:9px;color:#757d88}
+@media(max-width:720px){body{padding:12px}.lab{grid-template-columns:1fr}.preview-wrap{grid-template-columns:1fr 92px}.stage{min-height:330px}.mouth-grid{grid-template-columns:repeat(2,minmax(0,1fr))}header{align-items:flex-start}.badge{display:none}}
+</style>
+</head>
+<body>
+<main>
+<header><div><h1>Puppetalk Mouth Lab</h1><div class="sub">All eight Line Face mouths. The original SVG is the resting pose; speech opens directly around that same curve instead of replacing it with a generic mouth.</div></div><div class="badge">Line Face · CC0</div></header>
+
+<section class="lab">
+  <div class="card preview-wrap">
+    <div class="stage">
+      <svg id="face" class="face" viewBox="0 0 100 118" aria-label="Animated puppet face">
+        <path d="M27 6 Q50 -2 73 6 Q87 14 84 38 L80 78 Q77 101 50 108 Q23 101 20 78 L16 38 Q13 14 27 6Z" fill="var(--head)"/>
+        <path d="M30 40h.01M70 40h.01" stroke="var(--ink)" stroke-width="7" stroke-linecap="round"/>
+        <path d="M56 39c-2.5 8-7 15-6 22q.5 5 6 4" fill="none" stroke="var(--ink)" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <g id="mouthGroup" transform="translate(28 70)">
+          <path id="restMouth" fill="none" stroke="var(--ink)" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path id="openMouth" fill="var(--ink)" stroke="none"/>
+        </g>
+      </svg>
+    </div>
+    <div class="size-test">
+      <div class="size-label">table size</div>
+      <svg class="tiny" viewBox="0 0 100 118" aria-hidden="true"><path d="M27 6 Q50 -2 73 6 Q87 14 84 38 L80 78 Q77 101 50 108 Q23 101 20 78 L16 38 Q13 14 27 6Z" fill="var(--head)"/><path d="M30 40h.01M70 40h.01" stroke="var(--ink)" stroke-width="7" stroke-linecap="round"/><path d="M56 39c-2.5 8-7 15-6 22q.5 5 6 4" fill="none" stroke="var(--ink)" stroke-width="4.4" stroke-linecap="round"/><g transform="translate(28 70)"><path id="tinyRest" fill="none" stroke="var(--ink)" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/><path id="tinyOpen" fill="var(--ink)"/></g></svg>
+      <div class="size-label">far away</div>
+      <svg class="mini" viewBox="0 0 100 118" aria-hidden="true"><path d="M27 6 Q50 -2 73 6 Q87 14 84 38 L80 78 Q77 101 50 108 Q23 101 20 78 L16 38 Q13 14 27 6Z" fill="var(--head)"/><path d="M30 40h.01M70 40h.01" stroke="var(--ink)" stroke-width="7" stroke-linecap="round"/><path d="M56 39c-2.5 8-7 15-6 22q.5 5 6 4" fill="none" stroke="var(--ink)" stroke-width="4.4" stroke-linecap="round"/><g transform="translate(28 70)"><path id="miniRest" fill="none" stroke="var(--ink)" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/><path id="miniOpen" fill="var(--ink)"/></g></svg>
+    </div>
+  </div>
+
+  <aside class="card controls">
+    <div><div class="control-title">Speech energy</div><div class="energy-row"><input id="energy" type="range" min="0" max="100" value="0"><output id="energyOut">0%</output></div><div class="legend"><span><b>0</b> rest</span><span><b>~35</b> small</span><span><b>100</b> wide</span></div></div>
+    <div><div class="control-title">Try it</div><div class="buttons"><button id="auto" type="button">Auto talk</button><button id="mic" class="primary" type="button">Use microphone</button></div></div>
+    <div><div class="control-title">Mic level</div><div class="meter"><i id="meterFill"></i></div></div>
+    <div id="status" class="status">Drag the slider, tap Auto talk, or enable the microphone and speak normally.</div>
+    <div class="hint">The opening is generated from the chosen Line Face path itself. Endpoints stay pinned while the middle opens, so asymmetry and curvature survive into speech.</div>
+  </aside>
+</section>
+
+<section class="card mouth-section">
+  <div class="control-title">Resting mouth</div>
+  <div id="mouthGrid" class="mouth-grid"></div>
+  <div class="credit">Line Face by DiceBear · CC0 1.0. Original path data preserved for the resting shapes.</div>
+</section>
+</main>
+
+<script>
+(()=>{
+const mouths={
+  frown:{d:'M7 11q15-6.5 29-1',open:11},
+  line:{d:'m8 10 28-2',open:12},
+  pleased:{d:'M4 9q16 7 30-1l7-5',open:13},
+  shy:{d:'M15 9.5q8 4 16-1',open:9},
+  smile:{d:'M3 9q19 10 38-3',open:14},
+  smirk:{d:'M9 10q14 4 26-4',open:12},
+  soft:{d:'M6 9q16 6 32-2',open:12},
+  wavy:{d:'M6 10q7-4 14 0 8 4.5 18-2',open:12}
+};
+const NS='http://www.w3.org/2000/svg';
+const grid=document.querySelector('#mouthGrid');
+const energy=document.querySelector('#energy');
+const out=document.querySelector('#energyOut');
+const status=document.querySelector('#status');
+const meterFill=document.querySelector('#meterFill');
+const autoBtn=document.querySelector('#auto');
+const micBtn=document.querySelector('#mic');
+const rests=[document.querySelector('#restMouth'),document.querySelector('#tinyRest'),document.querySelector('#miniRest')];
+const opens=[document.querySelector('#openMouth'),document.querySelector('#tinyOpen'),document.querySelector('#miniOpen')];
+let selected='line',level=0,auto=false,autoRAF=0,micStream=null,audioCtx=null,analyser=null,micRAF=0,smoothed=0;
+
+function makeThumb(name,m){
+  const b=document.createElement('button');b.type='button';b.className='mouth-btn';b.dataset.name=name;
+  const s=document.createElementNS(NS,'svg');s.setAttribute('viewBox','0 0 44 18');
+  const p=document.createElementNS(NS,'path');p.setAttribute('d',m.d);p.setAttribute('fill','none');p.setAttribute('stroke','currentColor');p.setAttribute('stroke-width','4.6');p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');s.appendChild(p);
+  const label=document.createElement('span');label.textContent=name;b.append(s,label);b.addEventListener('click',()=>select(name));return b;
+}
+Object.entries(mouths).forEach(([n,m])=>grid.appendChild(makeThumb(n,m)));
+
+function sampledRibbon(d,amount){
+  const temp=document.createElementNS(NS,'path');temp.setAttribute('d',d);document.querySelector('#mouthGroup').appendChild(temp);
+  const len=temp.getTotalLength(),upper=[],lower=[],N=34;
+  for(let i=0;i<=N;i++){
+    const t=i/N,p=temp.getPointAtLength(len*t),taper=Math.pow(Math.sin(Math.PI*t),.68);
+    const spread=amount*taper;
+    upper.push([p.x,p.y-spread*.30]);
+    lower.push([p.x,p.y+spread*.72]);
+  }
+  temp.remove();
+  const pts=upper.concat(lower.reverse());
+  return 'M'+pts.map((p,i)=>(i?'L':'')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ')+'Z';
+}
+
+function render(v){
+  level=Math.max(0,Math.min(1,v));const m=mouths[selected];
+  out.textContent=Math.round(level*100)+'%';
+  const openAmt=m.open*Math.pow(level,.78);
+  const isRest=level<.035;
+  rests.forEach(p=>{p.setAttribute('d',m.d);p.style.display=isRest?'':'none'});
+  opens.forEach(p=>{p.style.display=isRest?'none':'';if(!isRest)p.setAttribute('d',sampledRibbon(m.d,openAmt))});
+}
+function select(name){selected=name;grid.querySelectorAll('.mouth-btn').forEach(b=>b.classList.toggle('selected',b.dataset.name===name));render(level)}
+energy.addEventListener('input',()=>{stopAuto();render(Number(energy.value)/100)});
+
+function stopAuto(){if(auto){auto=false;cancelAnimationFrame(autoRAF);autoBtn.classList.remove('active');autoBtn.textContent='Auto talk'}}
+function autoLoop(t){if(!auto)return;const a=(Math.sin(t*.012)+Math.sin(t*.021+1.2)+Math.sin(t*.037+.4))/3;const gate=Math.max(0,a*.72+.34);const v=Math.min(1,Math.pow(gate,1.25)*1.18);energy.value=Math.round(v*100);render(v);autoRAF=requestAnimationFrame(autoLoop)}
+autoBtn.addEventListener('click',()=>{if(auto){stopAuto();return}stopMic();auto=true;autoBtn.classList.add('active');autoBtn.textContent='Stop auto';status.textContent='Automatic speech rhythm. Switch mouths while it runs to compare them.';autoRAF=requestAnimationFrame(autoLoop)});
+
+async function startMic(){
+  stopAuto();
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const src=audioCtx.createMediaStreamSource(micStream);analyser=audioCtx.createAnalyser();analyser.fftSize=512;analyser.smoothingTimeConstant=.15;src.connect(analyser);
+    micBtn.textContent='Stop microphone';micBtn.classList.add('active');status.textContent='Microphone active. Speak normally; the local audio level drives the mouth.';
+    const data=new Float32Array(analyser.fftSize);
+    const tick=()=>{if(!analyser)return;analyser.getFloatTimeDomainData(data);let sum=0;for(const x of data)sum+=x*x;const rms=Math.sqrt(sum/data.length);let target=Math.max(0,Math.min(1,(rms-.012)*11.5));target=Math.pow(target,.72);smoothed=smoothed*.55+target*.45;meterFill.style.width=Math.round(smoothed*100)+'%';energy.value=Math.round(smoothed*100);render(smoothed);micRAF=requestAnimationFrame(tick)};tick();
+  }catch(err){status.textContent='Microphone could not start: '+(err&&err.message?err.message:'permission unavailable')}
+}
+function stopMic(){if(micRAF)cancelAnimationFrame(micRAF);micRAF=0;analyser=null;if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null}if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null}micBtn.textContent='Use microphone';micBtn.classList.remove('active');meterFill.style.width='0%'}
+micBtn.addEventListener('click',()=>micStream?stopMic():startMic());
+window.addEventListener('pagehide',()=>{stopAuto();stopMic()});
+select('line');render(0);
+})();
+</script>
+</body>
+</html>
