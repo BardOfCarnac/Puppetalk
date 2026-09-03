@@ -39,5 +39,6 @@ jobs:
       - run: node --check dart-balloon-pop.js
       - run: node --check severable-joints.js
       - run: node --check laser-frisbee.js
+      - run: node --check item-polish.js
       - run: node --check voice-layer.js
       - run: node compose-smoke.mjs
