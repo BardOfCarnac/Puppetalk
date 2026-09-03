@@ -41,4 +41,5 @@ jobs:
       - run: node --check laser-frisbee.js
       - run: node --check item-polish.js
       - run: node --check voice-layer.js
+      - run: node --check voice-stage-compat.js
       - run: node compose-smoke.mjs
