@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0c0e" />
+  <title>Puppetalk · Character</title>
+  <style>
+    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b0c0e;color:#f4f5f7}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#0b0c0e}button{font:inherit;color:inherit}
+    body{min-height:100dvh;overflow-x:hidden;background:radial-gradient(circle at 60% 33%,#24272d 0,#15171b 36%,#0b0c0e 72%)}
+    .shell{min-height:100dvh;display:grid;grid-template-rows:auto minmax(310px,1fr) auto}
+    header{padding:max(14px,env(safe-area-inset-top)) 18px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:relative;z-index:4}
+    .brand{font-weight:900;letter-spacing:.14em;font-size:13px}.sub{font-size:11px;color:#9da1aa;text-align:right}
+    .stage{position:relative;min-height:360px;display:grid;place-items:center;overflow:hidden}
+    .stage:before{content:"";position:absolute;left:50%;bottom:7%;width:min(58vw,330px);height:54px;transform:translateX(-50%);border-radius:50%;background:rgba(0,0,0,.38);filter:blur(4px)}
+    canvas{width:min(92vw,620px);height:min(58vh,540px);display:block;position:relative;z-index:1;touch-action:none}
+    .hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#7f848e;white-space:nowrap}
+    .panel{position:relative;z-index:5;background:rgba(16,18,22,.95);border-top:1px solid rgba(255,255,255,.1);border-radius:24px 24px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -14px 40px rgba(0,0,0,.28)}
+    .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.panel-head strong{font-size:16px}.random{border:1px solid rgba(255,255,255,.14);background:#1b1e24;padding:9px 13px;border-radius:999px;font-weight:700;font-size:12px}
+    .section{display:grid;grid-template-columns:72px 1fr;gap:10px;align-items:center;margin:9px 0}.label{font-size:10px;font-weight:800;color:#8f949d;text-transform:uppercase;letter-spacing:.08em}
+    .choices{display:flex;gap:7px;overflow-x:auto;padding:3px 2px 5px;scrollbar-width:none}.choices::-webkit-scrollbar{display:none}
+    .choice{flex:0 0 auto;min-width:58px;height:40px;border:1px solid rgba(255,255,255,.12);background:#17191e;border-radius:12px;padding:7px 9px;font-size:11px;text-transform:capitalize}.choice.active{border-color:#fff;background:#eceff3;color:#101216;font-weight:800}
+    .swatch{flex:0 0 32px;width:32px;height:32px;border-radius:50%;border:2px solid rgba(255,255,255,.14);background:var(--c);padding:0;box-shadow:inset 0 0 0 2px rgba(0,0,0,.18)}.swatch.active{outline:2px solid #fff;outline-offset:2px}
+    .start-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}.start-row button{min-height:45px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:#191c21;font-weight:800}.start-row .primary{background:#f0f2f5;color:#101216}
+    @media(min-width:800px){.shell{grid-template-columns:minmax(360px,1fr) minmax(360px,440px);grid-template-rows:auto 1fr}.shell header{grid-column:1/-1}.stage{grid-column:1;grid-row:2;min-height:0}.panel{grid-column:2;grid-row:2;border-radius:24px 0 0 0;border-top:1px solid rgba(255,255,255,.08);border-left:1px solid rgba(255,255,255,.08);overflow:auto;padding:24px}.section{grid-template-columns:84px 1fr}.hint{bottom:26px}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header><div class="brand">PUPPETALK</div><div class="sub">make somebody<br>then enter the table</div></header>
+    <section class="stage"><canvas id="preview" width="620" height="540" aria-label="Puppet preview"></canvas><div class="hint">character preview</div></section>
+    <section class="panel">
+      <div class="panel-head"><strong>Your character</strong><button class="random" id="random">Randomise</button></div>
+      <div class="section"><div class="label">Colour</div><div class="choices" id="colors"></div></div>
+      <div class="section"><div class="label">Head</div><div class="choices" data-key="head"></div></div>
+      <div class="section"><div class="label">Eyes</div><div class="choices" data-key="eyes"></div></div>
+      <div class="section"><div class="label">Hair</div><div class="choices" data-key="hair"></div></div>
+      <div class="section"><div class="label">Extra</div><div class="choices" data-key="extra"></div></div>
+      <div class="start-row"><button type="button">Join table</button><button type="button" class="primary">Start table</button></div>
+    </section>
+  </main>
+<script>
+const palette=['#cf6c63','#d0a950','#7089b9','#729d78','#a879b2','#67a7a8','#d79b75','#8a6d5b','#d9c3a7','#7e8794','#d65050','#5b8fd1'];
+const parts={head:['round','long','wide','square','pear'],eyes:['dots','sleepy','wide','side','brows'],hair:['none','crop','cap','tuft','wave','mop'],extra:['none','glasses','moustache','freckles','eyepatch']};
+let look={color:palette[0],head:'round',eyes:'dots',hair:'none',extra:'none'};
+try{look={...look,...JSON.parse(localStorage.getItem('puppetalk-look')||'{}')}}catch{}
+const c=document.querySelector('#preview'),ctx=c.getContext('2d');
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function save(){localStorage.setItem('puppetalk-look',JSON.stringify(look));renderControls();draw()}
+function button(text,key){const b=document.createElement('button');b.type='button';b.className='choice'+(look[key]===text?' active':'');b.textContent=text;b.onclick=()=>{look[key]=text;save()};return b}
+function renderControls(){const colors=document.querySelector('#colors');colors.innerHTML='';for(const color of palette){const b=document.createElement('button');b.className='swatch'+(look.color===color?' active':'');b.style.setProperty('--c',color);b.title=color;b.onclick=()=>{look.color=color;save()};colors.append(b)}for(const [key,vals] of Object.entries(parts)){const row=document.querySelector(`[data-key="${key}"]`);row.innerHTML='';vals.forEach(v=>row.append(button(v,key)))}}
+document.querySelector('#random').onclick=()=>{look={color:pick(palette),head:pick(parts.head),eyes:pick(parts.eyes),hair:pick(parts.hair),extra:pick(parts.extra)};save()};
+function headPath(x,y,r,pad=0){ctx.beginPath();if(look.head==='long')ctx.ellipse(x,y+2,r*.82+pad,r*1.16+pad,0,0,Math.PI*2);else if(look.head==='wide')ctx.ellipse(x,y,r*1.14+pad,r*.88+pad,0,0,Math.PI*2);else if(look.head==='square'){const rr=r*.28;ctx.roundRect(x-r-pad,y-r*.94-pad,(r+pad)*2,(r*.94+pad)*2,rr)}else if(look.head==='pear'){ctx.moveTo(x-r*.72,y-r*.76);ctx.bezierCurveTo(x-r*1.08,y-r*.15,x-r*.94,y+r*.92,x,y+r*1.02);ctx.bezierCurveTo(x+r*.94,y+r*.92,x+r*1.08,y-r*.15,x+r*.72,y-r*.76);ctx.quadraticCurveTo(x,y-r*1.13,x-r*.72,y-r*.76);ctx.closePath()}else ctx.arc(x,y,r+pad,0,Math.PI*2)}
+function limb(x1,y1,x2,y2,w){ctx.lineCap='round';ctx.strokeStyle='#08090a';ctx.lineWidth=w+8;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.strokeStyle=look.color;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
+function joint(x,y,r){ctx.fillStyle='#08090a';ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.fill();ctx.fillStyle=look.color;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()}
+function draw(){ctx.clearRect(0,0,c.width,c.height);const x=310,y=252; // body
+limb(x-30,y-55,x-85,y+4,26);limb(x-85,y+4,x-118,y+74,23);limb(x+30,y-55,x+74,y+15,26);limb(x+74,y+15,x+116,y+55,23);limb(x-18,y+67,x-30,y+158,30);limb(x-30,y+158,x-48,y+222,26);limb(x+18,y+67,x+30,y+158,30);limb(x+30,y+158,x+55,y+222,26);
+ctx.fillStyle='#08090a';ctx.roundRect(x-48,y-76,96,150,28);ctx.fill();ctx.fillStyle=look.color;ctx.roundRect(x-43,y-71,86,140,23);ctx.fill();
+for(const [jx,jy,r] of [[x-118,y+74,15],[x+116,y+55,15],[x-48,y+222,15],[x+55,y+222,15]])joint(jx,jy,r);
+const hx=x,hy=y-137,r=52;ctx.fillStyle='#08090a';headPath(hx,hy,r,5);ctx.fill();ctx.fillStyle=look.color;headPath(hx,hy,r);ctx.fill();
+ctx.fillStyle='#08090a';if(look.hair==='crop'){ctx.beginPath();ctx.arc(hx,hy-r*.18,r*.91,Math.PI*1.08,Math.PI*1.92);ctx.lineTo(hx+r*.72,hy-r*.25);ctx.lineTo(hx-r*.72,hy-r*.25);ctx.closePath();ctx.fill()}if(look.hair==='cap'){ctx.beginPath();ctx.arc(hx,hy-r*.18,r*.98,Math.PI,Math.PI*2);ctx.lineTo(hx+r*.98,hy-r*.08);ctx.lineTo(hx-r*.98,hy-r*.08);ctx.closePath();ctx.fill()}if(look.hair==='tuft'){for(const q of [-.46,-.15,.18,.48]){ctx.beginPath();ctx.arc(hx+r*q,hy-r*.9,r*.28,0,Math.PI*2);ctx.fill()}}if(look.hair==='wave'){ctx.beginPath();ctx.moveTo(hx-r*.88,hy-r*.38);ctx.bezierCurveTo(hx-r*.55,hy-r*1.2,hx-r*.1,hy-r*.55,hx+r*.18,hy-r*1.1);ctx.bezierCurveTo(hx+r*.45,hy-r*.55,hx+r*.82,hy-r*.95,hx+r*.9,hy-r*.25);ctx.lineTo(hx+r*.72,hy-r*.55);ctx.lineTo(hx-r*.72,hy-r*.55);ctx.closePath();ctx.fill()}if(look.hair==='mop'){for(let i=-3;i<=3;i++){ctx.beginPath();ctx.arc(hx+i*r*.27,hy-r*(.72+Math.abs(i%2)*.12),r*.31,0,Math.PI*2);ctx.fill()}}
+const ey=hy-r*.18,ex=r*.31;ctx.strokeStyle=ctx.fillStyle='#08090a';ctx.lineWidth=4;ctx.lineCap='round';if(look.eyes==='sleepy'){for(const s of [-1,1]){ctx.beginPath();ctx.moveTo(hx+s*ex-r*.1,ey);ctx.lineTo(hx+s*ex+r*.1,ey+r*.04);ctx.stroke()}}else if(look.eyes==='wide'){for(const s of [-1,1]){ctx.beginPath();ctx.arc(hx+s*ex,ey,r*.14,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(hx+s*ex,ey,r*.055,0,Math.PI*2);ctx.fill()}}else if(look.eyes==='side'){for(const s of [-1,1]){ctx.beginPath();ctx.ellipse(hx+s*ex,ey,r*.14,r*.1,0,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(hx+s*ex+r*.045,ey,r*.05,0,Math.PI*2);ctx.fill()}}else{ctx.beginPath();ctx.arc(hx-ex,ey,r*.09,0,Math.PI*2);ctx.arc(hx+ex,ey,r*.09,0,Math.PI*2);ctx.fill();if(look.eyes==='brows'){for(const s of [-1,1]){ctx.beginPath();ctx.moveTo(hx+s*ex-r*.12,ey-r*.19);ctx.lineTo(hx+s*ex+r*.12,ey-r*.23);ctx.stroke()}}}
+if(look.extra==='glasses'){ctx.lineWidth=3;for(const s of [-1,1]){ctx.beginPath();ctx.arc(hx+s*ex,ey,r*.22,0,Math.PI*2);ctx.stroke()}ctx.beginPath();ctx.moveTo(hx-ex+r*.22,ey);ctx.lineTo(hx+ex-r*.22,ey);ctx.stroke()}if(look.extra==='eyepatch'){ctx.beginPath();ctx.arc(hx+ex,ey,r*.19,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.moveTo(hx-r*.72,hy-r*.48);ctx.lineTo(hx+r*.72,ey);ctx.stroke()}if(look.extra==='freckles'){for(const q of [-.43,-.3,-.17,.17,.3,.43]){ctx.beginPath();ctx.arc(hx+r*q,hy+r*.07+(Math.abs(q)>.35?r*.03:0),r*.027,0,Math.PI*2);ctx.fill()}}
+ctx.beginPath();ctx.roundRect(hx-r*.28,hy+r*.30,r*.56,r*.15,4);ctx.fill();if(look.extra==='moustache'){ctx.beginPath();ctx.ellipse(hx-r*.13,hy+r*.27,r*.2,r*.09,-.25,0,Math.PI*2);ctx.ellipse(hx+r*.13,hy+r*.27,r*.2,r*.09,.25,0,Math.PI*2);ctx.fill()}
+}
+renderControls();draw();
+</script>
+</body>
+</html>
