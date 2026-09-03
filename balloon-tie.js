@@ -131,7 +131,8 @@
     if(!source.includes(stateNeedle)) throw new Error('Balloon tie patch failed: scene attachment state');
     source = source.replace(stateNeedle,`      attachedTo:balloonAttachmentState(prop)`);
 
-    const heldOpen = `    if(prop.heldBy.slot === slot){\n`;
+    const heldOpen = `    if(prop.heldBy.slot === slot){
+`;
     const heldBalloon = `    if(prop.heldBy.slot === slot){
       if(prop.type === 'balloon' && !prop.contest){
         const target = nearestBalloonTarget(prop,slot,hand);
