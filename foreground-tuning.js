@@ -5,10 +5,13 @@
   const rawConnect = Peer.prototype.connect;
   const rawPeerOn = Peer.prototype.on;
 
-  const DEPTH_MIN = -.48;
-  const DEPTH_MAX = 1.0;
-  const CLOSER_STEP = .18;
-  const AWAY_STEP = .16;
+  // Explicit planes: four behind neutral, then nine steps toward the camera.
+  // Gestures move exactly one index at a time; interpolation is only the visual travel
+  // between neighbouring planes, never the source of the destination itself.
+  const DEPTH_PLANES = [-.48,-.36,-.24,-.12,0,.11,.22,.33,.44,.55,.66,.77,.88,1.0];
+  const NEUTRAL_PLANE = DEPTH_PLANES.indexOf(0);
+  const DEPTH_MIN = DEPTH_PLANES[0];
+  const DEPTH_MAX = DEPTH_PLANES[DEPTH_PLANES.length-1];
   const QUICK_TAP_MAX_MS = 180;
   const LONG_TAP_MIN_MS = 235;
   const LONG_TAP_MAX_MS = 410;
@@ -23,6 +26,7 @@
     if(!slotState.has(slot)) slotState.set(slot,{
       depth:0,
       target:0,
+      plane:NEUTRAL_PLANE,
       lastTick:performance.now()
     });
     return slotState.get(slot);
@@ -50,11 +54,13 @@
   }
 
   function stepDepth(slot,direction){
-    if(!Number.isInteger(slot) || !Number.isFinite(direction)) return;
+    if(!Number.isInteger(slot) || !Number.isFinite(direction) || !direction) return;
     const state = stateFor(slot);
     advance(state,performance.now());
-    const amount = direction > 0 ? CLOSER_STEP : AWAY_STEP;
-    state.target = clamp(state.target+Math.sign(direction)*amount,DEPTH_MIN,DEPTH_MAX);
+    const nextPlane = clamp(state.plane+Math.sign(direction),0,DEPTH_PLANES.length-1);
+    if(nextPlane === state.plane) return;
+    state.plane = nextPlane;
+    state.target = DEPTH_PLANES[nextPlane];
   }
 
   function targetScale(depth){
@@ -80,12 +86,12 @@
     const state = stateFor(p.slot);
     advance(state,now);
     const depth = state.depth;
-    if(Math.abs(depth) < .0001) return {...p,depth:0,visualScale:1};
+    if(Math.abs(depth) < .0001) return {...p,depth:0,visualScale:1,depthPlane:state.plane};
 
     const scale = targetScale(depth);
     const shift = targetShift(depth);
     const center = {x:p.torso.x,y:p.torso.y};
-    const out = {...p,depth,visualScale:scale};
+    const out = {...p,depth,visualScale:scale,depthPlane:state.plane};
     for(const key of ['torso','head','sl','sr','el','er','wl','wr','hl','hr','kl','kr','al','ar']){
       if(out[key]) out[key] = tunePoint(out[key],center,scale,shift);
     }
@@ -228,15 +234,18 @@
       advance(state,performance.now());
       return state.depth;
     },
+    getPlaneForSlot(slot){
+      return Number.isInteger(slot) ? stateFor(slot).plane : NEUTRAL_PLANE;
+    },
     scaleForDepth:targetScale,
     shiftForDepth:targetShift
   };
   window.PuppetalkForegroundTuning = {
-    version:35,
+    version:36,
     minDepth:DEPTH_MIN,
     maxDepth:DEPTH_MAX,
-    closerStep:CLOSER_STEP,
-    awayStep:AWAY_STEP,
+    planes:[...DEPTH_PLANES],
+    neutralPlane:NEUTRAL_PLANE,
     quickTapCount:QUICK_TAP_COUNT
   };
 })();
