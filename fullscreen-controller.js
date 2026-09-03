@@ -21,13 +21,27 @@
     guide.className='depth-gesture-guide';
     guide.textContent='tap body: closer · hold: away';
     guide.setAttribute('aria-hidden','true');
+    Object.assign(guide.style,{
+      position:'fixed',left:'50%',bottom:'16px',transform:'translateX(-50%)',zIndex:'38',
+      padding:'7px 10px',border:'1px solid rgba(255,255,255,.12)',borderRadius:'999px',
+      background:'rgba(5,6,8,.48)',backdropFilter:'blur(9px)',color:'rgba(255,255,255,.72)',
+      font:'700 9px/1 system-ui,sans-serif',letterSpacing:'.08em',textTransform:'uppercase',
+      pointerEvents:'none',transition:'opacity .45s ease',whiteSpace:'nowrap'
+    });
 
     const toast=document.createElement('div');
     toast.className='depth-toast';
     toast.setAttribute('aria-hidden','true');
+    Object.assign(toast.style,{
+      position:'fixed',left:'50%',top:'43%',transform:'translate(-50%,-50%) scale(.94)',zIndex:'42',
+      padding:'9px 13px',border:'1px solid rgba(255,255,255,.18)',borderRadius:'999px',
+      background:'rgba(5,6,8,.62)',backdropFilter:'blur(12px)',color:'#fff',
+      font:'800 10px/1 system-ui,sans-serif',letterSpacing:'.18em',pointerEvents:'none',opacity:'0',
+      transition:'opacity .12s ease,transform .12s ease'
+    });
 
     document.body.append(guide,toast);
-    setTimeout(()=>guide.classList.add('quiet'),5200);
+    setTimeout(()=>{guide.style.opacity='.18';},5200);
     requestAnimationFrame(()=>requestAnimationFrame(()=>window.dispatchEvent(new Event('resize'))));
     ready=true;
     return true;
@@ -44,9 +58,13 @@
     if(!toast) return;
     if(toastTimer) clearTimeout(toastTimer);
     toast.textContent=text;
-    toast.classList.add('show');
-    guide?.classList.add('quiet');
-    toastTimer=setTimeout(()=>toast.classList.remove('show'),520);
+    toast.style.opacity='1';
+    toast.style.transform='translate(-50%,-50%) scale(1)';
+    if(guide) guide.style.opacity='.12';
+    toastTimer=setTimeout(()=>{
+      toast.style.opacity='0';
+      toast.style.transform='translate(-50%,-50%) scale(.94)';
+    },520);
   }
 
   document.addEventListener('pointerdown',event=>{
