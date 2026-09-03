@@ -30,9 +30,6 @@
     const handV = hb?.velocity || {x:0,y:0};
     const propV = prop.body.velocity || {x:0,y:0};
 
-    // Controller velocities arrive as stage-normalised units per second.
-    // Convert to Matter's roughly pixels-per-tick velocity, then blend that release
-    // gesture with the real hand/prop velocities already created by the grip constraint.
     const gestureVX = clamp(Number(msg.vx)||0,-3.2,3.2)*W/60;
     const gestureVY = clamp(Number(msg.vy)||0,-3.2,3.2)*H/60;
     let vx = gestureVX*.72 + handV.x*.42 + propV.x*.34;
@@ -64,19 +61,7 @@
     if(!source.includes(handlerNeedle)) throw new Error('Toy throw patch failed: prop handler');
     source = source.replace(handlerNeedle,handlerCode);
 
-    const pointerNeedle = `  canvas.addEventListener('pointerdown',event=>{
-    const prop = pickTappedProp(event);
-    if(!prop) return;
-    const hand = nearestPropHand(prop);
-    if(!hand) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if(conn?.open && slot !== null) send(conn,{type:'prop',action:'tap',propId:prop.id,hand});
-  },true);`;
-
-    const pointerCode = `${pointerNeedle}
-
-  const throwGestures = new Map();
+    const throwCode = `  const throwGestures = new Map();
   const THROW_SAMPLE_MS = 145;
   const THROW_MIN_SPEED = .62;
   function sampleThrowGesture(gesture,x,y,now){
@@ -128,8 +113,9 @@
   canvas.addEventListener('pointerup',finishThrow);
   canvas.addEventListener('pointercancel',event=>throwGestures.delete(event.pointerId));`;
 
-    if(!source.includes(pointerNeedle)) throw new Error('Toy throw patch failed: controller hand gesture');
-    source = source.replace(pointerNeedle,pointerCode);
+    const poseNeedle = `  document.querySelector('#poses').addEventListener('click',event=>{`;
+    if(!source.includes(poseNeedle)) throw new Error('Toy throw patch failed: controller insertion point');
+    source = source.replace(poseNeedle,`${throwCode}\n\n${poseNeedle}`);
 
     return source;
   }
