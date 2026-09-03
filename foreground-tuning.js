@@ -5,23 +5,21 @@
   const rawConnect = Peer.prototype.connect;
   const rawPeerOn = Peer.prototype.on;
 
-  const EDGE = .055;
-  const DEPTH_MIN = -.30;
+  const DEPTH_MIN = -.28;
   const DEPTH_MAX = 1.0;
-  const DEPTH_RATE = .58;
-  const SIGNAL_SCALE = 1/2.15;
+  const CLOSER_STEP = .25;
+  const AWAY_STEP = .20;
+  const TAP_MAX_MS = 240;
+  const HOLD_MIN_MS = 430;
+  const MAX_GESTURE_TRAVEL = .045;
   const slotState = new Map();
 
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-  const smoothstep = t=>{
-    t = clamp(t,0,1);
-    return t*t*(3-2*t);
-  };
 
   function stateFor(slot){
     if(!slotState.has(slot)) slotState.set(slot,{
       depth:0,
-      drive:0,
+      target:0,
       lastTick:performance.now()
     });
     return slotState.get(slot);
@@ -35,72 +33,42 @@
     return [];
   }
 
-  function driveFor(screenY){
-    if(!Number.isFinite(screenY)) return 0;
-    if(screenY <= EDGE){
-      const penetration = smoothstep((EDGE-screenY)/EDGE);
-      return -(.38+.62*penetration);
-    }
-    if(screenY >= 1-EDGE){
-      const penetration = smoothstep((screenY-(1-EDGE))/EDGE);
-      return .38+.62*penetration;
-    }
-    return 0;
+  function torsoGrab(input){
+    return grabsOf(input).find(g=>g?.part === 'torso') || null;
   }
 
   function advance(state,now){
-    const dt = clamp((now-state.lastTick)/1000,0,.12);
+    const dt = clamp((now-state.lastTick)/1000,0,.15);
     state.lastTick = now;
-    if(!state.drive || dt <= 0) return;
-    state.depth = clamp(state.depth+state.drive*DEPTH_RATE*dt,DEPTH_MIN,DEPTH_MAX);
+    if(dt <= 0) return;
+    const response = 1-Math.exp(-7.2*dt);
+    state.depth += (state.target-state.depth)*response;
+    if(Math.abs(state.target-state.depth) < .00035) state.depth = state.target;
   }
 
-  function mapStageInput(conn,input){
-    if(!input) return input;
-    const copy = {
-      ...input,
-      grabs:Array.isArray(input.grabs) ? input.grabs.map(g=>({...g})) : input.grabs
-    };
-    const grabs = grabsOf(copy);
-    const torso = grabs.find(g=>g?.part === 'torso');
-    const slot = conn.__puppetalkForegroundSlot;
-
-    if(!Number.isInteger(slot)) return copy;
+  function stepDepth(slot,direction){
+    if(!Number.isInteger(slot) || !Number.isFinite(direction)) return;
     const state = stateFor(slot);
     advance(state,performance.now());
-
-    if(!torso){
-      state.drive = 0;
-      return copy;
-    }
-
-    state.drive = driveFor(torso.screenY);
-
-    // The old locomotion layer still uses torso Y as its depth signal. Feed it a
-    // synthetic signal derived only from our explicit depth state, never from the
-    // ordinary canvas drag. This removes the centre-screen depth leak entirely.
-    torso.y = clamp(.5+state.depth*SIGNAL_SCALE,.08,.94);
-    if(!Array.isArray(copy.grabs) && copy.grabbing && copy.grabPart === 'torso'){
-      copy.y = torso.y;
-    }
-    return copy;
+    const amount = direction > 0 ? CLOSER_STEP : AWAY_STEP;
+    state.target = clamp(state.target+Math.sign(direction)*amount,DEPTH_MIN,DEPTH_MAX);
   }
 
   function targetScale(depth){
     if(depth >= 0) return clamp(1+depth*1.58,1,2.58);
-    return clamp(1+depth*.72,.76,1);
+    return clamp(1+depth*.72,.80,1);
   }
 
   function targetShift(depth){
     return depth >= 0 ? depth*.245 : depth*.025;
   }
 
-  function tunePoint(point,center,extraScale,extraShift){
+  function tunePoint(point,center,scale,shift){
     if(!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return point;
     return {
       ...point,
-      x:center.x+(point.x-center.x)*extraScale,
-      y:center.y+(point.y-center.y)*extraScale+extraShift
+      x:center.x+(point.x-center.x)*scale,
+      y:center.y+(point.y-center.y)*scale+shift
     };
   }
 
@@ -109,18 +77,14 @@
     const state = stateFor(p.slot);
     advance(state,now);
     const depth = state.depth;
-    if(Math.abs(depth) < .0001) return {...p,depth:0};
+    if(Math.abs(depth) < .0001) return {...p,depth:0,visualScale:1};
 
-    const currentScale = Number.isFinite(p.visualScale) && p.visualScale > 0 ? p.visualScale : 1;
-    const desiredScale = targetScale(depth);
-    const extraScale = desiredScale/currentScale;
-    const locomotionShift = Number.isFinite(p.depth) ? p.depth*.035 : 0;
-    const extraShift = targetShift(depth)-locomotionShift;
+    const scale = targetScale(depth);
+    const shift = targetShift(depth);
     const center = {x:p.torso.x,y:p.torso.y};
-    const out = {...p,depth,visualScale:desiredScale};
-
+    const out = {...p,depth,visualScale:scale};
     for(const key of ['torso','head','sl','sr','el','er','wl','wr','hl','hr','kl','kr','al','ar']){
-      if(out[key]) out[key] = tunePoint(out[key],center,extraScale,extraShift);
+      if(out[key]) out[key] = tunePoint(out[key],center,scale,shift);
     }
     return out;
   }
@@ -129,7 +93,53 @@
     if(data?.type !== 'scene' || !Array.isArray(data.puppets)) return data;
     const now = performance.now();
     const puppets = data.puppets.map(p=>tunePuppet(p,now)).sort((a,b)=>(a.depth||0)-(b.depth||0));
-    return {...data,puppets};
+    return {
+      ...data,
+      stageViewport:{width:Math.max(1,innerWidth),height:Math.max(1,innerHeight)},
+      puppets
+    };
+  }
+
+  function observeControllerGesture(conn,input,sendRaw){
+    const torso = torsoGrab(input);
+    const now = performance.now();
+    let gesture = conn.__puppetalkDepthGesture;
+
+    if(torso && Number.isFinite(torso.screenY)){
+      if(!gesture){
+        gesture = conn.__puppetalkDepthGesture = {
+          startedAt:now,
+          startX:Number.isFinite(torso.x)?torso.x:.5,
+          startY:Number.isFinite(torso.y)?torso.y:.5,
+          maxTravel:0
+        };
+      }else{
+        const dx=(Number.isFinite(torso.x)?torso.x:gesture.startX)-gesture.startX;
+        const dy=(Number.isFinite(torso.y)?torso.y:gesture.startY)-gesture.startY;
+        gesture.maxTravel=Math.max(gesture.maxTravel,Math.hypot(dx,dy));
+      }
+      return;
+    }
+
+    if(!gesture) return;
+    conn.__puppetalkDepthGesture = null;
+    const duration = now-gesture.startedAt;
+    if(gesture.maxTravel > MAX_GESTURE_TRAVEL) return;
+
+    if(duration <= TAP_MAX_MS){
+      sendRaw({type:'depth-step',direction:1});
+    }else if(duration >= HOLD_MIN_MS){
+      sendRaw({type:'depth-step',direction:-1});
+    }
+  }
+
+  function updateSourceStage(data){
+    const next=data?.stageViewport;
+    if(!next || !Number.isFinite(next.width) || !Number.isFinite(next.height)) return;
+    const prev=window.PuppetalkSourceStage;
+    if(prev && prev.width===next.width && prev.height===next.height) return;
+    window.PuppetalkSourceStage={width:next.width,height:next.height};
+    window.dispatchEvent(new Event('puppetalk-stage-viewport'));
   }
 
   function patchConnection(conn,side){
@@ -139,10 +149,15 @@
     const previousSend = conn.send.bind(conn);
 
     conn.on = function(event,handler){
-      if(event === 'data' && typeof handler === 'function' && side === 'stage'){
+      if(event === 'data' && typeof handler === 'function'){
         return previousOn(event,data=>{
-          if(data?.type === 'input'){
-            return handler({...data,input:mapStageInput(conn,data.input || {})});
+          if(side === 'controller'){
+            if(data?.type === 'scene') updateSourceStage(data);
+            return handler(data);
+          }
+          if(side === 'stage' && data?.type === 'depth-step' && Number.isInteger(conn.__puppetalkForegroundSlot)){
+            stepDepth(conn.__puppetalkForegroundSlot,data.direction);
+            return handler(data);
           }
           return handler(data);
         });
@@ -156,6 +171,9 @@
         stateFor(data.slot).lastTick = performance.now();
       }
       if(side === 'stage' && data?.type === 'scene') return previousSend(tuneScene(data));
+      if(side === 'controller' && data?.type === 'input' && data.input){
+        observeControllerGesture(conn,data.input,previousSend);
+      }
       return previousSend(data);
     };
 
@@ -173,10 +191,21 @@
     return rawPeerOn.call(this,event,handler,...rest);
   };
 
+  window.PuppetalkDepthState = {
+    getDepthForSlot(slot){
+      if(!Number.isInteger(slot)) return 0;
+      const state=stateFor(slot);
+      advance(state,performance.now());
+      return state.depth;
+    },
+    scaleForDepth:targetScale,
+    shiftForDepth:targetShift
+  };
   window.PuppetalkForegroundTuning = {
-    version:29,
-    edge:EDGE,
+    version:32,
     minDepth:DEPTH_MIN,
-    maxDepth:DEPTH_MAX
+    maxDepth:DEPTH_MAX,
+    closerStep:CLOSER_STEP,
+    awayStep:AWAY_STEP
   };
 })();
