@@ -119,40 +119,53 @@
     if(!source.includes(syncNeedle)) throw new Error('Balloon tie patch failed: attachment sync');
     source = source.replace(syncNeedle,syncCode);
 
-    source = source.replace(
-      `      updatePropContest(prop,now);
-      syncAttachedProp(prop);`,
-      `      updatePropContest(prop,now);
+    const driveNeedle = `      updatePropContest(prop,now);
+      syncAttachedProp(prop);`;
+    const driveCode = `      updatePropContest(prop,now);
       driveAttachedBalloon(prop,now);
-      syncAttachedProp(prop);`
-    );
+      syncAttachedProp(prop);`;
+    if(!source.includes(driveNeedle)) throw new Error('Balloon tie patch failed: lift loop');
+    source = source.replace(driveNeedle,driveCode);
 
-    source = source.replace(
-      `      attachedTo:prop.attachedTo ? {slot:prop.attachedTo.slot,part:prop.attachedTo.part} : null`,
-      `      attachedTo:balloonAttachmentState(prop)`
-    );
+    const stateNeedle = `      attachedTo:prop.attachedTo ? {slot:prop.attachedTo.slot,part:prop.attachedTo.part} : null`;
+    if(!source.includes(stateNeedle)) throw new Error('Balloon tie patch failed: scene attachment state');
+    source = source.replace(stateNeedle,`      attachedTo:balloonAttachmentState(prop)`);
 
-    const heldNeedle = `    if(prop.heldBy.slot === slot){
-      if(prop.contest){`;
-    const heldCode = `    if(prop.heldBy.slot === slot){
+    const heldOpen = `    if(prop.heldBy.slot === slot){\n`;
+    const heldBalloon = `    if(prop.heldBy.slot === slot){
       if(prop.type === 'balloon' && !prop.contest){
         const target = nearestBalloonTarget(prop,slot,hand);
         if(target && tieBalloonToBody(prop,target)){
           return {ok:true,message:'Tied balloon to '+target.part+'.'};
         }
       }
-      if(prop.contest){`;
+`;
+    if(!source.includes(heldOpen)) throw new Error('Balloon tie patch failed: tap-to-tie interaction');
+    source = source.replace(heldOpen,heldBalloon);
 
-    if(!source.includes(heldNeedle)) throw new Error('Balloon tie patch failed: tap-to-tie interaction');
-    source = source.replace(heldNeedle,heldCode);
+    const ownPropNeedle = `    if(prop.heldBy?.slot === slot) return;`;
+    const ownPropCode = `    if(prop.heldBy?.slot === slot){
+      // Held balloons reserve a direct tap for tying. Other held props still pass
+      // through to the hand so they can be swung naturally.
+      if(prop.type === 'balloon'){
+        const hand = prop.heldBy.hand || nearestPropHand(prop);
+        if(hand && conn?.open && slot !== null){
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          send(conn,{type:'prop',action:'tap',propId:prop.id,hand});
+        }
+      }
+      return;
+    }`;
+    if(!source.includes(ownPropNeedle)) throw new Error('Balloon tie patch failed: held balloon controller tap');
+    source = source.replace(ownPropNeedle,ownPropCode);
 
-    source = source.replace(
-      `    releaseAllPropGrips(slot);
-    [...p.bodies,...p.constraints].forEach(item=>Composite.remove(engine.world,item));`,
-      `    releaseAllPropGrips(slot);
+    const removeNeedle = `    releaseAllPropGrips(slot);
+    [...p.bodies,...p.constraints].forEach(item=>Composite.remove(engine.world,item));`;
+    const removeCode = `    releaseAllPropGrips(slot);
     props.forEach(prop=>{ if(prop.attachedTo?.slot === slot) detachPropAttachment(prop); });
-    [...p.bodies,...p.constraints].forEach(item=>Composite.remove(engine.world,item));`
-    );
+    [...p.bodies,...p.constraints].forEach(item=>Composite.remove(engine.world,item));`;
+    if(source.includes(removeNeedle)) source = source.replace(removeNeedle,removeCode);
 
     const drawNeedle = `  const x = projected.x;
   const y = projected.y;
@@ -168,14 +181,14 @@
     ctx.lineWidth=Math.max(1,s);
     ctx.beginPath();
     ctx.moveTo(x,y+15*s);
-    ctx.quadraticCurveTo((x+anchor.x)*.5+7*s,(y+anchor.y)*.5,x:anchor.x,y:anchor.y);
+    ctx.quadraticCurveTo((x+anchor.x)*.5+7*s,(y+anchor.y)*.5,anchor.x,anchor.y);
     ctx.stroke();
     ctx.restore();
   }
   ctx.save();`;
 
     if(!source.includes(drawNeedle)) throw new Error('Balloon tie patch failed: tether drawing hook');
-    source = source.replace(drawNeedle,drawCode.replace('x:anchor.x,y:anchor.y','anchor.x,anchor.y'));
+    source = source.replace(drawNeedle,drawCode);
 
     const looseString = `    ctx.strokeStyle = 'rgba(255,255,255,.45)';ctx.lineWidth = Math.max(1,s);
     ctx.beginPath();ctx.moveTo(0,15*s);ctx.quadraticCurveTo(8*s,28*s,-2*s,42*s);ctx.stroke();`;
