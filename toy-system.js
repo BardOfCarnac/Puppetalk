@@ -325,9 +325,9 @@
     source = replaceOnce(
       source,
       `  document.querySelector('#retry').addEventListener('click',connect);`,
-      `  document.querySelector('#grip-left')?.addEventListener('click',()=>toggleGrip('left'));
-  document.querySelector('#grip-right')?.addEventListener('click',()=>toggleGrip('right'));
-  document.querySelector('#retry').addEventListener('click',connect);`,
+      `  document.querySelector('#retry').addEventListener('click',connect);
+  document.querySelector('#grip-left')?.addEventListener('click',()=>toggleGrip('left'));
+  document.querySelector('#grip-right')?.addEventListener('click',()=>toggleGrip('right'));`,
       'grip button listeners'
     );
 
