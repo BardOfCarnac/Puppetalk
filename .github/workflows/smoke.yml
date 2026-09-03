@@ -23,6 +23,7 @@ jobs:
       - run: node --check foreground-tuning.js
       - run: node --check locomotion.js
       - run: node --check device-projection.js
+      - run: node --check jump-feel.js
       - run: node --check control-feel.js
       - run: node --check fullscreen-controller.js
       - run: node --check toy-system.js
