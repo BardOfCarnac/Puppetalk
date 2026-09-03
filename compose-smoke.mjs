@@ -18,15 +18,37 @@ const decorators = [
   'dart-balloon-pop.js',
   'severable-joints.js',
   'laser-frisbee.js',
-  'item-polish.js'
+  'item-polish.js',
+  'voice-layer.js'
 ];
+
+const stubNode = () => ({
+  appendChild(){}, remove(){}, pause(){},
+  play(){ return Promise.resolve(); },
+  setAttribute(){}, addEventListener(){},
+  classList:{ add(){}, remove(){}, toggle(){} },
+  dataset:{}, style:{}, textContent:'', srcObject:null
+});
+const document = {
+  documentElement:stubNode(),
+  head:stubNode(),
+  body:stubNode(),
+  createElement:stubNode,
+  querySelector(){ return null; }
+};
+class MutationObserver { observe(){} disconnect(){} }
+const location = { href:'https://puppetalk.test/app.js', origin:'https://puppetalk.test' };
 
 const context = {
   console,
   performance,
   Response,
+  URL,
   setTimeout,
   clearTimeout,
+  document,
+  MutationObserver,
+  location,
   window: {}
 };
 context.window.fetch = async () => new Response(appSource,{status:200});
@@ -55,5 +77,16 @@ for(const marker of [
   if(!composed.includes(marker)) throw new Error(`Missing composed marker: ${marker}`);
 }
 
+for(const hook of [
+  'window.PuppetalkVoice?.stageJoin(conn,slot);',
+  'window.PuppetalkVoice?.stageData(conn,slot,msg);',
+  'window.PuppetalkVoice?.controllerPeer(peer,room);',
+  'window.PuppetalkVoice?.setLocalStream(stream);',
+  'window.PuppetalkVoice?.mouthState?.(rms,now)',
+  'id="deafen"'
+]){
+  if(!composed.includes(hook)) throw new Error(`Missing live voice hook: ${hook}`);
+}
+
 new Function(composed);
-console.log('Composed app source smoke check passed.');
+console.log('Composed app + live voice source smoke check passed.');
