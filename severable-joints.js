@@ -92,8 +92,6 @@
     if(version > (p.recoverVersion||0)){
       p.recoverVersion = version;
       p.repairRequested = true;
-    }else if(version > p.recoverVersion){
-      p.recoverVersion = version;
     }
   }
 
@@ -101,10 +99,8 @@ ${helperNeedle}`;
     if(!source.includes(helperNeedle)) throw new Error('Severable joints patch failed: helpers');
     source = source.replace(helperNeedle,helpers);
 
-    const anatomyNeedle = `      slot:p.slot,name:p.name,color:p.color,mouth:p.mouth,rag:p.rag,
-      torso:{x:t.position.x/W,y:t.position.y/H,a:t.angle},`;
-    const anatomyCode = `      slot:p.slot,name:p.name,color:p.color,mouth:p.mouth,rag:p.rag,severed:[...(p.severedJoints||[])],
-      torso:{x:t.position.x/W,y:t.position.y/H,a:t.angle},`;
+    const anatomyNeedle = `      slot:p.slot,name:p.name,color:p.color,mouth:p.mouth,rag:p.rag,`;
+    const anatomyCode = `      slot:p.slot,name:p.name,color:p.color,mouth:p.mouth,rag:p.rag,severed:[...(p.severedJoints||[])],`;
     if(!source.includes(anatomyNeedle)) throw new Error('Severable joints patch failed: scene severed state');
     source = source.replace(anatomyNeedle,anatomyCode);
 
