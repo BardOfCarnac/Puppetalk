@@ -9,8 +9,11 @@
   const DEPTH_MAX = 1.0;
   const CLOSER_STEP = .25;
   const AWAY_STEP = .20;
-  const TAP_MAX_MS = 240;
-  const HOLD_MIN_MS = 430;
+  const QUICK_TAP_MAX_MS = 180;
+  const LONG_TAP_MIN_MS = 235;
+  const LONG_TAP_MAX_MS = 410;
+  const QUICK_TAP_COUNT = 3;
+  const QUICK_TAP_WINDOW_MS = 760;
   const MAX_GESTURE_TRAVEL = .045;
   const slotState = new Map();
 
@@ -100,6 +103,22 @@
     };
   }
 
+  function clearQuickTaps(conn){
+    conn.__puppetalkQuickTaps = [];
+  }
+
+  function registerQuickTap(conn,now,sendRaw){
+    const recent = (Array.isArray(conn.__puppetalkQuickTaps) ? conn.__puppetalkQuickTaps : [])
+      .filter(time=>now-time <= QUICK_TAP_WINDOW_MS);
+    recent.push(now);
+    if(recent.length >= QUICK_TAP_COUNT){
+      clearQuickTaps(conn);
+      sendRaw({type:'depth-step',direction:1});
+      return;
+    }
+    conn.__puppetalkQuickTaps = recent;
+  }
+
   function observeControllerGesture(conn,input,sendRaw){
     const torso = torsoGrab(input);
     const now = performance.now();
@@ -124,13 +143,24 @@
     if(!gesture) return;
     conn.__puppetalkDepthGesture = null;
     const duration = now-gesture.startedAt;
-    if(gesture.maxTravel > MAX_GESTURE_TRAVEL) return;
 
-    if(duration <= TAP_MAX_MS){
-      sendRaw({type:'depth-step',direction:1});
-    }else if(duration >= HOLD_MIN_MS){
-      sendRaw({type:'depth-step',direction:-1});
+    if(gesture.maxTravel > MAX_GESTURE_TRAVEL){
+      clearQuickTaps(conn);
+      return;
     }
+
+    if(duration <= QUICK_TAP_MAX_MS){
+      registerQuickTap(conn,now,sendRaw);
+      return;
+    }
+
+    if(duration >= LONG_TAP_MIN_MS && duration <= LONG_TAP_MAX_MS){
+      clearQuickTaps(conn);
+      sendRaw({type:'depth-step',direction:-1});
+      return;
+    }
+
+    clearQuickTaps(conn);
   }
 
   function updateSourceStage(data){
@@ -202,10 +232,11 @@
     shiftForDepth:targetShift
   };
   window.PuppetalkForegroundTuning = {
-    version:32,
+    version:34,
     minDepth:DEPTH_MIN,
     maxDepth:DEPTH_MAX,
     closerStep:CLOSER_STEP,
-    awayStep:AWAY_STEP
+    awayStep:AWAY_STEP,
+    quickTapCount:QUICK_TAP_COUNT
   };
 })();
