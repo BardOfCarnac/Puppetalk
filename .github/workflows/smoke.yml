@@ -28,3 +28,4 @@ jobs:
       - run: node --check fullscreen-controller.js
       - run: node --check toy-system.js
       - run: node --check toy-tap.js
+      - run: node --check dart-stick.js
