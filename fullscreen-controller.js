@@ -2,10 +2,14 @@
   const mode=new URLSearchParams(location.search).get('mode');
   if(mode!=='controller'||window.PuppetalkFullscreenController) return;
 
-  const TAP_MAX_MS=240;
-  const HOLD_MIN_MS=430;
+  const QUICK_TAP_MAX_MS=180;
+  const LONG_TAP_MIN_MS=235;
+  const LONG_TAP_MAX_MS=410;
+  const QUICK_TAP_COUNT=3;
+  const QUICK_TAP_WINDOW_MS=760;
   const MAX_TRAVEL_PX=14;
   let bodyGesture=null;
+  let quickTaps=[];
   let ready=false;
   let toastTimer=null;
 
@@ -19,7 +23,7 @@
 
     const guide=document.createElement('div');
     guide.className='depth-gesture-guide';
-    guide.textContent='tap body: closer · hold: away';
+    guide.textContent='3 quick taps: closer · long tap: away';
     guide.setAttribute('aria-hidden','true');
     Object.assign(guide.style,{
       position:'fixed',left:'50%',bottom:'16px',transform:'translateX(-50%)',zIndex:'38',
@@ -64,7 +68,20 @@
     toastTimer=setTimeout(()=>{
       toast.style.opacity='0';
       toast.style.transform='translate(-50%,-50%) scale(.94)';
-    },520);
+    },420);
+  }
+
+  function resetQuickTaps(){ quickTaps=[]; }
+
+  function registerQuickTap(now){
+    quickTaps=quickTaps.filter(time=>now-time<=QUICK_TAP_WINDOW_MS);
+    quickTaps.push(now);
+    if(quickTaps.length>=QUICK_TAP_COUNT){
+      resetQuickTaps();
+      showToast('CLOSER');
+      return;
+    }
+    showToast(`${quickTaps.length}/${QUICK_TAP_COUNT}`);
   }
 
   document.addEventListener('pointerdown',event=>{
@@ -93,20 +110,39 @@
     if(!bodyGesture||event.pointerId!==bodyGesture.pointerId) return;
     const gesture=bodyGesture;
     bodyGesture=null;
-    const duration=performance.now()-gesture.startedAt;
-    if(gesture.maxTravel>MAX_TRAVEL_PX) return;
-    if(duration<=TAP_MAX_MS) showToast('CLOSER');
-    else if(duration>=HOLD_MIN_MS) showToast('AWAY');
+    const now=performance.now();
+    const duration=now-gesture.startedAt;
+
+    if(gesture.maxTravel>MAX_TRAVEL_PX){
+      resetQuickTaps();
+      return;
+    }
+
+    if(duration<=QUICK_TAP_MAX_MS){
+      registerQuickTap(now);
+      return;
+    }
+
+    if(duration>=LONG_TAP_MIN_MS&&duration<=LONG_TAP_MAX_MS){
+      resetQuickTaps();
+      showToast('AWAY');
+      return;
+    }
+
+    resetQuickTaps();
   }
 
   document.addEventListener('pointerup',finishGesture);
   document.addEventListener('pointercancel',event=>{
-    if(bodyGesture&&event.pointerId===bodyGesture.pointerId) bodyGesture=null;
+    if(bodyGesture&&event.pointerId===bodyGesture.pointerId){
+      bodyGesture=null;
+      resetQuickTaps();
+    }
   });
 
   const observer=new MutationObserver(()=>ensureChrome());
   observer.observe(document.documentElement,{childList:true,subtree:true});
   ensureChrome();
 
-  window.PuppetalkFullscreenController={version:32};
+  window.PuppetalkFullscreenController={version:34};
 })();
