@@ -1,5 +1,5 @@
 // Puppetalk cumulative balloon buoyancy tuning.
-// Keeps local limb tug, but enough attached balloons must lift the whole puppet.
+// Keeps local limb tug, but four balloons lift and a full cluster pins the puppet overhead.
 (() => {
   const decoratedFetch = window.fetch.bind(window);
 
@@ -34,21 +34,30 @@
          candidate.attachedTo?.slot === a.slot) count++;
     }
 
-    // A couple should only make the puppet lighter; the lift curve then rises so
-    // roughly 5-6 balloons begin winning against the standing rig and 7-8 plainly
-    // carry the puppet. Fade thrust at higher upward speed so it floats instead of
-    // accelerating like a rocket.
+    // Four balloons are the intentional take-off threshold. One or two mostly tug;
+    // three make the puppet conspicuously light; the fourth gives enough combined
+    // buoyancy to beat gravity + standing support. Beyond that the curve rises hard
+    // so eight balloons keep hauling until the puppet is pressed against the ceiling.
+    let baseLift;
+    if(count <= 1) baseLift = .0034;
+    else if(count === 2) baseLift = .0045;
+    else if(count === 3) baseLift = .0062;
+    else if(count === 4) baseLift = .0115;
+    else baseLift = .0115 + (count-4)*.0018;
+
     const puppet = puppets.get(a.slot);
     const upwardSpeed = Math.max(0,-(puppet?.torso?.velocity?.y || 0));
-    const speedFade = clamp(1-upwardSpeed/11,.46,1);
-    const lift = (.0038 + Math.max(0,count-2)*.00075) * speedFade;
+    // Retain some terminal-speed damping, but never fade lift enough for a large
+    // balloon cluster to lose against the standing rig before it reaches the ceiling.
+    const speedFade = clamp(1-upwardSpeed/13,.55,1);
+    const lift = baseLift * speedFade;
     const sway = Math.sin(now*.0016+(a.phase||0))*.00032;
 
-    // Most force stays at the real attachment point so balloons can pull limbs and
-    // tip the body. A smaller share goes through the torso so accumulated buoyancy
-    // actually raises the whole articulated puppet rather than only stretching it.
+    // Preserve visibly local limb pulling, while passing more force through the torso
+    // once take-off begins so four balloons attached around the limbs raise the whole
+    // articulated body rather than merely stretching it upward.
     const torso = puppet?.torso;
-    const localShare = torso && torso !== a.body ? .72 : 1;
+    const localShare = torso && torso !== a.body ? (count >= 4 ? .64 : .76) : 1;
     Body.applyForce(a.body,anchor,{x:sway,y:-lift*localShare});
     if(torso && torso !== a.body){
       Body.applyForce(torso,torso.position,{x:0,y:-lift*(1-localShare)});
