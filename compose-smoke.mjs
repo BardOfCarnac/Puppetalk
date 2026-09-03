@@ -17,7 +17,8 @@ const decorators = [
   'balloon-buoyancy.js',
   'dart-balloon-pop.js',
   'severable-joints.js',
-  'laser-frisbee.js'
+  'laser-frisbee.js',
+  'item-polish.js'
 ];
 
 const context = {
@@ -48,12 +49,11 @@ for(const marker of [
   'PUPPETALK_BALLOON_BUOYANCY_V1',
   'PUPPETALK_DART_BALLOON_POP_V1',
   'PUPPETALK_SEVERABLE_JOINTS_V1',
-  'PUPPETALK_LASER_FRISBEE_V1'
+  'PUPPETALK_LASER_FRISBEE_V1',
+  'PUPPETALK_ITEM_POLISH_V1'
 ]){
   if(!composed.includes(marker)) throw new Error(`Missing composed marker: ${marker}`);
 }
 
-// Parse the final generated app source too. Individual decorator syntax checks do not
-// catch bad replacement output or mismatched source needles.
 new Function(composed);
 console.log('Composed app source smoke check passed.');
