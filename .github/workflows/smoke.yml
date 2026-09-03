@@ -30,4 +30,6 @@ jobs:
       - run: node --check toy-system.js
       - run: node --check toy-tap.js
       - run: node --check dart-stick.js
+      - run: node --check balloon-tie.js
       - run: node --check toy-throw.js
+      - run: node --check voice-layer.js
