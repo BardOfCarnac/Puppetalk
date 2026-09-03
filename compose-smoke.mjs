@@ -19,6 +19,7 @@ const decorators = [
   'severable-joints.js',
   'laser-frisbee.js',
   'item-polish.js',
+  'body-slicing.js',
   'voice-layer.js',
   'voice-stage-compat.js'
 ];
@@ -74,6 +75,7 @@ for(const marker of [
   'PUPPETALK_SEVERABLE_JOINTS_V1',
   'PUPPETALK_LASER_FRISBEE_V1',
   'PUPPETALK_ITEM_POLISH_V1',
+  'PUPPETALK_BODY_SLICING_V1',
   'PUPPETALK_VOICE_STAGE_COMPAT_V1'
 ]){
   if(!composed.includes(marker)) throw new Error(`Missing composed marker: ${marker}`);
@@ -90,5 +92,14 @@ for(const hook of [
   if(!composed.includes(hook)) throw new Error(`Missing live voice hook: ${hook}`);
 }
 
+for(const hook of [
+  'splitPuppetBody(hit.p,hit.body,hit.line)',
+  'pieces:bodyPieceState(p)',
+  'prepareLaserFrisbeePass(now)',
+  'healBodySlices(p)'
+]){
+  if(!composed.includes(hook)) throw new Error(`Missing body slicing hook: ${hook}`);
+}
+
 new Function(composed);
-console.log('Composed app + live voice source smoke check passed.');
+console.log('Composed app + body slicing + live voice source smoke check passed.');
