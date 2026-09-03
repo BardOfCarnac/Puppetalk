@@ -19,7 +19,8 @@ const decorators = [
   'severable-joints.js',
   'laser-frisbee.js',
   'item-polish.js',
-  'voice-layer.js'
+  'voice-layer.js',
+  'voice-stage-compat.js'
 ];
 
 const stubNode = () => ({
@@ -72,7 +73,8 @@ for(const marker of [
   'PUPPETALK_DART_BALLOON_POP_V1',
   'PUPPETALK_SEVERABLE_JOINTS_V1',
   'PUPPETALK_LASER_FRISBEE_V1',
-  'PUPPETALK_ITEM_POLISH_V1'
+  'PUPPETALK_ITEM_POLISH_V1',
+  'PUPPETALK_VOICE_STAGE_COMPAT_V1'
 ]){
   if(!composed.includes(marker)) throw new Error(`Missing composed marker: ${marker}`);
 }
