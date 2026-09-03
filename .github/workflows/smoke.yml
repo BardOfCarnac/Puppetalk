@@ -21,6 +21,7 @@ jobs:
       - run: node --check stability.js
       - run: node --check pose-tuning.js
       - run: node --check foreground-tuning.js
+      - run: node --check slice-depth-compat.js
       - run: node --check locomotion.js
       - run: node --check device-projection.js
       - run: node --check jump-feel.js
