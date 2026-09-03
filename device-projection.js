@@ -8,7 +8,7 @@
 
     patched = patched.replace(
       /function displayPoint\(q,w,h\)\{[\s\S]*?\n\}\nfunction displayNorm\(px,py,w,h\)\{[\s\S]*?\n\}\n\nfunction drawBackdrop/,
-`let controllerProjection = null;
+`var controllerProjection = null;
 function sourceStageSize(){
   const source = window.PuppetalkSourceStage;
   const width = Number.isFinite(source?.width) && source.width > 100 ? source.width : 320;
@@ -92,5 +92,5 @@ function drawBackdrop`
   DeviceProjectionBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(DeviceProjectionBlob,NativeBlob);
   window.Blob = DeviceProjectionBlob;
-  window.PuppetalkDeviceProjection = {version:32};
+  window.PuppetalkDeviceProjection = {version:33};
 })();
