@@ -11,7 +11,6 @@
       '  // PUPPETALK_LASER_FRISBEE_V1\n  // PUPPETALK_ITEM_POLISH_V1'
     );
 
-    // Add a real pump body to the prop factory.
     const bodyNeedle = `    }else if(type === 'frisbee'){
       body = Bodies.circle(x,y,23,{density:.00062,restitution:.72,friction:.18,frictionAir:.004});
       gripPoint = {x:-15,y:0};
@@ -32,14 +31,11 @@
     if(!source.includes(bodyNeedle)) throw new Error('Item polish patch failed: pump body');
     source = source.replace(bodyNeedle,bodyCode);
 
-    // The pump now manufactures balloons, so don't begin with a balloon heap.
     const spawnNeedle = `    for(let i=0;i<12;i++) makeProp('balloon',W*(.65+(i%4)*.043),y+10+Math.floor(i/4)*30);`;
     const spawnCode = `    makeProp('pump',W*.73,H-68);`;
     if(!source.includes(spawnNeedle)) throw new Error('Item polish patch failed: pump spawn');
     source = source.replace(spawnNeedle,spawnCode);
 
-    // Frisbee pickup gets a larger physical reach. It is especially forgiving once
-    // the disc has slowed, so resting against another limb cannot make it inaccessible.
     const closeNeedle = `  function propHandIsClose(slot,hand,prop){
     const p = puppets.get(slot);
     if(!p) return false;
@@ -57,9 +53,6 @@
     if(!source.includes(closeNeedle)) throw new Error('Item polish patch failed: frisbee host pickup reach');
     source = source.replace(closeNeedle,closeCode);
 
-    // Pump mechanics. First press creates a small balloon; every further press inflates
-    // that same balloon. Growth is sub-linear rather than hard-capped, so players can
-    // keep pumping without producing absurd geometry too quickly.
     const helperNeedle = `  function driveProps(){`;
     const helperCode = `  function pumpNozzleOffset(scale){
     return {x:0,y:-34-18*Math.max(.34,scale||.34)};
@@ -113,7 +106,6 @@ ${helperNeedle}`;
     if(!source.includes(helperNeedle)) throw new Error('Item polish patch failed: pump helpers');
     source = source.replace(helperNeedle,helperCode);
 
-    // Pumped balloon size travels with the scene so every phone draws the same object.
     const stateNeedle = `      type:prop.type,
       armed:prop.type === 'frisbee' ? !!prop._cutArmed : undefined,
       x:b.position.x/W,`;
@@ -126,13 +118,7 @@ ${helperNeedle}`;
     if(!source.includes(stateNeedle)) throw new Error('Item polish patch failed: balloon size state');
     source = source.replace(stateNeedle,stateCode);
 
-    // Pumping and releasing the nozzle balloon are direct object gestures rather than
-    // grabs. Ordinary items still use the existing hand/foot proximity interaction.
-    const inputNeedle = `  function handlePropInput(slot,msg){
-    if(msg?.type !== 'prop' || msg.action !== 'tap') return;
-    const result = tapProp(slot,msg);
-    send(conns.get(slot),{type:'prop-result',propId:msg.propId,...result});
-  }`;
+    const inputPattern = /  function handlePropInput\(slot,msg\)\{[\s\S]*?\n  \}\n\n  function makePuppet\(slot\)\{/;
     const inputCode = `  function handlePropInput(slot,msg){
     if(msg?.type !== 'prop') return;
     if(msg.action === 'pump'){
@@ -147,14 +133,17 @@ ${helperNeedle}`;
       send(conns.get(slot),{type:'prop-result',propId:msg.propId,ok,message:ok?'Released balloon.':'That balloon is not on the pump.'});
       return;
     }
-    if(msg.action !== 'tap') return;
-    const result = tapProp(slot,msg);
-    send(conns.get(slot),{type:'prop-result',propId:msg.propId,...result});
-  }`;
-    if(!source.includes(inputNeedle)) throw new Error('Item polish patch failed: pump network input');
-    source = source.replace(inputNeedle,inputCode);
+    let result = null;
+    if(msg.action === 'tap') result = tapProp(slot,msg);
+    else if(msg.action === 'throw') result = throwHeldProp(slot,msg);
+    if(!result) return;
+    send(conns.get(slot),{type:'prop-result',propId:msg.propId || result.propId,...result});
+  }
 
-    // Make the frisbee an easier touch target on the controller too.
+  function makePuppet(slot){`;
+    if(!inputPattern.test(source)) throw new Error('Item polish patch failed: pump network input');
+    source = source.replace(inputPattern,inputCode);
+
     const radiusNeedle = `      const radius = prop.type === 'balloon' ? 38 : prop.type === 'ball' ? 34 : 32;`;
     const radiusCode = `      const radius = prop.type === 'frisbee' ? 48 : prop.type === 'pump' ? 44 : prop.type === 'balloon' ? 38 : prop.type === 'ball' ? 34 : 32;`;
     if(!source.includes(radiusNeedle)) throw new Error('Item polish patch failed: item tap radii');
@@ -189,8 +178,6 @@ ${helperNeedle}`;
     if(!source.includes(pointerNeedle)) throw new Error('Item polish patch failed: direct pump gestures');
     source = source.replace(pointerNeedle,pointerCode);
 
-    // Scale the visual balloon with its Matter body. The tether start follows the
-    // swollen balloon rather than disappearing into its middle.
     const rotateNeedle = `  ctx.translate(x,y);
   ctx.rotate(p.a || 0);
   ctx.lineCap = ctx.lineJoin = 'round';`;
@@ -206,7 +193,6 @@ ${helperNeedle}`;
       `    ctx.moveTo(x,y+15*s*Math.max(.22,p.scale||1));`
     );
 
-    // Draw the pump as an unmistakable tabletop foot pump with a plunger and nozzle.
     const pumpDrawNeedle = `  }else if(p.type === 'frisbee'){
     ctx.fillStyle='#08090a';ctx.beginPath();ctx.arc(0,0,24*s,0,Math.PI*2);ctx.fill();`;
     const pumpDrawCode = `  }else if(p.type === 'pump'){
@@ -222,7 +208,6 @@ ${helperNeedle}`;
     if(!source.includes(pumpDrawNeedle)) throw new Error('Item polish patch failed: pump renderer');
     source = source.replace(pumpDrawNeedle,pumpDrawCode);
 
-    // Larger pumped balloons provide proportionally more useful lift once tied on.
     const liftNeedle = `    const lift = baseLift * speedFade;`;
     const liftCode = `    const balloonScale = Math.max(.35,prop._renderScale||1);
     const lift = baseLift * balloonScale*balloonScale * speedFade;`;
