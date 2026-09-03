@@ -26,6 +26,7 @@ jobs:
       - run: node --check jump-feel.js
       - run: node --check control-feel.js
       - run: node --check fullscreen-controller.js
+      - run: node --check line-face-mouths-patch.js
       - run: node --check toy-system.js
       - run: node --check toy-tap.js
       - run: node --check dart-stick.js
