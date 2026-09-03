@@ -82,3 +82,4 @@ if(!requestedConstraints?.audio?.autoGainControl) throw new Error('Auto gain was
 if(context.window.PuppetalkSound?.version !== 2) throw new Error('Sound runtime did not initialize');
 
 console.log('Isolated sound runtime smoke check passed.');
+process.exit(0);
