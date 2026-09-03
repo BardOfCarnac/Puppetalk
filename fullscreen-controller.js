@@ -1,78 +1,94 @@
 (()=>{
-  const mode = new URLSearchParams(location.search).get('mode');
-  if(mode !== 'controller' || window.PuppetalkFullscreenController) return;
+  const mode=new URLSearchParams(location.search).get('mode');
+  if(mode!=='controller'||window.PuppetalkFullscreenController) return;
 
-  const EDGE = .055;
-  let bodyPointer = null;
-  let ready = false;
+  const TAP_MAX_MS=240;
+  const HOLD_MIN_MS=430;
+  const MAX_TRAVEL_PX=14;
+  let bodyGesture=null;
+  let ready=false;
+  let toastTimer=null;
 
   function ensureChrome(){
     if(ready) return true;
-    const shell = document.querySelector('.controller-shell');
-    const canvas = document.querySelector('#personal-canvas');
-    if(!shell || !canvas) return false;
+    const shell=document.querySelector('.controller-shell');
+    const canvas=document.querySelector('#personal-canvas');
+    if(!shell||!canvas) return false;
 
     document.body.classList.add('puppetalk-fullscreen');
 
-    const top = document.createElement('div');
-    top.className = 'depth-rim depth-rim-top';
-    top.dataset.label = 'walk away';
-    top.setAttribute('aria-hidden','true');
+    const guide=document.createElement('div');
+    guide.className='depth-gesture-guide';
+    guide.textContent='tap body: closer · hold: away';
+    guide.setAttribute('aria-hidden','true');
 
-    const bottom = document.createElement('div');
-    bottom.className = 'depth-rim depth-rim-bottom';
-    bottom.dataset.label = 'walk closer';
-    bottom.setAttribute('aria-hidden','true');
+    const toast=document.createElement('div');
+    toast.className='depth-toast';
+    toast.setAttribute('aria-hidden','true');
 
-    document.body.append(top,bottom);
-    ready = true;
+    document.body.append(guide,toast);
+    setTimeout(()=>guide.classList.add('quiet'),5200);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>window.dispatchEvent(new Event('resize'))));
+    ready=true;
     return true;
   }
 
-  function clearDepthChrome(){
-    bodyPointer = null;
-    document.body.classList.remove('depth-body-drag','depth-edge-top','depth-edge-bottom');
-  }
-
   function currentGrabIsBody(){
-    const hint = document.querySelector('#stage-hint')?.textContent || '';
-    return /\b(body|torso)\b/i.test(hint) && /holding|pulling/i.test(hint);
+    const hint=document.querySelector('#stage-hint')?.textContent||'';
+    return /\b(body|torso)\b/i.test(hint)&&/holding|pulling/i.test(hint);
   }
 
-  function updateDepthChrome(event){
-    if(bodyPointer == null || event.pointerId !== bodyPointer) return;
-    const y = Math.max(0,Math.min(1,event.clientY/Math.max(window.innerHeight,1)));
-    document.body.classList.add('depth-body-drag');
-    document.body.classList.toggle('depth-edge-top',y <= EDGE);
-    document.body.classList.toggle('depth-edge-bottom',y >= 1-EDGE);
+  function showToast(text){
+    const toast=document.querySelector('.depth-toast');
+    const guide=document.querySelector('.depth-gesture-guide');
+    if(!toast) return;
+    if(toastTimer) clearTimeout(toastTimer);
+    toast.textContent=text;
+    toast.classList.add('show');
+    guide?.classList.add('quiet');
+    toastTimer=setTimeout(()=>toast.classList.remove('show'),520);
   }
 
   document.addEventListener('pointerdown',event=>{
-    if(event.target?.id !== 'personal-canvas') return;
+    if(event.target?.id!=='personal-canvas') return;
     queueMicrotask(()=>{
-      if(!ensureChrome() || !currentGrabIsBody()) return;
-      bodyPointer = event.pointerId;
-      updateDepthChrome(event);
+      if(!ensureChrome()||!currentGrabIsBody()) return;
+      bodyGesture={
+        pointerId:event.pointerId,
+        startedAt:performance.now(),
+        startX:event.clientX,
+        startY:event.clientY,
+        maxTravel:0
+      };
     });
   });
 
   document.addEventListener('pointermove',event=>{
-    if(bodyPointer == null && event.target?.id === 'personal-canvas' && currentGrabIsBody()){
-      bodyPointer = event.pointerId;
-    }
-    updateDepthChrome(event);
+    if(!bodyGesture||event.pointerId!==bodyGesture.pointerId) return;
+    bodyGesture.maxTravel=Math.max(
+      bodyGesture.maxTravel,
+      Math.hypot(event.clientX-bodyGesture.startX,event.clientY-bodyGesture.startY)
+    );
   });
 
-  document.addEventListener('pointerup',event=>{
-    if(event.pointerId === bodyPointer) clearDepthChrome();
-  });
+  function finishGesture(event){
+    if(!bodyGesture||event.pointerId!==bodyGesture.pointerId) return;
+    const gesture=bodyGesture;
+    bodyGesture=null;
+    const duration=performance.now()-gesture.startedAt;
+    if(gesture.maxTravel>MAX_TRAVEL_PX) return;
+    if(duration<=TAP_MAX_MS) showToast('CLOSER');
+    else if(duration>=HOLD_MIN_MS) showToast('AWAY');
+  }
+
+  document.addEventListener('pointerup',finishGesture);
   document.addEventListener('pointercancel',event=>{
-    if(event.pointerId === bodyPointer) clearDepthChrome();
+    if(bodyGesture&&event.pointerId===bodyGesture.pointerId) bodyGesture=null;
   });
 
-  const observer = new MutationObserver(()=>ensureChrome());
+  const observer=new MutationObserver(()=>ensureChrome());
   observer.observe(document.documentElement,{childList:true,subtree:true});
   ensureChrome();
 
-  window.PuppetalkFullscreenController = {version:29,edge:EDGE};
+  window.PuppetalkFullscreenController={version:32};
 })();
