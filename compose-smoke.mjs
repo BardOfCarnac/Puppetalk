@@ -6,6 +6,8 @@ const decorators = [
   'character-creator-patch.js',
   'character-creator-hotfix.js',
   'line-face-mouths-patch.js',
+  'line-face-features-patch.js',
+  'face-spacing-patch.js',
   'toy-system.js',
   'toy-tap.js',
   'dart-stick.js',
@@ -13,7 +15,9 @@ const decorators = [
   'toy-throw.js',
   'prop-extremities.js',
   'balloon-buoyancy.js',
-  'dart-balloon-pop.js'
+  'dart-balloon-pop.js',
+  'severable-joints.js',
+  'laser-frisbee.js'
 ];
 
 const context = {
@@ -42,7 +46,9 @@ for(const marker of [
   'PUPPETALK_TOY_THROW_V1',
   'PUPPETALK_PROP_EXTREMITIES_V1',
   'PUPPETALK_BALLOON_BUOYANCY_V1',
-  'PUPPETALK_DART_BALLOON_POP_V1'
+  'PUPPETALK_DART_BALLOON_POP_V1',
+  'PUPPETALK_SEVERABLE_JOINTS_V1',
+  'PUPPETALK_LASER_FRISBEE_V1'
 ]){
   if(!composed.includes(marker)) throw new Error(`Missing composed marker: ${marker}`);
 }
