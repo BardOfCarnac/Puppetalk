@@ -33,3 +33,4 @@ jobs:
       - run: node --check balloon-tie.js
       - run: node --check toy-throw.js
       - run: node --check voice-layer.js
+      - run: node compose-smoke.mjs
