@@ -146,6 +146,8 @@
     }
 
     if(prop.heldBy.slot === slot){
+      // Once the prop is ours, touching it is reserved for controlling the holding hand.
+      // Never interpret a self-held prop tap as an implicit drop.
       if(prop.contest){
         prop.contest.score = Math.max(0,prop.contest.score-.19);
         prop.contest.lastTapAt = now;
@@ -153,8 +155,7 @@
         if(prop.contest.score <= .01) cancelPropContest(prop);
         return {ok:true,message:'Held your ground.'};
       }
-      releasePropHolder(prop,false);
-      return {ok:true,message:'Dropped '+prop.type+'.'};
+      return {ok:true,message:'Still holding '+prop.type+'.'};
     }
 
     if(prop.contest){
@@ -228,6 +229,12 @@
   canvas.addEventListener('pointerdown',event=>{
     const prop = pickTappedProp(event);
     if(!prop) return;
+
+    // If this is already our prop, do not consume the pointer event. The normal
+    // puppet hit-test underneath will pick the hand at the same location, allowing
+    // the player to grab/swing by touching the object itself.
+    if(prop.heldBy?.slot === slot) return;
+
     const hand = nearestPropHand(prop);
     if(!hand) return;
     event.preventDefault();
