@@ -88,3 +88,11 @@ jobs:
             cat /tmp/hollerday-dom.html || true
             exit 1
           fi
+          google-chrome --headless --no-sandbox --disable-gpu --virtual-time-budget=5000 --dump-dom 'http://127.0.0.1:8080/hollerday/?room=SMOKE&host=1' >/tmp/hollerday-host.html 2>/tmp/hollerday-host-chrome.log || true
+          if ! grep -q 'TABLE SMOKE' /tmp/hollerday-host.html || ! grep -q '>Table open<' /tmp/hollerday-host.html; then
+            echo 'Hollerday host did not reach its running table state.'
+            cat /tmp/hollerday-host-chrome.log || true
+            echo '--- HOST DOM ---'
+            cat /tmp/hollerday-host.html || true
+            exit 1
+          fi
