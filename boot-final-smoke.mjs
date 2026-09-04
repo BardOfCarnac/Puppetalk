@@ -134,7 +134,11 @@ for(const hook of [
   'PUPPETALK_LAST_LOOK_SENT',
   "type:'look',look:msg.input.look,name"
 ]){
-  if(!finalSource.includes(hook)) throw new Error(`Missing final boot hook: ${hook}`);
+  if(!finalSource.includes(hook)){
+    const headAt=finalSource.indexOf('const hx = p.head.x*w;');
+    const headSnippet=headAt>=0?finalSource.slice(Math.max(0,headAt-500),headAt+4200):'(no head anchor found)';
+    throw new Error(`Missing final boot hook: ${hook}\n--- surviving head renderer ---\n${headSnippet}`);
+  }
 }
 if(finalSource.includes('splitPuppetBody(')) throw new Error('Old runtime slicing survived into final boot source.');
 new Function(finalSource);
