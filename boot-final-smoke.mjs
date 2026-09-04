@@ -11,7 +11,6 @@ const decorators = [
   'profile-name-patch.js',
   'look-sync-patch.js',
   'live-face-render-patch.js',
-  'live-head-finalizer.js',
   'toy-system.js',
   'toy-tap.js',
   'dart-stick.js',
@@ -130,11 +129,12 @@ for(const hook of [
   'puppetalkAimProjectPoint(p,qRaw,prop._throwerSlot)',
   'throwerSlot:Number.isInteger(prop._throwerSlot)',
   'const activePointers = new Map()',
-  'const rawLook = p.look',
-  "const headStyles=['smooth','spikes','tallSpikes','burst','scallop','tufts','swept','fringe']",
-  'const eyeMap={closed:',
-  'const noseMap={angular:',
-  'drawLineFaceMouth(ctx,mouthStyle,p.mouth,hr)',
+  'headStyle:LOOK_PARTS.headStyle.includes',
+  'nose:LOOK_PARTS.nose.includes',
+  'puppetalkLiveHeadPath(ctx,look.headStyle,hr)',
+  'puppetalkDrawLiveEyes(ctx,look.eyes,hr)',
+  'puppetalkDrawLiveNose(ctx,look.nose,hr)',
+  'puppetalkDrawLiveMouth(ctx,look.mouth,p.mouth,hr)',
   'PUPPETALK_LAST_LOOK_SENT',
   "type:'look',look:msg.input.look,name"
 ]){
@@ -146,4 +146,4 @@ for(const hook of [
 }
 if(finalSource.includes('splitPuppetBody(')) throw new Error('Old runtime slicing survived into final boot source.');
 new Function(finalSource);
-console.log('Final boot-transformed Puppetalk source, including selected head and native Line Face rendering, passed.');
+console.log('Final boot-transformed Puppetalk source, including canonical selected head + Line Face rendering, passed.');
