@@ -121,7 +121,7 @@ function drawLineFaceMouth(ctx,name,state,hr){
   window.fetch = async (...args) => {
     const response = await decoratedFetch(...args);
     const target = String(args[0]?.url || args[0] || '');
-    if(!/app\\.js(?:\\?|$)/.test(target)) return response;
+    if(!/app\.js(?:\?|$)/.test(target)) return response;
     const text = await response.text();
     return new Response(patch(text),{
       status:response.status,
