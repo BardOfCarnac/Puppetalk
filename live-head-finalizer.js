@@ -6,7 +6,7 @@
   function patch(source){
     if(!source.includes('function drawLineFaceMouth')) return source;
 
-    const headPattern=/  const hx = p\.head\.x\*w;[\s\S]*?  ctx\.restore\(\);\n\n  ctx\.font =/;
+    const headPattern=/  const hx = p\.head\.x\*w;[\s\S]*?  ctx\.restore\(\);\s+  ctx\.font =/;
     if(!headPattern.test(source)) return source;
 
     const head=`  const hx = p.head.x*w;
@@ -74,7 +74,7 @@
   window.fetch=async(...args)=>{
     const response=await decoratedFetch(...args);
     const target=String(args[0]?.url||args[0]||'');
-    if(!/app\\.js(?:\\?|$)/.test(target)) return response;
+    if(!/app\.js(?:\?|$)/.test(target)) return response;
     const text=await response.text();
     return new Response(patch(text),{status:response.status,statusText:response.statusText,headers:response.headers});
   };
