@@ -1,31 +1,8 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {appSourceDecorators as decorators} from './translation/manifest.mjs';
 
 const appSource = fs.readFileSync('app.js','utf8');
-const decorators = [
-  'character-creator-patch.js',
-  'character-creator-hotfix.js',
-  'line-face-mouths-patch.js',
-  'line-face-features-patch.js',
-  'face-spacing-patch.js',
-  'profile-name-patch.js',
-  'live-face-render-patch.js',
-  'toy-system.js',
-  'toy-tap.js',
-  'dart-stick.js',
-  'balloon-tie.js',
-  'toy-throw.js',
-  'prop-extremities.js',
-  'balloon-buoyancy.js',
-  'dart-balloon-pop.js',
-  'severable-joints.js',
-  'laser-frisbee.js',
-  'item-polish.js',
-  'special-items.js',
-  'segmented-puppet.js',
-  'seat-render.js',
-  'depth-assist.js'
-];
 
 const stubNode = () => ({
   appendChild(){}, remove(){}, pause(){}, select(){},
@@ -120,6 +97,7 @@ for(const hook of [
   'PUPPETALK_SEGMENTED_PUPPET_V1',
   'PUPPETALK_SEAT_RENDER_V1',
   'PUPPETALK_DEPTH_ASSIST_V1',
+  'PUPPETALK_VISUAL_THICKNESS_V1',
   'brokenSeams:new Set()',
   'repairBrokenSeams(p)',
   'puppetalkSeatProjection(scene,propScene,slot)',
@@ -135,7 +113,9 @@ for(const hook of [
   'puppetalkDrawLiveNose(ctx,look.nose,hr)',
   'puppetalkDrawLiveMouth(ctx,look.mouth,p.mouth,hr)',
   "send(conn,{type:'look',look:input.look,name:savedPlayerName()});",
-  "msg?.type==='look'"
+  "msg?.type==='look'",
+  'const tw = Math.max(18,40*scale);',
+  'const hr = Math.max(12,23.5*scale);'
 ]){
   if(!finalSource.includes(hook)){
     const headAt=finalSource.indexOf('const hx = p.head.x*w;');
@@ -145,4 +125,4 @@ for(const hook of [
 }
 if(finalSource.includes('splitPuppetBody(')) throw new Error('Old runtime slicing survived into final boot source.');
 new Function(finalSource);
-console.log('Final boot-transformed Puppetalk source, including join profile + selected head + Line Face rendering, passed.');
+console.log('Final boot-transformed frozen Puppetalk source, including final visual proportions, passed.');
