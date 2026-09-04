@@ -21,7 +21,8 @@ const decorators = [
   'item-polish.js',
   'special-items.js',
   'segmented-puppet.js',
-  'seat-render.js'
+  'seat-render.js',
+  'depth-assist.js'
 ];
 
 const stubNode = () => ({
@@ -77,7 +78,8 @@ for(const marker of [
   'PUPPETALK_ITEM_POLISH_V1',
   'PUPPETALK_SPECIAL_ITEMS_V1',
   'PUPPETALK_SEGMENTED_PUPPET_V1',
-  'PUPPETALK_SEAT_RENDER_V1'
+  'PUPPETALK_SEAT_RENDER_V1',
+  'PUPPETALK_DEPTH_ASSIST_V1'
 ]){
   if(!composed.includes(marker)) throw new Error(`Missing composed marker: ${marker}`);
 }
@@ -91,7 +93,13 @@ for(const hook of [
   'prop.body.isSensor = true',
   'repairBrokenSeams(p)',
   'puppetalkSeatProjection(scene,propScene,slot)',
-  'PUPPETALK_SEAT_ORDER = [0,3,1,4,2,5]'
+  'PUPPETALK_SEAT_ORDER = [0,3,1,4,2,5]',
+  'PUPPETALK_ACTION_DEPTH_TOLERANCE = .38',
+  'driveDepthAssistedProps(now)',
+  'puppetalkAimProjectPropPoint(prop,prop._throwerSlot)',
+  'puppetalkAimProjectPoint(p,qRaw,prop._throwerSlot)',
+  'throwerSlot:Number.isInteger(prop._throwerSlot)',
+  'viewScale:depthApi?.scaleForDepth?.(viewDepth)||1'
 ]){
   if(!composed.includes(hook)) throw new Error(`Missing live architecture hook: ${hook}`);
 }
@@ -100,4 +108,4 @@ if(composed.includes('splitPuppetBody(')) throw new Error('Runtime body slicing 
 if(composed.includes('PUPPETALK_SEAT_VIEW')) throw new Error('Peer-wrapped seat view should not be in the live composed source.');
 
 new Function(composed);
-console.log('Composed live app + special items + segmented bodies + controller-local seat projection source smoke check passed.');
+console.log('Composed live app + segmented bodies + seat projection + 2.5D action-slab source smoke check passed.');
