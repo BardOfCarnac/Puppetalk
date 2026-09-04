@@ -17,6 +17,29 @@
       <p class="eyebrow">A shared puppet room</p>
       <h1 id="title">Hollerday</h1>
       <p class="strap">Turn up. Grab your puppet. See everybody.</p>
+
+      <section class="characterCard" aria-label="Your character">
+        <canvas id="characterPreview" class="characterPreview" aria-label="Character preview"></canvas>
+        <div class="characterIdentity">
+          <label class="srOnly" for="characterName">Character name</label>
+          <input id="characterName" class="characterName" maxlength="24" autocomplete="nickname" placeholder="Your name" />
+          <button id="editCharacter" type="button">Edit character</button>
+        </div>
+        <div id="characterEditor" class="characterEditor">
+          <div class="characterEditorHead">
+            <button id="previewTalk" type="button">Hold to talk</button>
+            <button id="rerollCharacter" type="button">Reroll · 1 left</button>
+          </div>
+          <div class="characterRow"><strong>Colour</strong><div id="characterColours" class="characterChoices"></div></div>
+          <div class="characterRow"><strong>Head</strong><div class="characterChoices" data-character-key="headStyle"></div></div>
+          <div class="characterRow"><strong>Eyes</strong><div class="characterChoices" data-character-key="eyes"></div></div>
+          <div class="characterRow"><strong>Nose</strong><div class="characterChoices" data-character-key="nose"></div></div>
+          <div class="characterRow"><strong>Mouth</strong><div class="characterChoices" data-character-key="mouth"></div></div>
+          <div class="characterRow"><strong>Extra</strong><div class="characterChoices" data-character-key="extra"></div></div>
+          <div class="characterRow"><strong>Item</strong><div id="characterItems" class="characterChoices"></div></div>
+        </div>
+      </section>
+
       <div class="actions">
         <button id="startBtn" class="primary">Start a table</button>
         <div class="joinRow">
