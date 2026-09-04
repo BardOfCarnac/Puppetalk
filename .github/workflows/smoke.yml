@@ -74,3 +74,17 @@ jobs:
       - run: node --check hollerday/src/scenes.js
       - run: node --check hollerday/src/seat-projection.js
       - run: node --check hollerday/src/main.js
+      - name: Hollerday browser boot smoke
+        run: |
+          python3 -m http.server 8080 >/tmp/hollerday-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid || true' EXIT
+          sleep 1
+          google-chrome --headless --no-sandbox --disable-gpu --virtual-time-budget=5000 --dump-dom http://127.0.0.1:8080/hollerday/ >/tmp/hollerday-dom.html 2>/tmp/hollerday-chrome.log || true
+          if ! grep -q 'characterChoice' /tmp/hollerday-dom.html; then
+            echo 'Hollerday did not finish browser initialization.'
+            cat /tmp/hollerday-chrome.log || true
+            echo '--- DOM ---'
+            cat /tmp/hollerday-dom.html || true
+            exit 1
+          fi
