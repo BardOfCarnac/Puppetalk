@@ -2,7 +2,7 @@ name: Smoke check
 
 on:
   push:
-    branches: [main]
+    branches: [main, puppetalk-translation]
   pull_request:
 
 jobs:
@@ -17,6 +17,8 @@ jobs:
       - run: node --check public/app.js
       - run: node --check app.js
       - run: node --check boot.js
+      - run: node --check translation/manifest.mjs
+      - run: node translation/manifest-smoke.mjs
       - run: node --check lobby-routing.js
       - run: node --check profile-name-patch.js
       - run: node --check look-sync-patch.js
@@ -54,6 +56,7 @@ jobs:
       - run: node --check segmented-puppet.js
       - run: node --check seat-render.js
       - run: node --check depth-assist.js
+      - run: node --check visual-thickness.js
       - run: node --check body-slicing.js
       - run: node --check voice-layer.js
       - run: node --check voice-stage-compat.js
@@ -61,6 +64,7 @@ jobs:
       - run: node sound-runtime-smoke.mjs
       - run: node --check sound-sidecar.js
       - run: node sound-sidecar-smoke.mjs
+      - run: node --check compose-smoke.mjs
       - run: node compose-smoke.mjs
       - run: node --check boot-final-smoke.mjs
       - run: node boot-final-smoke.mjs
