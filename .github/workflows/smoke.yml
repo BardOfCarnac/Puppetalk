@@ -24,9 +24,12 @@ jobs:
       - run: node --check seat-view.js
       - run: node --check locomotion.js
       - run: node --check device-projection.js
+      - run: node --check segmented-stance-compat.js
+      - run: node segmented-stance-smoke.mjs
       - run: node --check jump-feel.js
       - run: node --check control-feel.js
       - run: node --check fullscreen-controller.js
+      - run: node --check look-migration.js
       - run: node --check line-face-mouths-patch.js
       - run: node --check line-face-features-patch.js
       - run: node --check face-spacing-patch.js
