@@ -33,10 +33,10 @@ function drivePuppet(p){
     const leftFoot = grabWorldPoint(p,'leftFoot');
     const rightFoot = grabWorldPoint(p,'rightFoot');
 }
-function repairBrokenSeams(p){}
+  function repairBrokenSeams(p){}
 function repairSeveredJoints(p){}
 function tick(){
-  puppets.forEach(p=>{ drivePuppet(p); repairBrokenSeams(p); repairSeveredJoints(p); });
+    puppets.forEach(p=>{ drivePuppet(p); repairBrokenSeams(p); repairSeveredJoints(p); });
 }
 `;
 
