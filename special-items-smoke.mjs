@@ -13,7 +13,7 @@ const stubNode=()=>({appendChild(){},remove(){},pause(){},play(){return Promise.
 const document={documentElement:stubNode(),head:stubNode(),body:stubNode(),createElement:stubNode,querySelector(){return null;}};
 class MutationObserver{observe(){}disconnect(){}}
 const location={href:'https://puppetalk.test/app.js',origin:'https://puppetalk.test'};
-const context={console,performance,Response,URL,setTimeout,clearTimeout,document,MutationObserver,location,window:{}};
+const context={console,performance,Response,URL,setTimeout,clearTimeout,document,MutationObserver,location,localStorage:{getItem(){return null;}},window:{}};
 context.window.fetch=async()=>new Response(appSource,{status:200});
 context.globalThis=context;
 
@@ -23,10 +23,11 @@ const composed=await response.text();
 
 for(const required of [
   'PUPPETALK_SPECIAL_ITEMS_V1',
-  "const SPECIAL_ITEM_BY_SLOT = ['frisbee','pump','ball','dart','frisbee','pump'];",
-  "msg?.type !== 'special-item'",
+  "const SPECIAL_ITEM_TYPES = ['frisbee','pump','ball','dart'];",
+  "localStorage.getItem('puppetalk-special-item')",
+  'bringOutSpecialItem(slot,msg.item)',
+  "send(conn,{type:'special-item',action:'bring-out',item:controllerSpecialType()})",
   'id="special-item"',
-  "send(conn,{type:'special-item',action:'bring-out'})",
   'function driveLaserFrisbeeCuts(now)',
   'function inflatePumpBalloon(pump)',
   'function ensureLegacyTestProps()'
@@ -37,4 +38,4 @@ if(!packed) throw new Error('ensureTestProps missing after special item pass');
 if(/makeProp\s*\(/.test(packed)) throw new Error('Normal table still pre-spawns test props');
 
 new Function(composed);
-console.log('Packed special item composition preserves frisbee/pump helpers.');
+console.log('Packed profile-selected special item composition preserves helpers.');
