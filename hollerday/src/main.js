@@ -10,6 +10,7 @@ import {
   stabilisePuppet,
 } from "./behaviour.js";
 import { createPropSystem, drawProp } from "./props.js";
+import { setupCharacterEditor } from "./character-ui.js";
 import { HostTransport, ClientTransport } from "./network.js";
 
 const { Engine, Bodies, Composite } = Matter;
@@ -36,6 +37,7 @@ const useItemBtn = document.querySelector("#useItem");
 
 const playerId = getStablePlayerId();
 let profile = getLocalProfile(playerId);
+const characterEditor = setupCharacterEditor(playerId);
 const cameraApi = createCamera(canvas);
 window.addEventListener("resize", cameraApi.resize);
 
@@ -64,6 +66,10 @@ let micTimer = null;
 let lastMouthState = -1;
 let statusRestoreTimer = null;
 
+function refreshProfile() {
+  profile = characterEditor?.getProfile?.() || getLocalProfile(playerId);
+  return profile;
+}
 function setHomeStatus(text) { homeStatus.textContent = text || ""; }
 function setConnection(text) { connectionState.textContent = text || ""; }
 function normalConnectionText() { return mode === "host" ? "Table open" : mode === "client" ? "Joined" : ""; }
@@ -124,7 +130,6 @@ function createPhysicsWorld() {
   const floorHeight = 90;
   const bounds = [
     Bodies.rectangle(WORLD.width / 2, WORLD.floorY + floorHeight / 2, WORLD.width + 160, floorHeight, { isStatic: true, friction: .9, restitution: .01 }),
-    // The frozen toy build had a real ceiling so later ceiling/balloon behaviours have somewhere physical to resolve.
     Bodies.rectangle(WORLD.width / 2, -22, WORLD.width + 160, 44, { isStatic: true, friction: .65 }),
     Bodies.rectangle(-35, WORLD.height / 2, 70, WORLD.height * 2, { isStatic: true }),
     Bodies.rectangle(WORLD.width + 35, WORLD.height / 2, 70, WORLD.height * 2, { isStatic: true }),
@@ -364,13 +369,10 @@ function handlePropIntent(id, message) {
   const player = players.get(id);
   if (!player || !propSystem || !acceptSequence(player, message)) return;
   let result = null;
-  if (message.action === "bring-out") {
-    result = propSystem.bringOut(id, message.item);
-  } else if (message.action === "toggle-grip") {
-    result = propSystem.toggleGrip(id, message.hand);
-  } else if (message.action === "throw") {
-    result = propSystem.throwHeld(id, message.hand);
-  } else if (message.action === "use") {
+  if (message.action === "bring-out") result = propSystem.bringOut(id, message.item);
+  else if (message.action === "toggle-grip") result = propSystem.toggleGrip(id, message.hand);
+  else if (message.action === "throw") result = propSystem.throwHeld(id, message.hand);
+  else if (message.action === "use") {
     if (message.hand) result = propSystem.useHeld(id, message.hand);
     else {
       const right = propSystem.useHeld(id, "right");
@@ -406,6 +408,7 @@ function physicsLoop(now) {
 }
 
 async function beginHost(room) {
+  profile = refreshProfile();
   mode = "host";
   showTable(room);
   setConnection("Opening table…");
@@ -453,6 +456,7 @@ async function beginHost(room) {
 }
 
 async function beginClient(room) {
+  profile = refreshProfile();
   mode = "client";
   showTable(room);
   setConnection("Finding table…");
@@ -463,11 +467,8 @@ async function beginClient(room) {
       localPuppetId = message.puppetId;
       if (message.snapshot) pushSnapshot(message.snapshot);
       setConnection("Joined");
-    } else if (message.type === "snapshot") {
-      pushSnapshot(message);
-    } else if (message.type === "prop-result") {
-      transientStatus(message.message || "Toy updated.");
-    }
+    } else if (message.type === "snapshot") pushSnapshot(message);
+    else if (message.type === "prop-result") transientStatus(message.message || "Toy updated.");
   });
   transport.onClose(() => setConnection("Connection lost"));
   try {
@@ -559,7 +560,7 @@ puppetControls.addEventListener("click", event => {
   if (button) sendAction(button.dataset.action, button.dataset.pose || null);
 });
 micBtn?.addEventListener("click", startMicrophone);
-specialItemBtn?.addEventListener("click", () => sendProp("bring-out", { item: profile.specialItem }));
+specialItemBtn?.addEventListener("click", () => { refreshProfile(); sendProp("bring-out", { item: profile.specialItem }); });
 gripLeftBtn?.addEventListener("click", () => sendProp("toggle-grip", { hand: "left" }));
 gripRightBtn?.addEventListener("click", () => sendProp("toggle-grip", { hand: "right" }));
 throwLeftBtn?.addEventListener("click", () => sendProp("throw", { hand: "left" }));
@@ -567,12 +568,14 @@ throwRightBtn?.addEventListener("click", () => sendProp("throw", { hand: "right"
 useItemBtn?.addEventListener("click", () => sendProp("use"));
 
 startBtn.addEventListener("click", async () => {
+  refreshProfile();
   const room = makeRoomCode();
   setHomeStatus("Opening your table…");
   updateUrl(room, true);
   await beginHost(room);
 });
 joinBtn.addEventListener("click", async () => {
+  refreshProfile();
   const room = normaliseRoomCode(roomInput.value);
   if (!room) {
     setHomeStatus("Enter a table code first.");
@@ -596,10 +599,13 @@ roomBadge.addEventListener("click", async () => {
 
 const params = new URLSearchParams(location.search);
 const initialRoom = normaliseRoomCode(params.get("room") || "");
-if (initialRoom) {
-  if (params.get("host") === "1") beginHost(initialRoom);
-  else beginClient(initialRoom);
+if (initialRoom && params.get("host") === "1") {
+  beginHost(initialRoom);
 } else {
-  if (specialItemBtn) specialItemBtn.textContent = `Bring out ${profile.specialItem}`;
+  if (initialRoom) {
+    roomInput.value = initialRoom;
+    joinBtn.textContent = `Join ${initialRoom}`;
+    setHomeStatus("Choose your character, then join the table.");
+  }
   render(null);
 }
