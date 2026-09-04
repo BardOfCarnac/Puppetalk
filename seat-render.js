@@ -14,6 +14,7 @@
     const controllerNeedle = `function startController(room){`;
     const helpers = `const PUPPETALK_SEAT_ORDER = [0,3,1,4,2,5];
 const PUPPETALK_DEPTH_X = .28;
+const PUPPETALK_FOREGROUND_TUNED_KEYS = new Set(['torso','head','sl','sr','el','er','wl','wr','hl','hr','kl','kr','al','ar']);
 const puppetalkPropOwners = new Map();
 
 function puppetalkSeatAngle(slot){
@@ -56,7 +57,11 @@ function puppetalkProjectPuppet(p,viewerSlot){
   for(const [key,value] of Object.entries(p)){
     if(!value || Array.isArray(value) || typeof value!=='object') continue;
     if(!Number.isFinite(value.x) || !Number.isFinite(value.y)) continue;
-    const raw=puppetalkRawPoint(value,rawCenter,rawScale,rawShift);
+    // foreground-tuning v36 only projects the original visible points. New seam
+    // endpoints/segment centres arrive raw, so do not "undo" a transform they never had.
+    const raw=PUPPETALK_FOREGROUND_TUNED_KEYS.has(key)
+      ? puppetalkRawPoint(value,rawCenter,rawScale,rawShift)
+      : value;
     out[key]=puppetalkViewPoint(raw,rawCenter,targetCenter,targetScale,targetShift);
   }
   return {puppet:out,meta:{slot:p.slot,rawCenter,targetCenter,targetScale,targetShift}};
