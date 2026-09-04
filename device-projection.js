@@ -56,9 +56,11 @@ function displayNorm(px,py,w,h){
   return {x:(px-p.offsetX)/(p.sourceW*p.scale),y:(py-p.offsetY)/(p.sourceH*p.scale)};
 }
 function projectionRenderScale(w,h){
-  if(mode !== 'controller') return Math.min(w/900,h/650);
-  const p = projectionFor(w,h);
-  return Math.min(w/900,p.displayH/650);
+  // Scene points are source-world pixels multiplied by this exact projection scale.
+  // Head radius, torso dimensions and limb widths are also source-world pixels, so
+  // they must use the same factor or the puppet changes proportions between screens.
+  if(mode !== 'controller') return 1;
+  return projectionFor(w,h)?.scale || 1;
 }
 
 function drawBackdrop`
@@ -108,5 +110,5 @@ function drawBackdrop`
   DeviceProjectionBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(DeviceProjectionBlob,NativeBlob);
   window.Blob = DeviceProjectionBlob;
-  window.PuppetalkDeviceProjection = {version:34};
+  window.PuppetalkDeviceProjection = {version:35};
 })();
