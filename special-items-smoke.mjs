@@ -26,12 +26,15 @@ for(const required of [
   "const SPECIAL_ITEM_BY_SLOT = ['frisbee','pump','ball','dart','frisbee','pump'];",
   "msg?.type !== 'special-item'",
   'id="special-item"',
-  "send(conn,{type:'special-item',action:'bring-out'})"
-]) if(!composed.includes(required)) throw new Error(`Missing special item hook: ${required}`);
+  "send(conn,{type:'special-item',action:'bring-out'})",
+  'function driveLaserFrisbeeCuts(now)',
+  'function inflatePumpBalloon(pump)',
+  'function ensureLegacyTestProps()'
+]) if(!composed.includes(required)) throw new Error(`Missing special item/helper hook: ${required}`);
 
 const packed=/function ensureTestProps\(\)\{[\s\S]*?\n  \}/.exec(composed)?.[0]||'';
 if(!packed) throw new Error('ensureTestProps missing after special item pass');
 if(/makeProp\s*\(/.test(packed)) throw new Error('Normal table still pre-spawns test props');
 
 new Function(composed);
-console.log('Packed special item composition smoke check passed.');
+console.log('Packed special item composition preserves frisbee/pump helpers.');
