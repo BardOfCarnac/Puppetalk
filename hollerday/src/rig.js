@@ -1,43 +1,60 @@
 import { initialisePuppetBehaviour, serialisePuppetBehaviour } from "./behaviour.js";
 
-const { Bodies, Body, Composite, Constraint, Vector, Bounds } = Matter;
+const { Bodies, Body, Composite, Constraint, Vector } = Matter;
 
+// This is the frozen Puppetalk 1 physical rig, expressed explicitly instead of
+// being inferred by patches. Hands, feet, shoulders and pelvis are control
+// points on these ten bodies; they are not extra masses.
 export const PART_META = Object.freeze({
+  torso: { shape: "rect", w: 48, h: 78 },
   head: { shape: "circle", r: 26 },
-  torso: { shape: "rect", w: 50, h: 90 },
-  pelvis: { shape: "rect", w: 54, h: 32 },
-  upperArmL: { shape: "rect", w: 16, h: 58 },
-  lowerArmL: { shape: "rect", w: 14, h: 55 },
-  handL: { shape: "circle", r: 11 },
-  upperArmR: { shape: "rect", w: 16, h: 58 },
-  lowerArmR: { shape: "rect", w: 14, h: 55 },
-  handR: { shape: "circle", r: 11 },
-  upperLegL: { shape: "rect", w: 20, h: 62 },
-  lowerLegL: { shape: "rect", w: 18, h: 62 },
-  footL: { shape: "rect", w: 28, h: 14 },
-  upperLegR: { shape: "rect", w: 20, h: 62 },
-  lowerLegR: { shape: "rect", w: 18, h: 62 },
-  footR: { shape: "rect", w: 28, h: 14 },
+  upperArmL: { shape: "rect", w: 16, h: 52 },
+  lowerArmL: { shape: "rect", w: 15, h: 49 },
+  upperArmR: { shape: "rect", w: 16, h: 52 },
+  lowerArmR: { shape: "rect", w: 15, h: 49 },
+  upperLegL: { shape: "rect", w: 19, h: 58 },
+  lowerLegL: { shape: "rect", w: 17, h: 54 },
+  upperLegR: { shape: "rect", w: 19, h: 58 },
+  lowerLegR: { shape: "rect", w: 17, h: 54 },
 });
 
-const LINKS = [
-  ["head", "torso"], ["torso", "pelvis"],
-  ["torso", "upperArmL"], ["upperArmL", "lowerArmL"], ["lowerArmL", "handL"],
-  ["torso", "upperArmR"], ["upperArmR", "lowerArmR"], ["lowerArmR", "handR"],
-  ["pelvis", "upperLegL"], ["upperLegL", "lowerLegL"], ["lowerLegL", "footL"],
-  ["pelvis", "upperLegR"], ["upperLegR", "lowerLegR"], ["lowerLegR", "footR"],
-];
+const LINKS = Object.freeze([
+  ["torso", "head"],
+  ["torso", "upperArmL"], ["upperArmL", "lowerArmL"],
+  ["torso", "upperArmR"], ["upperArmR", "lowerArmR"],
+  ["torso", "upperLegL"], ["upperLegL", "lowerLegL"],
+  ["torso", "upperLegR"], ["upperLegR", "lowerLegR"],
+]);
 
-function bodyOptions(group, density = .001) {
+const CONTROL_POINTS = Object.freeze({
+  torso: { body: "torso", local: { x: 0, y: 0 } },
+  head: { body: "head", local: { x: 0, y: 0 } },
+  pelvis: { body: "torso", local: { x: 0, y: 38 } },
+  leftShoulder: { body: "torso", local: { x: -24, y: -27 } },
+  rightShoulder: { body: "torso", local: { x: 24, y: -27 } },
+  leftHand: { body: "lowerArmL", local: { x: 0, y: 23 } },
+  rightHand: { body: "lowerArmR", local: { x: 0, y: 23 } },
+  leftFoot: { body: "lowerLegL", local: { x: 0, y: 25 } },
+  rightFoot: { body: "lowerLegR", local: { x: 0, y: 25 } },
+});
+
+function worldPoint(body, local) {
+  const rotated = Vector.rotate(local, body.angle);
+  return { x: body.position.x + rotated.x, y: body.position.y + rotated.y };
+}
+
+function standardOptions(group) {
   return {
     collisionFilter: { group },
-    friction: .8,
     frictionAir: .04,
     restitution: .08,
-    density,
+    friction: .8,
   };
 }
 
+// Puppetalk 1 created these at .97/.13, then its stability layer clamped every
+// body-to-body constraint to .90 stiffness and at least .20 damping. Hollerday
+// records the final effective values directly.
 function joint(bodyA, pointA, bodyB, pointB) {
   return Constraint.create({
     bodyA,
@@ -52,45 +69,31 @@ function joint(bodyA, pointA, bodyB, pointB) {
 
 export function createPuppet(world, { id, ownerPlayerId, profile, x = 500, y = 470 }) {
   const group = Body.nextGroup(true);
-  const standard = bodyOptions(group);
-  const torsoOptions = bodyOptions(group, .0022);
-  const headOptions = bodyOptions(group, .0018);
-  const pelvisOptions = bodyOptions(group, .0020);
-  const lightOptions = bodyOptions(group, .0009);
+  const opt = standardOptions(group);
 
   const parts = {
-    head: Bodies.circle(x, y - 118, 26, headOptions),
-    torso: Bodies.rectangle(x, y - 58, 50, 90, { ...torsoOptions, chamfer: { radius: 13 } }),
-    pelvis: Bodies.rectangle(x, y, 54, 32, pelvisOptions),
-    upperArmL: Bodies.rectangle(x - 43, y - 68, 16, 58, standard),
-    lowerArmL: Bodies.rectangle(x - 43, y - 18, 14, 55, standard),
-    handL: Bodies.circle(x - 43, y + 19, 11, lightOptions),
-    upperArmR: Bodies.rectangle(x + 43, y - 68, 16, 58, standard),
-    lowerArmR: Bodies.rectangle(x + 43, y - 18, 14, 55, standard),
-    handR: Bodies.circle(x + 43, y + 19, 11, lightOptions),
-    upperLegL: Bodies.rectangle(x - 16, y + 47, 20, 62, standard),
-    lowerLegL: Bodies.rectangle(x - 16, y + 104, 18, 62, standard),
-    footL: Bodies.rectangle(x - 20, y + 142, 28, 14, lightOptions),
-    upperLegR: Bodies.rectangle(x + 16, y + 47, 20, 62, standard),
-    lowerLegR: Bodies.rectangle(x + 16, y + 104, 18, 62, standard),
-    footR: Bodies.rectangle(x + 20, y + 142, 28, 14, lightOptions),
+    torso: Bodies.rectangle(x, y, 48, 78, { ...opt, chamfer: { radius: 13 }, density: .0022 }),
+    head: Bodies.circle(x, y - 65, 26, { ...opt, density: .0018 }),
+    upperArmL: Bodies.rectangle(x - 37, y - 17, 16, 52, opt),
+    lowerArmL: Bodies.rectangle(x - 42, y + 30, 15, 49, opt),
+    upperArmR: Bodies.rectangle(x + 37, y - 17, 16, 52, opt),
+    lowerArmR: Bodies.rectangle(x + 42, y + 30, 15, 49, opt),
+    upperLegL: Bodies.rectangle(x - 14, y + 65, 19, 58, opt),
+    lowerLegL: Bodies.rectangle(x - 14, y + 118, 17, 54, opt),
+    upperLegR: Bodies.rectangle(x + 14, y + 65, 19, 58, opt),
+    lowerLegR: Bodies.rectangle(x + 14, y + 118, 17, 54, opt),
   };
 
   const joints = [
-    joint(parts.head, { x: 0, y: 24 }, parts.torso, { x: 0, y: -43 }),
-    joint(parts.torso, { x: 0, y: 43 }, parts.pelvis, { x: 0, y: -14 }),
-    joint(parts.torso, { x: -24, y: -31 }, parts.upperArmL, { x: 0, y: -28 }),
-    joint(parts.upperArmL, { x: 0, y: 28 }, parts.lowerArmL, { x: 0, y: -27 }),
-    joint(parts.lowerArmL, { x: 0, y: 27 }, parts.handL, { x: 0, y: -9 }),
-    joint(parts.torso, { x: 24, y: -31 }, parts.upperArmR, { x: 0, y: -28 }),
-    joint(parts.upperArmR, { x: 0, y: 28 }, parts.lowerArmR, { x: 0, y: -27 }),
-    joint(parts.lowerArmR, { x: 0, y: 27 }, parts.handR, { x: 0, y: -9 }),
-    joint(parts.pelvis, { x: -16, y: 14 }, parts.upperLegL, { x: 0, y: -30 }),
-    joint(parts.upperLegL, { x: 0, y: 30 }, parts.lowerLegL, { x: 0, y: -30 }),
-    joint(parts.lowerLegL, { x: 0, y: 30 }, parts.footL, { x: 4, y: -6 }),
-    joint(parts.pelvis, { x: 16, y: 14 }, parts.upperLegR, { x: 0, y: -30 }),
-    joint(parts.upperLegR, { x: 0, y: 30 }, parts.lowerLegR, { x: 0, y: -30 }),
-    joint(parts.lowerLegR, { x: 0, y: 30 }, parts.footR, { x: -4, y: -6 }),
+    joint(parts.torso, { x: 0, y: -39 }, parts.head, { x: 0, y: 24 }),
+    joint(parts.torso, { x: -24, y: -27 }, parts.upperArmL, { x: 0, y: -25 }),
+    joint(parts.upperArmL, { x: 0, y: 25 }, parts.lowerArmL, { x: 0, y: -23 }),
+    joint(parts.torso, { x: 24, y: -27 }, parts.upperArmR, { x: 0, y: -25 }),
+    joint(parts.upperArmR, { x: 0, y: 25 }, parts.lowerArmR, { x: 0, y: -23 }),
+    joint(parts.torso, { x: -14, y: 38 }, parts.upperLegL, { x: 0, y: -27 }),
+    joint(parts.upperLegL, { x: 0, y: 27 }, parts.lowerLegL, { x: 0, y: -25 }),
+    joint(parts.torso, { x: 14, y: 38 }, parts.upperLegR, { x: 0, y: -27 }),
+    joint(parts.upperLegR, { x: 0, y: 27 }, parts.lowerLegR, { x: 0, y: -25 }),
   ];
 
   Composite.add(world, [...Object.values(parts), ...joints]);
@@ -115,27 +118,42 @@ export function serializePuppet(puppet) {
   };
 }
 
+export function getControlPoint(puppet, name) {
+  const spec = CONTROL_POINTS[name];
+  if (!spec) return null;
+  const body = puppet.parts[spec.body];
+  if (!body) return null;
+  return {
+    name,
+    body,
+    localPoint: spec.local,
+    point: worldPoint(body, spec.local),
+  };
+}
+
 export function findGrabBody(puppet, point) {
   let nearest = null;
   let best = Infinity;
-  for (const [name, body] of Object.entries(puppet.parts)) {
-    const inside = Bounds.contains(body.bounds, point);
-    const distance = Vector.magnitude(Vector.sub(body.position, point));
-    const score = inside ? distance * .25 : distance;
-    if (score < best) {
-      best = score;
-      nearest = { name, body };
+
+  for (const name of Object.keys(CONTROL_POINTS)) {
+    const candidate = getControlPoint(puppet, name);
+    if (!candidate) continue;
+    const distance = Vector.magnitude(Vector.sub(candidate.point, point));
+    if (distance < best) {
+      best = distance;
+      nearest = candidate;
     }
   }
+
   return best <= 72 ? nearest : null;
 }
 
-export function createGrabConstraint(world, body, point) {
-  const localPoint = Vector.rotate(Vector.sub(point, body.position), -body.angle);
+export function createGrabConstraint(world, body, point, localPoint = null) {
+  const attachment = localPoint || Vector.rotate(Vector.sub(point, body.position), -body.angle);
   const constraint = Constraint.create({
     pointA: { x: point.x, y: point.y },
     bodyB: body,
-    pointB: localPoint,
+    pointB: { x: attachment.x, y: attachment.y },
     length: 0,
     stiffness: .22,
     damping: .18,
@@ -166,6 +184,7 @@ export function drawPuppet(ctx, puppet, cameraApi) {
   ctx.lineJoin = "round";
   ctx.strokeStyle = "#1d1711";
   ctx.lineWidth = Math.max(2, 8 * scale);
+
   for (const [a, b] of LINKS) {
     const pa = puppet.parts[a];
     const pb = puppet.parts[b];
