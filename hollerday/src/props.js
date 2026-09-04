@@ -26,7 +26,7 @@ export function createPropSystem(engine,puppets){
     else {body=Bodies.rectangle(x,y,44,6,{density:.00034,restitution:.1,friction:.32,frictionAir:.006,chamfer:{radius:2}});gripPoint={x:-13,y:0};}
     body.label=`hollerday-prop:${id}:${type}`;
     const owner=ownerPlayerId?puppets.get(`puppet-${ownerPlayerId}`):null;
-    const prop={id,type,body,gripPoint,heldBy:null,ownerPlayerId,attached:null,depth:Number(owner?.behaviour?.depth)||0,cutArmed:false,previous:null};
+    const prop={id,type,body,gripPoint,heldBy:null,ownerPlayerId,attached:null,depth:Number(owner?.behaviour?.depth)||0,cutArmed:false,previous:null,thrownAt:0,special:false};
     props.set(id,prop);Composite.add(engine.world,body);return prop;
   }
 
@@ -57,7 +57,7 @@ export function createPropSystem(engine,puppets){
     if(!best)return{ok:false,message:`Move your ${hand} hand closer to a prop.`};
     const prop=best.prop;
     const constraint=Constraint.create({bodyA:handBody(puppet,hand),pointA:{x:0,y:23},bodyB:prop.body,pointB:prop.gripPoint,length:3,stiffness:.9,damping:.18});
-    Composite.add(engine.world,constraint);prop.heldBy={playerId,hand};prop.ownerPlayerId=playerId;prop.depth=Number(puppet.behaviour?.depth)||0;grips.set(key,{propId:prop.id,constraint});
+    Composite.add(engine.world,constraint);prop.heldBy={playerId,hand};prop.ownerPlayerId=playerId;prop.depth=Number(puppet.behaviour?.depth)||0;prop.cutArmed=false;grips.set(key,{propId:prop.id,constraint});
     return{ok:true,held:true,propId:prop.id,type:prop.type,message:`Gripped ${prop.type} with ${hand} hand.`};
   }
 
@@ -67,7 +67,7 @@ export function createPropSystem(engine,puppets){
     const prop=heldProp(playerId,hand);if(!prop)return{ok:false,message:`Nothing in ${hand} hand.`};
     const puppet=puppets.get(`puppet-${playerId}`);const hb=handBody(puppet,hand);
     const v=velocity||{x:(hb?.velocity?.x||0)*1.35+(hand==="left"?-2.8:2.8),y:(hb?.velocity?.y||0)*1.15-1.2};
-    releaseGripByKey(gripKey(playerId,hand));Body.setVelocity(prop.body,{x:clamp(v.x,-16,16),y:clamp(v.y,-16,16)});prop.ownerPlayerId=playerId;prop.depth=Number(puppet?.behaviour?.depth)||0;prop.previous={...prop.body.position};
+    releaseGripByKey(gripKey(playerId,hand));Body.setVelocity(prop.body,{x:clamp(v.x,-16,16),y:clamp(v.y,-16,16)});prop.ownerPlayerId=playerId;prop.depth=Number(puppet?.behaviour?.depth)||0;prop.previous={...prop.body.position};prop.thrownAt=performance.now();
     if(prop.type==="frisbee"){prop.cutArmed=true;Body.setAngularVelocity(prop.body,.42*Math.sign(v.x||1));}
     return{ok:true,message:`Threw ${prop.type}.`};
   }
@@ -112,7 +112,7 @@ export function createPropSystem(engine,puppets){
     const current={...prop.body.position},previous=prop.previous||current;prop.previous=current;
     const speed=Math.hypot(prop.body.velocity.x,prop.body.velocity.y);if(speed<3.2){prop.cutArmed=false;return;}
     for(const puppet of puppets.values()){
-      if(puppet.ownerPlayerId===prop.ownerPlayerId&&performance.now()-(prop.thrownAt||0)<180)continue;
+      if(puppet.ownerPlayerId===prop.ownerPlayerId&&performance.now()-prop.thrownAt<180)continue;
       for(let i=puppet.joints.length-1;i>=0;i--){
         const joint=puppet.joints[i],point=constraintPoint(joint);if(!point)continue;
         if(segmentDistance(point,previous,current)<=15){Composite.remove(engine.world,joint,true);puppet.joints.splice(i,1);prop.cutArmed=false;return;}
@@ -129,7 +129,11 @@ export function createPropSystem(engine,puppets){
   }
 
   function serialize(){
-    return [...props.values()].map(prop=>({id:prop.id,type:prop.type,x:prop.body.position.x,y:prop.body.position.y,angle:prop.body.angle,heldBy:prop.heldBy,depth:prop.depth||0,attached:!!prop.attached,cutArmed:!!prop.cutArmed}));
+    return [...props.values()].map(prop=>({
+      id:prop.id,type:prop.type,x:prop.body.position.x,y:prop.body.position.y,angle:prop.body.angle,
+      heldBy:prop.heldBy,depth:prop.depth||0,attached:!!prop.attached,cutArmed:!!prop.cutArmed,
+      ownerPlayerId:prop.ownerPlayerId||null,special:!!prop.special
+    }));
   }
 
   function releasePlayer(playerId){for(const hand of ["left","right"])releaseGripByKey(gripKey(playerId,hand));}
