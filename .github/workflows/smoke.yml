@@ -21,6 +21,7 @@ jobs:
       - run: node --check profile-name-patch.js
       - run: node --check look-sync-patch.js
       - run: node --check live-face-render-patch.js
+      - run: node --check live-head-finalizer.js
       - run: node creator-smoke.mjs
       - run: node --check stability.js
       - run: node --check pose-tuning.js
