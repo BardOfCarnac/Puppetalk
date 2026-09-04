@@ -131,9 +131,9 @@ for(const hook of [
   'throwerSlot:Number.isInteger(prop._throwerSlot)',
   'const activePointers = new Map()',
   'const rawLook = p.look',
-  'puppetHeadPath(ctx,headStyle,hr)',
-  'drawLineFaceEyes(ctx,eyeStyle,hr)',
-  'drawLineFaceNose(ctx,noseStyle,hr)',
+  "const headStyles=['smooth','spikes','tallSpikes','burst','scallop','tufts','swept','fringe']",
+  'const eyeMap={closed:',
+  'const noseMap={angular:',
   'drawLineFaceMouth(ctx,mouthStyle,p.mouth,hr)',
   'PUPPETALK_LAST_LOOK_SENT',
   "type:'look',look:msg.input.look,name"
@@ -146,4 +146,4 @@ for(const hook of [
 }
 if(finalSource.includes('splitPuppetBody(')) throw new Error('Old runtime slicing survived into final boot source.');
 new Function(finalSource);
-console.log('Final boot-transformed Puppetalk source, including selected head and Line Face rendering, passed.');
+console.log('Final boot-transformed Puppetalk source, including selected head and native Line Face rendering, passed.');
