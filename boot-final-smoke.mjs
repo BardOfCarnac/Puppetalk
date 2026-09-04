@@ -21,7 +21,8 @@ const decorators = [
   'item-polish.js',
   'special-items.js',
   'segmented-puppet.js',
-  'seat-render.js'
+  'seat-render.js',
+  'depth-assist.js'
 ];
 
 const stubNode = () => ({
@@ -114,13 +115,18 @@ for(const hook of [
   'PUPPETALK_SPECIAL_ITEMS_V1',
   'PUPPETALK_SEGMENTED_PUPPET_V1',
   'PUPPETALK_SEAT_RENDER_V1',
+  'PUPPETALK_DEPTH_ASSIST_V1',
   'brokenSeams:new Set()',
   'repairBrokenSeams(p)',
   'puppetalkSeatProjection(scene,propScene,slot)',
+  'PUPPETALK_ACTION_DEPTH_TOLERANCE = .38',
+  'driveDepthAssistedProps(now)',
+  'puppetalkAimProjectPoint(p,qRaw,prop._throwerSlot)',
+  'throwerSlot:Number.isInteger(prop._throwerSlot)',
   'const activePointers = new Map()'
 ]){
   if(!finalSource.includes(hook)) throw new Error(`Missing final boot hook: ${hook}`);
 }
 if(finalSource.includes('splitPuppetBody(')) throw new Error('Old runtime slicing survived into final boot source.');
 new Function(finalSource);
-console.log('Final boot-transformed Puppetalk source smoke check passed.');
+console.log('Final boot-transformed Puppetalk source with 2.5D action-slab assistance passed.');
