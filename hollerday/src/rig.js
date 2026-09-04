@@ -28,39 +28,52 @@ const LINKS = [
   ["pelvis", "upperLegR"], ["upperLegR", "lowerLegR"], ["lowerLegR", "footR"],
 ];
 
-function bodyOptions(group) {
+function bodyOptions(group, density = .001) {
   return {
     collisionFilter: { group },
-    friction: 0.7,
-    frictionAir: 0.045,
-    restitution: 0.02,
-    density: 0.0012,
+    friction: .8,
+    frictionAir: .04,
+    restitution: .08,
+    density,
   };
 }
 
-function joint(bodyA, pointA, bodyB, pointB, stiffness = 0.78) {
-  return Constraint.create({ bodyA, pointA, bodyB, pointB, length: 0, stiffness, damping: 0.14 });
+function joint(bodyA, pointA, bodyB, pointB) {
+  return Constraint.create({
+    bodyA,
+    pointA,
+    bodyB,
+    pointB,
+    length: 1,
+    stiffness: .90,
+    damping: .20,
+  });
 }
 
 export function createPuppet(world, { id, ownerPlayerId, profile, x = 500, y = 470 }) {
   const group = Body.nextGroup(true);
-  const o = bodyOptions(group);
+  const standard = bodyOptions(group);
+  const torsoOptions = bodyOptions(group, .0022);
+  const headOptions = bodyOptions(group, .0018);
+  const pelvisOptions = bodyOptions(group, .0020);
+  const lightOptions = bodyOptions(group, .0009);
+
   const parts = {
-    head: Bodies.circle(x, y - 118, 26, o),
-    torso: Bodies.rectangle(x, y - 58, 50, 90, o),
-    pelvis: Bodies.rectangle(x, y, 54, 32, o),
-    upperArmL: Bodies.rectangle(x - 43, y - 68, 16, 58, o),
-    lowerArmL: Bodies.rectangle(x - 43, y - 18, 14, 55, o),
-    handL: Bodies.circle(x - 43, y + 19, 11, o),
-    upperArmR: Bodies.rectangle(x + 43, y - 68, 16, 58, o),
-    lowerArmR: Bodies.rectangle(x + 43, y - 18, 14, 55, o),
-    handR: Bodies.circle(x + 43, y + 19, 11, o),
-    upperLegL: Bodies.rectangle(x - 16, y + 47, 20, 62, o),
-    lowerLegL: Bodies.rectangle(x - 16, y + 104, 18, 62, o),
-    footL: Bodies.rectangle(x - 20, y + 142, 28, 14, o),
-    upperLegR: Bodies.rectangle(x + 16, y + 47, 20, 62, o),
-    lowerLegR: Bodies.rectangle(x + 16, y + 104, 18, 62, o),
-    footR: Bodies.rectangle(x + 20, y + 142, 28, 14, o),
+    head: Bodies.circle(x, y - 118, 26, headOptions),
+    torso: Bodies.rectangle(x, y - 58, 50, 90, { ...torsoOptions, chamfer: { radius: 13 } }),
+    pelvis: Bodies.rectangle(x, y, 54, 32, pelvisOptions),
+    upperArmL: Bodies.rectangle(x - 43, y - 68, 16, 58, standard),
+    lowerArmL: Bodies.rectangle(x - 43, y - 18, 14, 55, standard),
+    handL: Bodies.circle(x - 43, y + 19, 11, lightOptions),
+    upperArmR: Bodies.rectangle(x + 43, y - 68, 16, 58, standard),
+    lowerArmR: Bodies.rectangle(x + 43, y - 18, 14, 55, standard),
+    handR: Bodies.circle(x + 43, y + 19, 11, lightOptions),
+    upperLegL: Bodies.rectangle(x - 16, y + 47, 20, 62, standard),
+    lowerLegL: Bodies.rectangle(x - 16, y + 104, 18, 62, standard),
+    footL: Bodies.rectangle(x - 20, y + 142, 28, 14, lightOptions),
+    upperLegR: Bodies.rectangle(x + 16, y + 47, 20, 62, standard),
+    lowerLegR: Bodies.rectangle(x + 16, y + 104, 18, 62, standard),
+    footR: Bodies.rectangle(x + 20, y + 142, 28, 14, lightOptions),
   };
 
   const joints = [
@@ -108,7 +121,7 @@ export function findGrabBody(puppet, point) {
   for (const [name, body] of Object.entries(puppet.parts)) {
     const inside = Bounds.contains(body.bounds, point);
     const distance = Vector.magnitude(Vector.sub(body.position, point));
-    const score = inside ? distance * 0.25 : distance;
+    const score = inside ? distance * .25 : distance;
     if (score < best) {
       best = score;
       nearest = { name, body };
@@ -124,8 +137,8 @@ export function createGrabConstraint(world, body, point) {
     bodyB: body,
     pointB: localPoint,
     length: 0,
-    stiffness: 0.22,
-    damping: 0.18,
+    stiffness: .22,
+    damping: .18,
   });
   Composite.add(world, constraint);
   return constraint;
@@ -188,13 +201,13 @@ export function drawPuppet(ctx, puppet, cameraApi) {
       ctx.fillStyle = "#1d1711";
       const r = meta.r * scale;
       ctx.beginPath();
-      ctx.arc(-r * 0.31, -r * 0.1, Math.max(1.2, r * 0.07), 0, Math.PI * 2);
-      ctx.arc(r * 0.31, -r * 0.1, Math.max(1.2, r * 0.07), 0, Math.PI * 2);
+      ctx.arc(-r * .31, -r * .1, Math.max(1.2, r * .07), 0, Math.PI * 2);
+      ctx.arc(r * .31, -r * .1, Math.max(1.2, r * .07), 0, Math.PI * 2);
       ctx.fill();
-      ctx.lineWidth = Math.max(1.2, r * 0.06);
+      ctx.lineWidth = Math.max(1.2, r * .06);
       ctx.beginPath();
-      ctx.moveTo(-r * 0.24, r * 0.3);
-      ctx.quadraticCurveTo(0, r * 0.42, r * 0.24, r * 0.3);
+      ctx.moveTo(-r * .24, r * .3);
+      ctx.quadraticCurveTo(0, r * .42, r * .24, r * .3);
       ctx.stroke();
     }
     ctx.restore();
