@@ -15,6 +15,7 @@ export const CHARACTER_PARTS = Object.freeze({
   mouth: ["frown","line","pleased","shy","smile","smirk","soft","wavy"],
   extra: ["none","glasses","moustache","freckles","eyepatch"],
 });
+export const SPECIAL_ITEMS = Object.freeze(["frisbee","pump","ball","dart"]);
 
 export function makeRoomCode(length = 5) {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -58,6 +59,14 @@ function migrateLegacyLook() {
   return null;
 }
 
+function migrateLegacySpecialItem(fallback) {
+  try {
+    const saved = localStorage.getItem("puppetalk-special-item");
+    if (SPECIAL_ITEMS.includes(saved)) return saved;
+  } catch {}
+  return fallback;
+}
+
 export function saveLocalProfile(profile) {
   localStorage.setItem("hollerday.profile", JSON.stringify(profile));
   localStorage.setItem("puppetalk-name", profile.name || "Puppet");
@@ -69,6 +78,7 @@ export function saveLocalProfile(profile) {
     mouth: profile.mouth,
     extra: profile.extra,
   }));
+  if (SPECIAL_ITEMS.includes(profile.specialItem)) localStorage.setItem("puppetalk-special-item", profile.specialItem);
 }
 
 export function getLocalProfile(playerId) {
@@ -82,13 +92,14 @@ export function getLocalProfile(playerId) {
     nose: pick(CHARACTER_PARTS.nose, hash, 3),
     mouth: pick(CHARACTER_PARTS.mouth, hash, 4),
     extra: pick(CHARACTER_PARTS.extra, hash, 5),
-    specialItem: "ball",
+    specialItem: pick(SPECIAL_ITEMS, hash, 6),
   };
 
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem("hollerday.profile") || "null"); } catch {}
   const legacy = migrateLegacyLook();
   const source = saved?.id === playerId ? saved : {};
+  const requestedSpecial = source.specialItem || migrateLegacySpecialItem(defaults.specialItem);
   const profile = {
     id: playerId,
     name: String(source.name || defaults.name).trim().slice(0, 24) || "Puppet",
@@ -98,7 +109,7 @@ export function getLocalProfile(playerId) {
     nose: cleanPart("nose", source.nose || legacy?.nose, defaults.nose),
     mouth: cleanPart("mouth", source.mouth || legacy?.mouth, defaults.mouth),
     extra: cleanPart("extra", source.extra || legacy?.extra, defaults.extra),
-    specialItem: source.specialItem || defaults.specialItem,
+    specialItem: SPECIAL_ITEMS.includes(requestedSpecial) ? requestedSpecial : defaults.specialItem,
   };
   saveLocalProfile(profile);
   return profile;
