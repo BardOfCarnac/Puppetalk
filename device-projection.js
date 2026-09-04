@@ -57,8 +57,8 @@ function displayNorm(px,py,w,h){
 }
 function projectionRenderScale(w,h){
   // Scene points are source-world pixels multiplied by this exact projection scale.
-  // Head radius, torso dimensions and limb widths are also source-world pixels, so
-  // they must use the same factor or the puppet changes proportions between screens.
+  // Keep all visible body geometry on that same scale so the flat 2.5D puppet never
+  // changes proportions between devices.
   if(mode !== 'controller') return 1;
   return projectionFor(w,h)?.scale || 1;
 }
@@ -70,6 +70,16 @@ function drawBackdrop`
       '  const scale = Math.min(w/900,(w*(360/320))/650)*(p.visualScale || 1);',
       '  const scale = projectionRenderScale(w,h)*(p.visualScale || 1);'
     );
+
+    // Visual silhouette only. Joint positions, limb reach, physics and hit areas remain
+    // unchanged; these values match the slimmer character preview.
+    patched = patched
+      .replace('  chain([p.hl,p.kl,p.al],p.color,17);','  chain([p.hl,p.kl,p.al],p.color,11.6);')
+      .replace('  chain([p.hr,p.kr,p.ar],p.color,17);','  chain([p.hr,p.kr,p.ar],p.color,11.6);')
+      .replace('  chain([p.sl,p.el,p.wl],p.color,15);','  chain([p.sl,p.el,p.wl],p.color,10.2);')
+      .replace('  chain([p.sr,p.er,p.wr],p.color,15);','  chain([p.sr,p.er,p.wr],p.color,10.2);')
+      .replace('  const tw = Math.max(20,48*scale);','  const tw = Math.max(16,34.5*scale);')
+      .replace('  const hr = Math.max(13,26*scale);','  const hr = Math.max(11,22*scale);');
 
     patched = patched.replace(
       '    ch = Math.max(320,stageBox.getBoundingClientRect().height || innerHeight);\n    const dpr = Math.min(devicePixelRatio || 1,2);',
@@ -110,5 +120,5 @@ function drawBackdrop`
   DeviceProjectionBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(DeviceProjectionBlob,NativeBlob);
   window.Blob = DeviceProjectionBlob;
-  window.PuppetalkDeviceProjection = {version:35};
+  window.PuppetalkDeviceProjection = {version:36};
 })();
