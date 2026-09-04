@@ -33,6 +33,11 @@ function drivePuppet(p){
     const leftFoot = grabWorldPoint(p,'leftFoot');
     const rightFoot = grabWorldPoint(p,'rightFoot');
 }
+function repairBrokenSeams(p){}
+function repairSeveredJoints(p){}
+function tick(){
+  puppets.forEach(p=>{ drivePuppet(p); repairBrokenSeams(p); repairSeveredJoints(p); });
+}
 `;
 
 const blob=new window.Blob([source],{type:'text/javascript'});
@@ -44,6 +49,10 @@ for(const expected of [
   'const headOffset = p.headTop ? 12 : 0;',
   "p.pose === 'stand' && !rig.air?.active",
   'p.torsoTop,p.torsoBottom',
+  'function stabilizeIntactSeams(p)',
+  'c.stiffness = .997;',
+  'delta*.020+relativeSpin*.008',
+  'repairBrokenSeams(p); stabilizeIntactSeams(p); repairSeveredJoints(p);',
   'p.faL2',
   'p.shR2'
 ]){
