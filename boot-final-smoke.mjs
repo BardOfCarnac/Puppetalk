@@ -47,9 +47,10 @@ class MutationObserver { observe(){} disconnect(){} }
 class SmokeBlob {
   constructor(parts=[],options={}){ this.parts=parts; this.type=options.type||''; }
 }
+let capturedBootSource='';
 class SmokeURL extends URL {
   static createObjectURL(blob){
-    globalThis.__capturedBootSource = (blob?.parts || []).map(String).join('');
+    capturedBootSource = (blob?.parts || []).map(String).join('');
     return 'blob:puppetalk-smoke';
   }
   static revokeObjectURL(){}
@@ -102,7 +103,7 @@ vm.runInNewContext(fs.readFileSync('boot.js','utf8'),context,{filename:'boot.js'
 let finalSource='';
 for(let i=0;i<80;i++){
   await new Promise(resolve=>setTimeout(resolve,10));
-  finalSource=context.__capturedBootSource || context.window.__capturedBootSource || '';
+  finalSource=capturedBootSource;
   if(finalSource) break;
 }
 if(!finalSource){
