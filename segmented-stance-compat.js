@@ -1,7 +1,6 @@
 // Keeps the accepted Puppetalk standing/jump rig compatible with pre-segmented bodies.
-// The old rig targets whole-limb centres. Segmented puppets expose proximal control
-// bodies plus distal pieces, so pulls must target the correct half/body or they create
-// large artificial torques and crooked resting poses.
+// Uncut destructible seams must behave like rigid welds: the extra hidden segmentation
+// is for cutting, not an extra set of visible joints or pseudo-3D foreshortening.
 (() => {
   const NativeBlob = window.Blob;
   if (!NativeBlob || window.PuppetalkSegmentedStanceCompat) return;
@@ -49,19 +48,54 @@
       "return [p.torso,p.torsoTop,p.torsoBottom,p.head,p.headTop,p.uaL,p.uaL2,p.faL,p.faL2,p.uaR,p.uaR2,p.faR,p.faR2,p.thL,p.thL2,p.shL,p.shL2,p.thR,p.thR2,p.shR,p.shR2].filter(Boolean);"
     );
 
+    // A one-point Matter constraint is a hinge. That is correct for shoulders/knees,
+    // but wrong for the hidden destructible seams in the middle of a limb. While a
+    // seam is intact, restore near-rigid linear stiffness and continuously align the
+    // two segment angles. Once severSeam marks it broken, all of this disappears and
+    // the pieces are genuinely free.
+    patched = patched.replace(
+`  function repairBrokenSeams(p){`,
+`  function stabilizeIntactSeams(p){
+    if(!p?.seams) return;
+    for(const [name,c] of Object.entries(p.seams)){
+      if(!c?.bodyA || !c?.bodyB || p.brokenSeams?.has(name)) continue;
+
+      // stability.js intentionally softens ordinary anatomical joints. Hidden cut
+      // seams are structural, so put their stiffness back after creation.
+      c.stiffness = .997;
+      c.damping = Math.max(.22,c.damping || 0);
+
+      const a=c.bodyA, b=c.bodyB;
+      let delta=(b.angle||0)-(a.angle||0);
+      while(delta>Math.PI) delta-=Math.PI*2;
+      while(delta< -Math.PI) delta+=Math.PI*2;
+      const relativeSpin=(b.angularVelocity||0)-(a.angularVelocity||0);
+      const correction=clamp(delta*.020+relativeSpin*.008,-.044,.044);
+      a.torque += correction;
+      b.torque -= correction;
+    }
+  }
+
+  function repairBrokenSeams(p){`
+    );
+
+    patched = patched.replace(
+      `puppets.forEach(p=>{ drivePuppet(p); repairBrokenSeams(p); repairSeveredJoints(p); });`,
+      `puppets.forEach(p=>{ drivePuppet(p); repairBrokenSeams(p); stabilizeIntactSeams(p); repairSeveredJoints(p); });`
+    );
+
     // The old single-piece arms were stable enough with angle servos alone. The
-    // extra seam degree of freedom benefits from a very soft neutral hand target in
-    // Stand. It is deliberately weak: grabs/pins still win immediately and other
-    // poses remain untouched.
+    // extra seam degree of freedom benefits from a soft neutral hand target in Stand.
+    // Grabs/pins still win immediately and other poses remain untouched.
     patched = patched.replace(
 `    const leftFoot = grabWorldPoint(p,'leftFoot');
     const rightFoot = grabWorldPoint(p,'rightFoot');`,
 `    if(p.pose === 'stand' && !rig.air?.active){
       if(!activeParts.has('leftHand') && !rig.pins.leftHand){
-        springPull(grabBody(p,'leftHand'),grabWorldPoint(p,'leftHand'),{x:anchorX-42,y:standingY+53},.000052,.0051);
+        springPull(grabBody(p,'leftHand'),grabWorldPoint(p,'leftHand'),{x:anchorX-42,y:standingY+53},.000068,.0054);
       }
       if(!activeParts.has('rightHand') && !rig.pins.rightHand){
-        springPull(grabBody(p,'rightHand'),grabWorldPoint(p,'rightHand'),{x:anchorX+42,y:standingY+53},.000052,.0051);
+        springPull(grabBody(p,'rightHand'),grabWorldPoint(p,'rightHand'),{x:anchorX+42,y:standingY+53},.000068,.0054);
       }
     }
 
@@ -84,5 +118,5 @@
   SegmentedStanceBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(SegmentedStanceBlob, NativeBlob);
   window.Blob = SegmentedStanceBlob;
-  window.PuppetalkSegmentedStanceCompat = { version: 1 };
+  window.PuppetalkSegmentedStanceCompat = { version: 2 };
 })();
