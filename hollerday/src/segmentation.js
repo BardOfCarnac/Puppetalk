@@ -3,6 +3,15 @@ import { WORLD } from "./config.js";
 const { Body, Composite, Vector } = Matter;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
+const POSES=Object.freeze({
+  stand:[.12,.05,-.12,-.05,.04,.02,-.04,-.02,0],
+  point:[1.48,1.48,-.18,-.08,.02,0,-.03,0,-.05],
+  cheer:[2.55,2.75,-2.55,-2.75,.08,-.04,-.08,.04,0],
+  shrug:[1.02,1.9,-1.02,-1.9,.03,0,-.03,0,0],
+  crouch:[.25,.5,-.25,-.5,.38,-.55,-.38,.55,.13],
+});
+const MANUAL_PIN_HOLD_MS=170,MANUAL_PIN_FADE_MS=920;
+
 const SEGMENT_RECOVERY=Object.freeze({
   torso:[0,0,0],torsoTop:[0,-26,0],torsoBottom:[0,26,0],
   head:[0,-53,0],headTop:[0,-77,0],
@@ -17,8 +26,9 @@ function connectionPoints(constraint){if(!constraint?.bodyA||!constraint?.bodyB)
 function cutPoint(constraint){const points=connectionPoints(constraint);return points?{x:(points.a.x+points.b.x)*.5,y:(points.a.y+points.b.y)*.5}:null;}
 function segmentDistance(point,a,b){const abx=b.x-a.x,aby=b.y-a.y,d=abx*abx+aby*aby;if(d<1e-6)return Math.hypot(point.x-a.x,point.y-a.y);const t=clamp(((point.x-a.x)*abx+(point.y-a.y)*aby)/d,0,1);return Math.hypot(point.x-(a.x+abx*t),point.y-(a.y+aby*t));}
 function angleDelta(target,current){let d=target-current;while(d>Math.PI)d-=Math.PI*2;while(d< -Math.PI)d+=Math.PI*2;return d;}
-function springPull(body,point,target,stiffness,damping=.0048,cap=.032){if(!body||!point||!target)return;const mass=Math.max(.2,body.mass||1);let fx=((target.x-point.x)*stiffness-body.velocity.x*damping)*mass,fy=((target.y-point.y)*stiffness-body.velocity.y*damping)*mass;const mag=Math.hypot(fx,fy);if(mag>cap){fx*=cap/mag;fy*=cap/mag;}Body.applyForce(body,point,{x:fx,y:fy});}
+function springPull(body,point,target,stiffness,damping=.0048,cap=.032){if(!body||!point||!target||stiffness<=0)return;const mass=Math.max(.2,body.mass||1);let fx=((target.x-point.x)*stiffness-body.velocity.x*damping)*mass,fy=((target.y-point.y)*stiffness-body.velocity.y*damping)*mass;const mag=Math.hypot(fx,fy);if(mag>cap){fx*=cap/mag;fy*=cap/mag;}Body.applyForce(body,point,{x:fx,y:fy});}
 function servo(body,target,strength=.014){if(!body)return;body.torque+=clamp(angleDelta(target,body.angle||0)*strength-(body.angularVelocity||0)*strength*.82,-.034,.034);}
+function pinInfluence(pin,now){if(!pin)return 0;if(!Number.isFinite(pin.releasedAt))return 1;const age=now-pin.releasedAt;if(age<=MANUAL_PIN_HOLD_MS)return 1;const t=clamp((age-MANUAL_PIN_HOLD_MS)/MANUAL_PIN_FADE_MS,0,1);return 1-(t*t*(3-2*t));}
 
 export function cutCandidateAlongPath(puppet,previous,current){
   if(!puppet||!previous||!current)return null;
@@ -53,7 +63,7 @@ export function driveConnectionRepair(puppet){
   for(const name of [...(puppet.severedJoints||[])]){
     const constraint=puppet.jointMap?.[name],points=connectionPoints(constraint);if(!constraint||!points)continue;if(Math.hypot(points.a.x-points.b.x,points.a.y-points.b.y)>34)continue;Composite.add(puppet.world,constraint);puppet.severedJoints.delete(name);if(!puppet.joints.includes(constraint))puppet.joints.push(constraint);
   }
-  if(!puppet.brokenSeams?.size&&!puppet.severedJoints?.size)puppet.repairRequested=false;
+  if(!puppet.brokenSeams?.size&&!puppet.severedJoints?.size){puppet.repairRequested=false;puppet.segmentRepairAnchor=null;}
 }
 
 export function stabiliseIntactSeams(puppet){
@@ -67,27 +77,50 @@ export function stabiliseIntactSeams(puppet){
 
 function activeGrab(state,part){return state?.grabsArray?.find(grab=>grab.part===part)||null;}
 function broken(puppet,name){return !!puppet.brokenSeams?.has(name);}
-
-function driveSegmentRecovery(puppet){
-  const state=puppet.behaviour,recover=state?.recover;if(!recover)return;
-  const engage=clamp((performance.now()-recover.startedAt)/320,0,1);
+function driveRepairLayout(puppet,anchor,engage=.9){
+  if(!anchor)return;
   for(const [name,[ox,oy,targetAngle]] of Object.entries(SEGMENT_RECOVERY)){
     const body=puppet.parts[name];if(!body)continue;
-    const target={x:recover.x+ox,y:recover.torsoY+oy};
+    const target={x:anchor.x+ox,y:anchor.torsoY+oy};
     springPull(body,body.position,target,.00014+.00010*engage,.0062,.034);servo(body,targetAngle,.010+.008*engage);
   }
+}
+function driveSegmentRecovery(puppet){
+  const state=puppet.behaviour,recover=state?.recover;if(!recover)return;
+  puppet.segmentRepairAnchor={x:recover.x,torsoY:recover.torsoY};
+  const engage=clamp((performance.now()-recover.startedAt)/320,0,1);
+  driveRepairLayout(puppet,puppet.segmentRepairAnchor,engage);
   requestConnectionRepair(puppet);driveConnectionRepair(puppet);
+}
+
+function driveDistalPose(puppet,state){
+  const p=puppet.parts,q=POSES[state.pose]||POSES.stand,base=q[8];
+  const entries=[
+    ["upperArmL2","leftUpperArm",0,["leftHand","leftShoulder"]],["lowerArmL2","leftForearm",1,["leftHand","leftShoulder"]],
+    ["upperArmR2","rightUpperArm",2,["rightHand","rightShoulder"]],["lowerArmR2","rightForearm",3,["rightHand","rightShoulder"]],
+    ["upperLegL2","leftThigh",4,["leftFoot","pelvis"]],["lowerLegL2","leftShin",5,["leftFoot","pelvis"]],
+    ["upperLegR2","rightThigh",6,["rightFoot","pelvis"]],["lowerLegR2","rightShin",7,["rightFoot","pelvis"]],
+  ];
+  for(const [bodyName,seam,index,heldParts] of entries){
+    const body=p[bodyName];if(!body||broken(puppet,seam)||heldParts.some(part=>activeGrab(state,part)))continue;servo(body,base+q[index],.016);
+  }
+  if(p.headTop&&!broken(puppet,"headMiddle")&&!activeGrab(state,"head"))servo(p.headTop,base*.2,.013);
+  if(p.torsoTop&&!broken(puppet,"torsoUpper"))servo(p.torsoTop,base,.014);
+  if(p.torsoBottom&&!broken(puppet,"torsoLower"))servo(p.torsoBottom,base,.014);
 }
 
 export function driveSegmentedCompatibility(puppet){
   if(!puppet?.parts?.torsoTop)return;
   stabiliseIntactSeams(puppet);
-  const state=puppet.behaviour||{},p=puppet.parts;
+  const state=puppet.behaviour||{},p=puppet.parts,now=performance.now();
   if(state.mode==="recovering"){driveSegmentRecovery(puppet);return;}
+  if(puppet.repairRequested){driveRepairLayout(puppet,puppet.segmentRepairAnchor,.88);driveConnectionRepair(puppet);}
   if(state.mode==="limp")return;
 
   const standingY=WORLD.floorY-(state.pose==="crouch"?112:145),anchorX=clamp(Number(state.targetX)||p.torso.position.x,70,WORLD.width-70),crouched=state.pose==="crouch";
   const legSpread=crouched?22:12,wholeThighY=standingY+(crouched?48:61),wholeShinY=standingY+(crouched?88:112),thighY=wholeThighY-14.5,shinY=wholeShinY-13.5,footY=WORLD.floorY-2;
+
+  driveDistalPose(puppet,state);
 
   for(const side of["L","R"]){
     const sign=side==="L"?-1:1,footPart=side==="L"?"leftFoot":"rightFoot",pin=state.pins?.[footPart];
@@ -108,14 +141,17 @@ export function driveSegmentedCompatibility(puppet){
     }
   }
 
-  for(const [part,bodyName,seam,localY] of [["leftHand","lowerArmL2","leftForearm",12],["rightHand","lowerArmR2","rightForearm",12],["leftFoot","lowerLegL2","leftShin",13.5],["rightFoot","lowerLegR2","rightShin",13.5]]){
-    const grab=activeGrab(state,part),body=p[bodyName];if(!grab||!body||!broken(puppet,seam))continue;springPull(body,worldPoint(body,{x:0,y:localY}),{x:grab.x,y:grab.y},.00024,.0030,.030);
+  for(const [part,bodyName,localY] of [["leftHand","lowerArmL2",12],["rightHand","lowerArmR2",12],["leftFoot","lowerLegL2",13.5],["rightFoot","lowerLegR2",13.5]]){
+    const grab=activeGrab(state,part),body=p[bodyName];if(!grab||!body)continue;springPull(body,worldPoint(body,{x:0,y:localY}),{x:grab.x,y:grab.y},.00024,.0030,.030);
   }
 
-  const pose=state.pose;
+  for(const [part,bodyName,localY] of [["leftHand","lowerArmL2",12],["rightHand","lowerArmR2",12],["leftFoot","lowerLegL2",13.5],["rightFoot","lowerLegR2",13.5]]){
+    if(activeGrab(state,part))continue;const pin=state.pins?.[part],influence=pinInfluence(pin,now),body=p[bodyName];if(!pin||!body||influence<=.001)continue;springPull(body,worldPoint(body,{x:0,y:localY}),{x:anchorX+pin.x,y:standingY+pin.y},.00016*influence,.0044,.023);
+  }
+
   const targets={point:{leftHand:{x:p.torso.position.x-112,y:p.torso.position.y-27}},cheer:{leftHand:{x:p.torso.position.x-44,y:p.torso.position.y-124},rightHand:{x:p.torso.position.x+44,y:p.torso.position.y-124}}};
-  for(const [part,target] of Object.entries(targets[pose]||{})){
-    const side=part==="leftHand"?"L":"R",seam=side==="L"?"leftForearm":"rightForearm",body=p[`lowerArm${side}2`];if(!body||broken(puppet,seam)||activeGrab(state,part)||state.pins?.[part])continue;springPull(body,worldPoint(body,{x:0,y:12}),target,pose==="cheer"?.000265:.00025,.0039,.030);
+  for(const [part,target] of Object.entries(targets[state.pose]||{})){
+    const side=part==="leftHand"?"L":"R",seam=side==="L"?"leftForearm":"rightForearm",body=p[`lowerArm${side}2`];if(!body||broken(puppet,seam)||activeGrab(state,part)||state.pins?.[part])continue;springPull(body,worldPoint(body,{x:0,y:12}),target,state.pose==="cheer"?.000265:.00025,.0039,.030);
   }
 }
 
