@@ -22,15 +22,16 @@
     if(!source.includes(registryNeedle)) throw new Error('Special item patch failed: prop registries');
     source = source.replace(registryNeedle,registryCode);
 
-    const testPattern = /  function ensureTestProps\(\)\{[\s\S]*?\n  \}\n\n  function driveProps\(\)\{/;
+    // Do not replace everything between ensureTestProps and driveProps: other item
+    // layers deliberately insert helpers there. Keep the old test-spawn function as
+    // dormant reference code and make the production entry point empty instead.
+    const testNeedle = `  function ensureTestProps(){`;
     const testCode = `  function ensureTestProps(){
-    // The old scattered props were useful while building the interaction system.
-    // A normal table now begins empty; players introduce their own item deliberately.
+    // A normal table begins empty; players introduce their own item deliberately.
   }
-
-  function driveProps(){`;
-    if(!testPattern.test(source)) throw new Error('Special item patch failed: initial prop packing');
-    source = source.replace(testPattern,testCode);
+  function ensureLegacyTestProps(){`;
+    if(!source.includes(testNeedle)) throw new Error('Special item patch failed: initial prop packing');
+    source = source.replace(testNeedle,testCode);
 
     const helperNeedle = `  function makePuppet(slot){`;
     const helpers = `  function specialItemLabel(type){
