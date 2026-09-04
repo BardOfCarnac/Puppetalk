@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hollerday scene demo</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#08090b;color:#fff;font-family:Inter,system-ui,sans-serif}
+#demo{position:fixed;inset:0}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.chrome{position:fixed;z-index:5;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));top:max(10px,env(safe-area-inset-top));display:flex;justify-content:space-between;gap:10px;align-items:flex-start;pointer-events:none}
+.brand,.status{pointer-events:auto;background:rgba(7,8,10,.58);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:999px;padding:8px 11px;font-size:11px;box-shadow:0 4px 24px rgba(0,0,0,.22)}
+.brand{font-weight:800;letter-spacing:.11em}.status{color:rgba(255,255,255,.78)}
+.switcher{position:fixed;z-index:6;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;gap:7px;padding:7px;background:rgba(7,8,10,.58);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:999px}
+.switcher button{border:0;border-radius:999px;padding:9px 12px;background:rgba(255,255,255,.08);color:#fff;font:700 11px/1 system-ui;cursor:pointer}
+.switcher button.active{background:#fff;color:#111}
+.credit{position:fixed;z-index:4;right:max(10px,env(safe-area-inset-right));bottom:64px;color:rgba(255,255,255,.72);font-size:10px;text-shadow:0 1px 4px #000;background:rgba(0,0,0,.24);padding:5px 7px;border-radius:8px}
+.floor-guide{position:fixed;z-index:3;left:0;right:0;height:1px;background:rgba(255,255,255,.22);pointer-events:none}
+@media(max-width:540px){.status{font-size:9px}.switcher button{padding:8px 10px;font-size:10px}}
+</style>
+</head>
+<body>
+<div id="demo"><canvas id="scene"></canvas></div>
+<div class="chrome"><div class="brand">HOLLERDAY</div><div class="status" id="status">loading</div></div>
+<div class="switcher" id="switcher"></div>
+<div class="credit" id="credit"></div>
+<div class="floor-guide" id="floorGuide"></div>
+<script src="./scene-camera.js?v=1"></script>
+<script>
+(()=>{
+  const camera=window.PuppetalkSceneCamera;
+  const canvas=document.querySelector('#scene');
+  const ctx=canvas.getContext('2d');
+  const status=document.querySelector('#status');
+  const credit=document.querySelector('#credit');
+  const floorGuide=document.querySelector('#floorGuide');
+  const switcher=document.querySelector('#switcher');
+  const scenes=[
+    {
+      id:'boardwalk',label:'Boardwalk',creator:'Stephan Widua',
+      image:'https://images.unsplash.com/photo-1560146500-e52ca6764fc0?auto=format&fit=crop&fm=jpg&q=82&w=2400',
+      floor:{horizon:.43,baseline:.92,left:.12,right:.88},
+      crops:{tall:{focusX:.5,focusY:.62,zoom:1.04},standard:{focusX:.5,focusY:.58,zoom:1},wide:{focusX:.5,focusY:.55,zoom:1}},
+      supports:['tall','standard','wide']
+    },
+    {
+      id:'desert',label:'Desert',creator:'Nick Rickert',
+      image:'https://images.unsplash.com/photo-1600718211907-62d4c3f13aed?auto=format&fit=crop&fm=jpg&q=82&w=2400',
+      floor:{horizon:.44,baseline:.93,left:.04,right:.96},
+      crops:{tall:{focusX:.49,focusY:.62,zoom:1.02},standard:{focusX:.5,focusY:.59,zoom:1},wide:{focusX:.5,focusY:.56,zoom:1}},
+      supports:['tall','standard','wide']
+    },
+    {
+      id:'arctic',label:'Arctic',creator:'Simon Takatomi',
+      image:'https://images.unsplash.com/photo-1727468801323-3ef452603860?fm=jpg&q=82&w=2400',
+      floor:{horizon:.48,baseline:.91,left:.05,right:.95},
+      crops:{tall:{focusX:.5,focusY:.59,zoom:1.05},standard:{focusX:.5,focusY:.57,zoom:1},wide:{focusX:.5,focusY:.55,zoom:1}},
+      supports:['tall','standard','wide']
+    }
+  ];
+  camera.registerScenes(scenes);
+  scenes.forEach((scene,i)=>{
+    const b=document.createElement('button');
+    b.textContent=scene.label;
+    b.dataset.scene=scene.id;
+    if(i===0)b.classList.add('active');
+    b.onclick=()=>{
+      document.querySelectorAll('#switcher button').forEach(x=>x.classList.toggle('active',x===b));
+      camera.setScene(scene.id);
+      draw();
+    };
+    switcher.appendChild(b);
+  });
+  camera.setScene('boardwalk');
+
+  const puppets=[
+    {x:.32,depth:.48,color:'#e58a82',name:'Mara'},
+    {x:.46,depth:.56,color:'#f0c85f',name:'Ivo'},
+    {x:.60,depth:.51,color:'#79a7e0',name:'Nix'},
+    {x:.72,depth:.61,color:'#82c991',name:'Vale'}
+  ];
+
+  function puppetPoint(p,w,h,frame){
+    const depth=Math.max(0,Math.min(1,p.depth));
+    const y=frame.horizonY+(frame.floorY-frame.horizonY)*depth;
+    const widthAtDepth=(frame.floorRight-frame.floorLeft)*(.42+.58*depth);
+    const cx=(frame.floorLeft+frame.floorRight)*.5;
+    const x=cx+(p.x-.5)*widthAtDepth;
+    const scale=.46+.78*depth;
+    return {x,y,scale};
+  }
+
+  function drawPuppet(p,w,h,frame){
+    const q=puppetPoint(p,w,h,frame);
+    const s=Math.max(18,Math.min(w,h)*.105*q.scale);
+    ctx.save();
+    ctx.translate(q.x,q.y);
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
+    ctx.strokeStyle='#0a0b0d';ctx.lineWidth=s*.18;
+    ctx.beginPath();ctx.moveTo(-s*.18,-s*.24);ctx.lineTo(-s*.42,s*.24);ctx.moveTo(s*.18,-s*.24);ctx.lineTo(s*.42,s*.24);ctx.moveTo(-s*.12,s*.22);ctx.lineTo(-s*.17,s*.66);ctx.moveTo(s*.12,s*.22);ctx.lineTo(s*.17,s*.66);ctx.stroke();
+    ctx.strokeStyle=p.color;ctx.lineWidth=s*.11;ctx.stroke();
+    ctx.fillStyle='#0a0b0d';round(-s*.29,-s*.50,s*.58,s*.72,s*.17);ctx.fill();
+    ctx.fillStyle=p.color;round(-s*.25,-s*.46,s*.50,s*.64,s*.15);ctx.fill();
+    ctx.fillStyle='#0a0b0d';ctx.beginPath();ctx.arc(0,-s*.73,s*.28,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(0,-s*.73,s*.235,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#0a0b0d';ctx.beginPath();ctx.arc(-s*.07,-s*.76,s*.025,0,Math.PI*2);ctx.arc(s*.07,-s*.76,s*.025,0,Math.PI*2);ctx.fill();
+    ctx.font=`700 ${Math.max(9,s*.15)}px system-ui`;ctx.textAlign='center';ctx.fillStyle='white';ctx.shadowColor='#000';ctx.shadowBlur=4;ctx.fillText(p.name,0,-s*1.07);
+    ctx.restore();
+  }
+  function round(x,y,w,h,r){ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,h,r):(ctx.rect(x,y,w,h));}
+
+  function draw(){
+    const rect=canvas.getBoundingClientRect();
+    const w=Math.max(1,rect.width), h=Math.max(1,rect.height);
+    const dpr=Math.min(devicePixelRatio||1,2);
+    canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,w,h);
+    const ok=camera.drawBackdrop(ctx,w,h);
+    const frame=camera.stageFrame(w,h);
+    status.textContent=`${frame.profile} · ${Math.round(w)}×${Math.round(h)}`;
+    floorGuide.style.top=`${Math.round(frame.floorY)}px`;
+    const scene=camera.getScene();
+    credit.textContent=`${scene.label} · Photo: ${scene.creator}`;
+    if(!ok){ctx.fillStyle='#13161b';ctx.fillRect(0,0,w,h);ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='600 15px system-ui';ctx.fillText('Loading scene…',w/2,h/2);requestAnimationFrame(draw);return;}
+    puppets.slice().sort((a,b)=>a.depth-b.depth).forEach(p=>drawPuppet(p,w,h,frame));
+  }
+  addEventListener('resize',draw,{passive:true});
+  addEventListener('orientationchange',()=>setTimeout(draw,100),{passive:true});
+  addEventListener('puppetalk-scene-change',()=>setTimeout(draw,0));
+  setTimeout(draw,60);requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
