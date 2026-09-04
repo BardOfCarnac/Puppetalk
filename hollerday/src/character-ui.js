@@ -63,8 +63,8 @@ export function setupCharacterEditor(playerId){
       canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
     }
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
-    const sx=width/320,sy=height/245,scale=Math.min(sx,sy)*.86;
-    const cameraApi={camera:{scale},worldToScreen(x,y){return{x:width/2+(x-160)*scale,y:18+(y-32)*scale};}};
+    const scale=Math.min(2.2,Math.min(width/220,height/300)*.92);
+    const cameraApi={camera:{scale},worldToScreen(x,y){return{x:width/2+(x-160)*scale,y:height*.49+(y-114)*scale};}};
     drawPuppet(ctx,fakePuppet(profile,mouth),cameraApi);
   }
 
