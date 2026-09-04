@@ -42,6 +42,8 @@ jobs:
       - run: node --check severable-joints.js
       - run: node --check laser-frisbee.js
       - run: node --check item-polish.js
+      - run: node --check special-items.js
+      - run: node special-items-smoke.mjs
       - run: node --check segmented-puppet.js
       - run: node --check seat-render.js
       - run: node --check body-slicing.js
