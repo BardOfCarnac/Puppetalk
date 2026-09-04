@@ -1,6 +1,7 @@
 import { initialisePuppetBehaviour, serialisePuppetBehaviour, depthScale, depthShift } from "./behaviour.js";
 
 const { Bodies, Body, Composite, Constraint, Vector } = Matter;
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 export const PART_META = Object.freeze({
   torso: { shape: "rect", w: 48, h: 78 },
