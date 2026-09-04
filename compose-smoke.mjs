@@ -85,8 +85,9 @@ for(const marker of [
 }
 
 for(const hook of [
-  'specialItemType(slot)',
-  'bringOutSpecialItem(slot)',
+  'specialItemType(slot,requested)',
+  'bringOutSpecialItem(slot,requested)',
+  "localStorage.getItem('puppetalk-special-item')",
   'brokenSeams:new Set()',
   'severSeam(p,name)',
   "best.kind === 'seam'",
@@ -108,4 +109,4 @@ if(composed.includes('splitPuppetBody(')) throw new Error('Runtime body slicing 
 if(composed.includes('PUPPETALK_SEAT_VIEW')) throw new Error('Peer-wrapped seat view should not be in the live composed source.');
 
 new Function(composed);
-console.log('Composed live app + segmented bodies + seat projection + 2.5D action-slab source smoke check passed.');
+console.log('Composed live app + profile items + segmented bodies + seat projection passed.');
