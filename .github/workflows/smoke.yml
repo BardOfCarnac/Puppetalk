@@ -47,4 +47,6 @@ jobs:
       - run: node --check voice-stage-compat.js
       - run: node --check sound-runtime.js
       - run: node sound-runtime-smoke.mjs
+      - run: node --check sound-sidecar.js
+      - run: node sound-sidecar-smoke.mjs
       - run: node compose-smoke.mjs
