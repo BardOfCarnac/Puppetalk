@@ -54,3 +54,5 @@ jobs:
       - run: node --check sound-sidecar.js
       - run: node sound-sidecar-smoke.mjs
       - run: node compose-smoke.mjs
+      - run: node --check boot-final-smoke.mjs
+      - run: node boot-final-smoke.mjs
