@@ -18,13 +18,28 @@ function sourceStageSize(){
 function rebuildControllerProjection(w,h){
   if(mode !== 'controller') return null;
   const source = sourceStageSize();
-  const scale = Math.min(w/source.width,h/source.height);
+  const camera = window.PuppetalkSceneCamera?.stageFrame?.(w,h) || null;
+  const sceneHasPhoto = camera?.sceneId && camera.sceneId !== 'default';
+  const floorY = Number.isFinite(camera?.floorY) ? camera.floorY : h*.88;
+  const floorLeft = sceneHasPhoto && Number.isFinite(camera?.floorLeft) ? camera.floorLeft : 0;
+  const floorRight = sceneHasPhoto && Number.isFinite(camera?.floorRight) ? camera.floorRight : w;
+  const usableW = Math.max(w*.36,floorRight-floorLeft);
+  const sourceFloor = .90;
+  const topPad = Math.max(4,h*.018);
+  const bottomPad = Math.max(4,h*.018);
+  const scaleByWidth = usableW/source.width;
+  const scaleByTop = Math.max(.35,(floorY-topPad)/(source.height*sourceFloor));
+  const scaleByBottom = Math.max(.35,(h-bottomPad-floorY)/(source.height*(1-sourceFloor)));
+  const scale = Math.max(.35,Math.min(scaleByWidth,scaleByTop,scaleByBottom));
   const displayW = source.width*scale;
   const displayH = source.height*scale;
-  const floorY = h*.88;
-  const offsetX = (w-displayW)*.5;
-  const offsetY = floorY-source.height*.90*scale;
-  controllerProjection = {w,h,sourceW:source.width,sourceH:source.height,scale,displayW,displayH,offsetX,offsetY};
+  const floorCenter = sceneHasPhoto ? (floorLeft+floorRight)*.5 : w*.5;
+  const offsetX = floorCenter-displayW*.5;
+  const offsetY = floorY-source.height*sourceFloor*scale;
+  controllerProjection = {
+    w,h,sourceW:source.width,sourceH:source.height,scale,displayW,displayH,offsetX,offsetY,
+    floorY,floorLeft,floorRight,profile:camera?.profile || 'standard',sceneId:camera?.sceneId || 'default'
+  };
   return controllerProjection;
 }
 function projectionFor(w,h){
@@ -70,6 +85,7 @@ function drawBackdrop`
   addEventListener('resize',settleProjection,{passive:true});
   addEventListener('orientationchange',()=>setTimeout(settleProjection,90),{passive:true});
   addEventListener('puppetalk-stage-viewport',settleProjection,{passive:true});
+  addEventListener('puppetalk-scene-change',settleProjection,{passive:true});
   window.visualViewport?.addEventListener('resize',settleProjection,{passive:true});
   resizeCanvas();
   requestAnimationFrame(()=>requestAnimationFrame(settleProjection));
@@ -92,5 +108,5 @@ function drawBackdrop`
   DeviceProjectionBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(DeviceProjectionBlob,NativeBlob);
   window.Blob = DeviceProjectionBlob;
-  window.PuppetalkDeviceProjection = {version:33};
+  window.PuppetalkDeviceProjection = {version:34};
 })();
