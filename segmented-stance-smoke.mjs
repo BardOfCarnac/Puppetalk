@@ -50,8 +50,8 @@ for(const expected of [
   "p.pose === 'stand' && !rig.air?.active",
   'p.torsoTop,p.torsoBottom',
   'function stabilizeIntactSeams(p)',
-  'c.stiffness = .997;',
-  'delta*.020+relativeSpin*.008',
+  'c.stiffness = .999;',
+  'delta*.040+relativeSpin*.012',
   'repairBrokenSeams(p); stabilizeIntactSeams(p); repairSeveredJoints(p);',
   'p.faL2',
   'p.shR2'
