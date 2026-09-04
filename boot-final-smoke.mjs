@@ -8,6 +8,8 @@ const decorators = [
   'line-face-mouths-patch.js',
   'line-face-features-patch.js',
   'face-spacing-patch.js',
+  'profile-name-patch.js',
+  'look-sync-patch.js',
   'toy-system.js',
   'toy-tap.js',
   'dart-stick.js',
@@ -57,9 +59,9 @@ class SmokeURL extends URL {
   static revokeObjectURL(){}
 }
 const location = {
-  href:'https://puppetalk.test/?mode=controller&room=TEST12',
+  href:'https://puppetalk.test/?mode=controller&room=TEST12&lobby=done',
   origin:'https://puppetalk.test',
-  search:'?mode=controller&room=TEST12'
+  search:'?mode=controller&room=TEST12&lobby=done'
 };
 
 const context = {
@@ -74,6 +76,7 @@ const context = {
   navigator:{},
   history:{replaceState(){}},
   crypto:{getRandomValues(array){ for(let i=0;i<array.length;i++) array[i]=i+1; return array; }},
+  localStorage:{getItem(){return null;},setItem(){}},
   setTimeout,
   clearTimeout,
   setInterval,
@@ -92,6 +95,7 @@ context.window.document=document;
 context.window.location=location;
 context.window.Blob=SmokeBlob;
 context.window.URL=SmokeURL;
+context.window.localStorage=context.localStorage;
 context.window.fetch=async()=>new Response(appSource,{status:200});
 context.fetch=(...args)=>context.window.fetch(...args);
 
@@ -123,10 +127,15 @@ for(const hook of [
   'driveDepthAssistedProps(now)',
   'puppetalkAimProjectPoint(p,qRaw,prop._throwerSlot)',
   'throwerSlot:Number.isInteger(prop._throwerSlot)',
-  'const activePointers = new Map()'
+  'const activePointers = new Map()',
+  'puppetHeadPath(ctx,look.headStyle,hr)',
+  'headStyle:LOOK_PARTS.headStyle.includes',
+  'look:cleanLook(p.look,p.slot)',
+  'PUPPETALK_LAST_LOOK_SENT',
+  "type:'look',look:msg.input.look,name"
 ]){
   if(!finalSource.includes(hook)) throw new Error(`Missing final boot hook: ${hook}`);
 }
 if(finalSource.includes('splitPuppetBody(')) throw new Error('Old runtime slicing survived into final boot source.');
 new Function(finalSource);
-console.log('Final boot-transformed Puppetalk source with 2.5D action-slab assistance passed.');
+console.log('Final boot-transformed Puppetalk source, including live character look/head sync, passed.');
