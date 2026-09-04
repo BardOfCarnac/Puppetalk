@@ -12,7 +12,9 @@ import {
 import {
   setPuppetAction,
   setPuppetGrabbed,
+  setPuppetAnchorFromGrab,
   stepPuppetBehaviour,
+  stabilisePuppet,
 } from "./behaviour.js";
 import { HostTransport, ClientTransport } from "./network.js";
 
@@ -83,8 +85,9 @@ function leaveTable() {
 }
 
 function createPhysicsWorld() {
-  engine = Engine.create({ enableSleeping: true });
-  engine.gravity.y = 1;
+  engine = Engine.create({ enableSleeping: false });
+  engine.gravity.y = 1.05;
+  engine.gravity.scale = .001;
   engine.positionIterations = 8;
   engine.velocityIterations = 6;
   engine.constraintIterations = 4;
@@ -95,7 +98,7 @@ function createPhysicsWorld() {
     WORLD.floorY + floorHeight / 2,
     WORLD.width + 160,
     floorHeight,
-    { isStatic: true, friction: 0.95, restitution: 0.01 }
+    { isStatic: true, friction: .9, restitution: .01 }
   );
   const leftWall = Bodies.rectangle(-35, WORLD.height / 2, 70, WORLD.height * 2, { isStatic: true });
   const rightWall = Bodies.rectangle(WORLD.width + 35, WORLD.height / 2, 70, WORLD.height * 2, { isStatic: true });
@@ -280,10 +283,15 @@ function handleIntent(id, message) {
     if (!hit) return;
     const constraint = createGrabConstraint(engine.world, hit.body, point);
     setPuppetGrabbed(puppet, hit.name, true);
+    setPuppetAnchorFromGrab(puppet, hit.name, point);
     grabs.set(key, { constraint, puppet, partName: hit.name });
   } else if (message.type === "grab:move") {
     const grab = grabs.get(key);
-    if (grab) moveGrabConstraint(grab.constraint, clampPoint(message));
+    if (grab) {
+      const point = clampPoint(message);
+      moveGrabConstraint(grab.constraint, point);
+      setPuppetAnchorFromGrab(grab.puppet, grab.partName, point);
+    }
   } else if (message.type === "grab:end") {
     releaseGrab(key);
   } else if (message.type === "action") {
@@ -299,8 +307,9 @@ function physicsLoop(now) {
   const snapshotEvery = Math.max(1, Math.round(WORLD.physicsHz / WORLD.snapshotHz));
 
   while (accumulator >= stepMs) {
-    for (const puppet of puppets.values()) stepPuppetBehaviour(puppet, stepMs);
-    Engine.update(engine, stepMs);
+    for (const puppet of puppets.values()) stepPuppetBehaviour(puppet);
+    Engine.update(engine, Math.min(stepMs, 1000 / 60));
+    for (const puppet of puppets.values()) stabilisePuppet(puppet);
     tick += 1;
     accumulator -= stepMs;
     if (tick % snapshotEvery === 0) {
