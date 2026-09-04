@@ -69,4 +69,8 @@ jobs:
       - run: node --check hollerday/src/network.js
       - run: node --check hollerday/src/behaviour.js
       - run: node --check hollerday/src/rig.js
+      - run: node --check hollerday/src/character-ui.js
+      - run: node --check hollerday/src/props.js
+      - run: node --check hollerday/src/scenes.js
+      - run: node --check hollerday/src/seat-projection.js
       - run: node --check hollerday/src/main.js
