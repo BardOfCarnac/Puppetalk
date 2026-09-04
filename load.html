@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#0b0c0e" />
+<title>Puppetalk</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b0c0e;color:#f4f5f7}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#0b0c0e}button{font:inherit;color:inherit}
+body{min-height:100dvh;background:radial-gradient(circle at 50% 27%,#252930 0,#15171b 37%,#0b0c0e 76%);overflow-x:hidden}
+.shell{min-height:100dvh;display:grid;grid-template-rows:auto 1fr auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:max(15px,env(safe-area-inset-top)) 18px 8px;gap:14px}
+.brand{font-size:13px;font-weight:900;letter-spacing:.16em}.room{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#858b95;text-align:right}
+.hero{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:430px;padding:4px 12px 0;position:relative}
+.kicker{font-size:10px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#7d838d;margin-bottom:3px}
+.name{font-size:clamp(28px,8vw,48px);font-weight:900;letter-spacing:-.04em;margin:0 0 -6px;text-align:center}
+.preview-wrap{position:relative;width:min(96vw,650px);height:min(57vh,520px);min-height:330px;display:grid;place-items:center}
+.preview-wrap:after{content:"";position:absolute;z-index:0;bottom:8%;left:50%;width:min(58vw,315px);height:46px;transform:translateX(-50%);border-radius:50%;background:rgba(0,0,0,.38);filter:blur(4px)}
+canvas{position:relative;z-index:1;width:100%;height:100%;display:block}
+.tool-card{position:absolute;z-index:2;right:max(7%,12px);bottom:11%;width:126px;padding:10px 11px;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:rgba(12,13,16,.78);backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.tool-label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#858b95;font-weight:900}.tool-name{font-size:14px;line-height:1.05;font-weight:900;margin-top:4px}.tool-glyph{height:38px;margin-bottom:3px;display:grid;place-items:center;font-size:28px}
+.panel{padding:14px 16px calc(18px + env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,.09);background:rgba(14,16,19,.96);border-radius:24px 24px 0 0;box-shadow:0 -14px 40px rgba(0,0,0,.27)}
+.actions{display:grid;gap:9px;max-width:620px;margin:0 auto}.primary-row{display:grid;grid-template-columns:1fr;gap:9px}.host .primary-row{grid-template-columns:1.35fr 1fr}
+button{min-height:50px;border:1px solid rgba(255,255,255,.14);border-radius:15px;background:#191c21;font-weight:850;padding:0 14px;touch-action:manipulation}
+button.primary{background:#f0f2f5;color:#101216;border-color:#f0f2f5}button:disabled{opacity:.38}.random{background:transparent;color:#c4c8cf}
+.note{min-height:16px;text-align:center;font-size:10px;color:#7f858f;margin-top:8px;line-height:1.3}
+@media(min-width:800px){.shell{grid-template-columns:minmax(450px,1fr) minmax(360px,450px);grid-template-rows:auto 1fr}.shell header{grid-column:1/-1}.hero{grid-column:1;grid-row:2;min-height:0}.panel{grid-column:2;grid-row:2;border-radius:24px 0 0 0;border-left:1px solid rgba(255,255,255,.08);display:grid;align-content:center;padding:30px}.preview-wrap{height:min(70vh,650px)}.tool-card{right:10%;bottom:12%}}
+</style>
+</head>
+<body>
+<main class="shell" id="shell">
+<header><div class="brand">PUPPETALK</div><div class="room" id="room-label"></div></header>
+<section class="hero">
+  <div class="kicker">your character</div>
+  <h1 class="name" id="character-name"></h1>
+  <div class="preview-wrap">
+    <canvas id="preview" width="650" height="540" aria-label="Your Puppetalk character"></canvas>
+    <div class="tool-card"><div class="tool-glyph" id="tool-glyph"></div><div class="tool-label">special item</div><div class="tool-name" id="tool-name"></div></div>
+  </div>
+</section>
+<section class="panel">
+  <div class="actions">
+    <div class="primary-row"><button id="enter" class="primary" type="button"></button><button id="invite" type="button" hidden>Invite players</button></div>
+    <button id="randomize" class="random" type="button">Randomize once</button>
+    <div class="note" id="note">You can throw this character back once.</div>
+  </div>
+</section>
+</main>
+<script>
+const qs=new URLSearchParams(location.search);
+const cleanRoom=v=>String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+function makeRoom(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',b=new Uint8Array(6);crypto.getRandomValues(b);return Array.from(b,x=>chars[x%chars.length]).join('')}
+const suppliedRoom=cleanRoom(qs.get('room'));
+const isHost=qs.get('host')==='1'||!suppliedRoom;
+const room=suppliedRoom||makeRoom();
+const shell=document.querySelector('#shell');if(isHost)shell.classList.add('host');
+document.querySelector('#room-label').textContent=isHost?`room ${room}`:`joining ${room}`;
+
+const palette=['#cf6c63','#d0a950','#7089b9','#729d78','#a879b2','#67a7a8','#d79b75','#8a6d5b','#d9c3a7','#7e8794','#d65050','#5b8fd1'];
+const parts={headStyle:['spikes','tallSpikes','burst','scallop','tufts','swept','fringe','smooth'],eyes:['closed','dots','happy','mismatch','sleepy','unevenDots','wink','winkRight'],nose:['angular','bow','curve','hook','long','slant'],mouth:['frown','line','pleased','shy','smile','smirk','soft','wavy'],extra:['none','glasses','moustache','freckles','eyepatch']};
+const itemTypes=['frisbee','pump','ball','dart'];
+const itemLabels={frisbee:'Laser frisbee',pump:'Balloon pump',ball:'Ball',dart:'Sticky darts'};
+const itemGlyphs={frisbee:'◉',pump:'⤴',ball:'●',dart:'➶'};
+const names=['Mara','Ivo','Nix','Odo','Vale','Pip','Juno','Kit','Rook','Tess','Moth','Bo','Remy','Zed','Nell','Ash','Lux','Milo','Vera','Sol','Etta','Finn','Nori','Cass'];
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const randomLook=()=>({color:pick(palette),headStyle:pick(parts.headStyle),eyes:pick(parts.eyes),nose:pick(parts.nose),mouth:pick(parts.mouth),extra:pick(parts.extra)});
+const valid=(v,list)=>list.includes(v);
+function normalizeLook(value){const x=value&&typeof value==='object'?value:{};return{color:/^#[0-9a-f]{6}$/i.test(x.color||'')?x.color:pick(palette),headStyle:valid(x.headStyle,parts.headStyle)?x.headStyle:(x.head==='round'?'spikes':'spikes'),eyes:valid(x.eyes,parts.eyes)?x.eyes:'dots',nose:valid(x.nose,parts.nose)?x.nose:'curve',mouth:valid(x.mouth,parts.mouth)?x.mouth:'line',extra:valid(x.extra,parts.extra)?x.extra:'none'}}
+function cleanName(v){return String(v||'').trim().replace(/\s+/g,' ').slice(0,24)}
+function readJson(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch{return null}}
+let look=normalizeLook(readJson('puppetalk-look')||randomLook());
+let characterName=cleanName(localStorage.getItem('puppetalk-name'))||pick(names);
+let specialItem=localStorage.getItem('puppetalk-special-item');if(!valid(specialItem,itemTypes))specialItem=pick(itemTypes);
+const randomizeKey='puppetalk-profile-randomized-v1';
+let randomizeUsed=localStorage.getItem(randomizeKey)==='1';
+function saveProfile(){localStorage.setItem('puppetalk-look',JSON.stringify(look));localStorage.setItem('puppetalk-name',characterName);localStorage.setItem('puppetalk-special-item',specialItem)}
+saveProfile();
+
+const eyes={closed:[{d:'M6 5q6 5 13 0m24 0q7 5 13 0',w:4.2}],dots:[{d:'M12 6h.01M50 6h.01',w:7}],happy:[{d:'M6 7q6-6 13 0m24 0q7-6 13 0',w:4.2}],mismatch:[{d:'M6 5q6 5 13 0m24 1q7 1.5 13 0',w:4.2}],sleepy:[{d:'M6 6q7 1.5 13 0m24 0q7 1.5 13 0',w:4.2}],unevenDots:[{d:'M12 4.5h.01M50 7.5h.01',w:7}],wink:[{d:'M6 5q6 5 13 0',w:4.2},{d:'M50 6h.01',w:7}],winkRight:[{d:'M12 6h.01',w:7},{d:'M43 5q7 5 13 0',w:4.2}]};
+const noses={angular:'M13 6 7 26l8 2.5',bow:'M13 5c-5.5 8-8 16-6 24',curve:'M12 6c-2.5 8-7 15-6 22q.5 5 6 4',hook:'M13 5 5.5 27q-1 6.5 5.5 5.5',long:'M15 3 4 30q-1.5 5.5 6 5',slant:'M13 5 6 29'};
+const mouths={frown:'M7 11q15-6.5 29-1',line:'m8 10 28-2',pleased:'M4 9q16 7 30-1l7-5',shy:'M15 9.5q8 4 16-1',smile:'M3 9q19 10 38-3',smirk:'M9 10q14 4 26-4',soft:'M6 9q16 6 32-2',wavy:'M6 10q7-4 14 0 8 4.5 18-2'};
+const c=document.querySelector('#preview'),ctx=c.getContext('2d');
+function headPath(style,r){const p=(x,y)=>[x*r,y*r];ctx.beginPath();if(style==='smooth'){ctx.arc(0,0,r,0,Math.PI*2);return}if(style==='burst'){ctx.moveTo(...p(-.76,.68));[[-1.05,.30],[-.82,.05],[-1.08,-.18],[-.78,-.35],[-.92,-.70],[-.55,-.67],[-.48,-1.03],[-.18,-.78],[.02,-1.12],[.20,-.77],[.52,-1.02],[.56,-.65],[.94,-.72],[.80,-.35],[1.08,-.16],[.82,.05],[1.04,.32],[.76,.68]].forEach(q=>ctx.lineTo(...p(...q)))}else{const maps={spikes:[[-.82,.58],[-.72,-.58],[-.60,-.94],[-.42,-.66],[-.20,-1.02],[0,-.68],[.22,-1.03],[.42,-.66],[.62,-.92],[.73,-.56],[.82,.58]],tallSpikes:[[-.78,.62],[-.68,-.48],[-.58,-1.12],[-.34,-.64],[-.18,-1.28],[.04,-.66],[.24,-1.22],[.43,-.61],[.61,-1.08],[.72,-.48],[.78,.62]],fringe:[[-.84,.62],[-.74,-.50],[-.60,-.90],[-.38,-.68],[-.15,-.98],[.08,-.70],[.31,-.98],[.50,-.68],[.72,-.88],[.75,-.50],[.84,.62]],scallop:[[-.84,.62],[-.72,-.48],[-.55,-.82],[-.34,-.68],[-.16,-1.00],[.04,-.72],[.24,-1.00],[.43,-.68],[.65,-.86],[.76,-.48],[.84,.62]],tufts:[[-.83,.62],[-.67,-.55],[-.50,-1.00],[-.25,-.68],[-.05,-1.18],[.15,-.68],[.48,-1.08],[.68,-.52],[.83,.62]],swept:[[-.84,.60],[-.64,-.55],[-.36,-.90],[.03,-.72],[.25,-1.18],[.32,-.82],[.69,-.98],[.68,-.55],[.84,.60]]};const pts=maps[style]||maps.spikes;ctx.moveTo(...p(...pts[0]));for(let i=1;i<pts.length;i++)ctx.lineTo(...p(...pts[i]))}ctx.bezierCurveTo(...p(.62,.98),...p(.27,1.06),...p(0,1.04));ctx.bezierCurveTo(...p(-.3,1.06),...p(-.62,.98),...p(-.82,.58));ctx.closePath()}
+function face(r){const s=2*r/100;ctx.save();ctx.translate(-50*s,-50*s);ctx.scale(s,s);ctx.strokeStyle=ctx.fillStyle='#08090a';ctx.lineCap='round';ctx.lineJoin='round';for(const q of eyes[look.eyes]||eyes.dots){ctx.lineWidth=q.w;ctx.save();ctx.translate(19,33);ctx.stroke(new Path2D(q.d));ctx.restore()}ctx.save();ctx.translate(40,28);ctx.lineWidth=4.4;ctx.stroke(new Path2D(noses[look.nose]||noses.curve));ctx.restore();ctx.save();ctx.translate(30,63);ctx.lineWidth=4.6;ctx.stroke(new Path2D(mouths[look.mouth]||mouths.line));ctx.restore();if(look.extra==='glasses'){ctx.lineWidth=3;for(const x of [31,69]){ctx.beginPath();ctx.arc(x,39,10,0,Math.PI*2);ctx.stroke()}ctx.beginPath();ctx.moveTo(41,39);ctx.lineTo(59,39);ctx.stroke()}if(look.extra==='eyepatch'){ctx.beginPath();ctx.arc(69,39,8,0,Math.PI*2);ctx.fill();ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(20,25);ctx.lineTo(78,42);ctx.stroke()}if(look.extra==='freckles'){for(const[x,y]of[[31,56],[38,57],[44,56],[56,56],[62,57],[69,56]]){ctx.beginPath();ctx.arc(x,y,1.4,0,Math.PI*2);ctx.fill()}}if(look.extra==='moustache'){ctx.beginPath();ctx.ellipse(45,68,8,4,-.2,0,Math.PI*2);ctx.ellipse(55,68,8,4,.2,0,Math.PI*2);ctx.fill()}ctx.restore()}
+function limb(x1,y1,x2,y2,w){ctx.lineCap='round';ctx.strokeStyle='#08090a';ctx.lineWidth=w+8;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.strokeStyle=look.color;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function joint(x,y,r){ctx.fillStyle='#08090a';ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.fill();ctx.fillStyle=look.color;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()}
+function drawTool(x,y){ctx.save();ctx.translate(x,y);ctx.strokeStyle='#f0f2f5';ctx.fillStyle='#1a1d22';ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round';if(specialItem==='frisbee'){ctx.beginPath();ctx.ellipse(0,0,35,10,-.12,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.strokeStyle='#ff5a5a';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,0,27,6,-.12,0,Math.PI*2);ctx.stroke()}else if(specialItem==='pump'){ctx.strokeRect(-17,-34,34,55);ctx.beginPath();ctx.moveTo(-25,-35);ctx.lineTo(25,-35);ctx.moveTo(0,-35);ctx.lineTo(0,-51);ctx.moveTo(-16,-51);ctx.lineTo(16,-51);ctx.stroke();ctx.beginPath();ctx.moveTo(17,15);ctx.bezierCurveTo(44,20,38,40,55,41);ctx.stroke()}else if(specialItem==='ball'){ctx.beginPath();ctx.arc(0,0,27,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(-22,-12);ctx.quadraticCurveTo(0,0,22,12);ctx.stroke()}else{ctx.rotate(-.6);ctx.beginPath();ctx.moveTo(-32,0);ctx.lineTo(25,0);ctx.stroke();ctx.beginPath();ctx.moveTo(25,0);ctx.lineTo(12,-10);ctx.lineTo(12,10);ctx.closePath();ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(-32,0);ctx.lineTo(-45,-12);ctx.moveTo(-32,0);ctx.lineTo(-45,12);ctx.stroke()}ctx.restore()}
+function draw(){ctx.clearRect(0,0,c.width,c.height);const x=315,y=245;limb(x-30,y-55,x-82,y+2,26);limb(x-82,y+2,x-112,y+69,23);limb(x+30,y-55,x+72,y+12,26);limb(x+72,y+12,x+111,y+52,23);limb(x-18,y+67,x-30,y+155,30);limb(x-30,y+155,x-47,y+218,26);limb(x+18,y+67,x+29,y+155,30);limb(x+29,y+155,x+52,y+218,26);ctx.fillStyle='#08090a';ctx.roundRect(x-48,y-76,96,150,28);ctx.fill();ctx.fillStyle=look.color;ctx.roundRect(x-43,y-71,86,140,23);ctx.fill();for(const[a,b,r]of[[x-112,y+69,15],[x+111,y+52,15],[x-47,y+218,15],[x+52,y+218,15]])joint(a,b,r);ctx.save();ctx.translate(x,y-137);const r=52;headPath(look.headStyle,r);ctx.fillStyle=look.color;ctx.fill();ctx.strokeStyle='#08090a';ctx.lineWidth=6;ctx.lineJoin='round';ctx.stroke();face(r);ctx.restore();drawTool(x+145,y+175)}
+function render(){document.querySelector('#character-name').textContent=characterName;document.querySelector('#tool-name').textContent=itemLabels[specialItem];document.querySelector('#tool-glyph').textContent=itemGlyphs[specialItem];const random=document.querySelector('#randomize');random.disabled=randomizeUsed;random.textContent=randomizeUsed?'Randomize used':'Randomize once';document.querySelector('#note').textContent=randomizeUsed?'This is your character.':'You can throw this character back once.';draw()}
+function differentPick(list,current){const options=list.filter(x=>x!==current);return pick(options.length?options:list)}
+document.querySelector('#randomize').onclick=()=>{if(randomizeUsed)return;randomizeUsed=true;localStorage.setItem(randomizeKey,'1');characterName=differentPick(names,characterName);specialItem=differentPick(itemTypes,specialItem);look=randomLook();saveProfile();render()};
+const enter=document.querySelector('#enter'),invite=document.querySelector('#invite');enter.textContent=isHost?'Start the show':'Join the show';invite.hidden=!isHost;
+function tableUrl(host=false){const u=new URL('./',location.href);u.search='';u.searchParams.set('mode','controller');u.searchParams.set('room',room);if(host){u.searchParams.set('lobby','done');u.searchParams.set('host','1')}return u}
+enter.onclick=()=>{saveProfile();const u=tableUrl(isHost);if(!isHost)u.searchParams.set('lobby','done');location.href=u.href};
+invite.onclick=async()=>{const u=tableUrl(false);let text='Invite link copied.';try{if(navigator.share){await navigator.share({title:'Puppetalk',text:'Join my Puppetalk table',url:u.href});text='Invite ready.'}else if(navigator.clipboard){await navigator.clipboard.writeText(u.href)}else{prompt('Share this Puppetalk link',u.href);text='Invite link ready.'}}catch(err){if(err?.name==='AbortError')return;try{await navigator.clipboard.writeText(u.href)}catch{} }document.querySelector('#note').textContent=text;setTimeout(render,1600)};
+render();
+</script>
+</body>
+</html>
