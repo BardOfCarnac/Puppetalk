@@ -82,16 +82,15 @@ const noses={angular:'M13 6 7 26l8 2.5',bow:'M13 5c-5.5 8-8 16-6 24',curve:'M12 
 const mouths={frown:'M7 11q15-6.5 29-1',line:'m8 10 28-2',pleased:'M4 9q16 7 30-1l7-5',shy:'M15 9.5q8 4 16-1',smile:'M3 9q19 10 38-3',smirk:'M9 10q14 4 26-4',soft:'M6 9q16 6 32-2',wavy:'M6 10q7-4 14 0 8 4.5 18-2'};
 const c=document.querySelector('#preview'),ctx=c.getContext('2d');
 
-// Canonical live-rig geometry from app.js. The preview is only a uniform scale of
-// this body; it no longer has its own torso, limb or head proportions.
-const RIG={torsoW:48,torsoH:78,torsoR:13,headR:26,headY:-65,shoulderX:24,shoulderY:-27,hipX:14,hipY:38,upperArm:50,forearm:46,thigh:54,shin:50,upperArmW:16,forearmW:15,thighW:19,shinW:17};
+// Same live joint spacing/reach, but using Puppetalk's deliberately slimmer visual
+// silhouette rather than the wider hidden collision bodies.
+const RIG={torsoW:34.5,torsoH:78,torsoR:10,headR:22,headY:-65,shoulderX:24,shoulderY:-27,hipX:14,hipY:38,upperArm:50,forearm:46,thigh:54,shin:50,upperArmW:10.2,forearmW:10.2,thighW:11.6,shinW:11.6};
 const STAND=[.12,.05,-.12,-.05,.04,.02,-.04,-.02,0];
 const PREVIEW_SCALE=1.8;
 function endpoint(p,a,len){return{x:p.x-Math.sin(a)*len,y:p.y+Math.cos(a)*len}}
 function headPath(style,r){const p=(x,y)=>[x*r,y*r];ctx.beginPath();if(style==='smooth'){ctx.arc(0,0,r,0,Math.PI*2);return}if(style==='burst'){ctx.moveTo(...p(-.76,.68));[[-1.05,.30],[-.82,.05],[-1.08,-.18],[-.78,-.35],[-.92,-.70],[-.55,-.67],[-.48,-1.03],[-.18,-.78],[.02,-1.12],[.20,-.77],[.52,-1.02],[.56,-.65],[.94,-.72],[.80,-.35],[1.08,-.16],[.82,.05],[1.04,.32],[.76,.68]].forEach(q=>ctx.lineTo(...p(...q)))}else{const maps={spikes:[[-.82,.58],[-.72,-.58],[-.60,-.94],[-.42,-.66],[-.20,-1.02],[0,-.68],[.22,-1.03],[.42,-.66],[.62,-.92],[.73,-.56],[.82,.58]],tallSpikes:[[-.78,.62],[-.68,-.48],[-.58,-1.12],[-.34,-.64],[-.18,-1.28],[.04,-.66],[.24,-1.22],[.43,-.61],[.61,-1.08],[.72,-.48],[.78,.62]],fringe:[[-.84,.62],[-.74,-.50],[-.60,-.90],[-.38,-.68],[-.15,-.98],[.08,-.70],[.31,-.98],[.50,-.68],[.72,-.88],[.75,-.50],[.84,.62]],scallop:[[-.84,.62],[-.72,-.48],[-.55,-.82],[-.34,-.68],[-.16,-1.00],[.04,-.72],[.24,-1.00],[.43,-.68],[.65,-.86],[.76,-.48],[.84,.62]],tufts:[[-.83,.62],[-.67,-.55],[-.50,-1.00],[-.25,-.68],[-.05,-1.18],[.15,-.68],[.48,-1.08],[.68,-.52],[.83,.62]],swept:[[-.84,.60],[-.64,-.55],[-.36,-.90],[.03,-.72],[.25,-1.18],[.32,-.82],[.69,-.98],[.68,-.55],[.84,.60]]};const pts=maps[style]||maps.spikes;ctx.moveTo(...p(...pts[0]));for(let i=1;i<pts.length;i++)ctx.lineTo(...p(...pts[i]))}ctx.bezierCurveTo(...p(.62,.98),...p(.27,1.06),...p(0,1.04));ctx.bezierCurveTo(...p(-.3,1.06),...p(-.62,.98),...p(-.82,.58));ctx.closePath()}
 function face(r){const s=2*r/100;ctx.save();ctx.translate(-50*s,-50*s);ctx.scale(s,s);ctx.strokeStyle=ctx.fillStyle='#08090a';ctx.lineCap='round';ctx.lineJoin='round';for(const q of eyes[look.eyes]||eyes.dots){ctx.lineWidth=q.w;ctx.save();ctx.translate(19,33);ctx.stroke(new Path2D(q.d));ctx.restore()}ctx.save();ctx.translate(40,28);ctx.lineWidth=4.4;ctx.stroke(new Path2D(noses[look.nose]||noses.curve));ctx.restore();ctx.save();ctx.translate(30,63);ctx.lineWidth=4.6;ctx.stroke(new Path2D(mouths[look.mouth]||mouths.line));ctx.restore();if(look.extra==='glasses'){ctx.lineWidth=3;for(const x of [31,69]){ctx.beginPath();ctx.arc(x,39,10,0,Math.PI*2);ctx.stroke()}ctx.beginPath();ctx.moveTo(41,39);ctx.lineTo(59,39);ctx.stroke()}if(look.extra==='eyepatch'){ctx.beginPath();ctx.arc(69,39,8,0,Math.PI*2);ctx.fill();ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(20,25);ctx.lineTo(78,42);ctx.stroke()}if(look.extra==='freckles'){for(const[x,y]of[[31,56],[38,57],[44,56],[56,56],[62,57],[69,56]]){ctx.beginPath();ctx.arc(x,y,1.4,0,Math.PI*2);ctx.fill()}}if(look.extra==='moustache'){ctx.beginPath();ctx.ellipse(45,68,8,4,-.2,0,Math.PI*2);ctx.ellipse(55,68,8,4,.2,0,Math.PI*2);ctx.fill()}ctx.restore()}
-function limb(a,b,baseWidth){ctx.lineCap='round';ctx.strokeStyle='#08090a';ctx.lineWidth=(baseWidth+4)*PREVIEW_SCALE;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.strokeStyle=look.color;ctx.lineWidth=baseWidth*PREVIEW_SCALE;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
-function joint(p,baseR=6.5){ctx.fillStyle='#08090a';ctx.beginPath();ctx.arc(p.x,p.y,(baseR+2.2)*PREVIEW_SCALE,0,Math.PI*2);ctx.fill();ctx.fillStyle=look.color;ctx.beginPath();ctx.arc(p.x,p.y,baseR*PREVIEW_SCALE,0,Math.PI*2);ctx.fill()}
+function limb(a,b,baseWidth){ctx.lineCap='round';ctx.strokeStyle='#08090a';ctx.lineWidth=(baseWidth+3)*PREVIEW_SCALE;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.strokeStyle=look.color;ctx.lineWidth=baseWidth*PREVIEW_SCALE;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
 function draw(){
   ctx.clearRect(0,0,c.width,c.height);
   const S=PREVIEW_SCALE,x=300,y=245;
@@ -105,11 +104,10 @@ function draw(){
   limb(sl,el,RIG.upperArmW);limb(el,wl,RIG.forearmW);limb(sr,er,RIG.upperArmW);limb(er,wr,RIG.forearmW);
   limb(hl,kl,RIG.thighW);limb(kl,al,RIG.shinW);limb(hr,kr,RIG.thighW);limb(kr,ar,RIG.shinW);
 
-  ctx.fillStyle=look.color;ctx.strokeStyle='#08090a';ctx.lineWidth=4*S;
+  ctx.fillStyle=look.color;ctx.strokeStyle='#08090a';ctx.lineWidth=3*S;
   ctx.beginPath();ctx.roundRect(x-RIG.torsoW*S/2,y-RIG.torsoH*S/2,RIG.torsoW*S,RIG.torsoH*S,RIG.torsoR*S);ctx.fill();ctx.stroke();
-  [el,er,kl,kr].forEach(p=>joint(p,5.2));[wl,wr,al,ar].forEach(p=>joint(p,6.5));
 
-  ctx.save();ctx.translate(x,y+RIG.headY*S);const r=RIG.headR*S;headPath(look.headStyle,r);ctx.fillStyle=look.color;ctx.fill();ctx.strokeStyle='#08090a';ctx.lineWidth=3.3*S;ctx.lineJoin='round';ctx.stroke();face(r);ctx.restore();
+  ctx.save();ctx.translate(x,y+RIG.headY*S);const r=RIG.headR*S;headPath(look.headStyle,r);ctx.fillStyle=look.color;ctx.fill();ctx.strokeStyle='#08090a';ctx.lineWidth=2.6*S;ctx.lineJoin='round';ctx.stroke();face(r);ctx.restore();
 }
 function render(){document.querySelector('#character-name').textContent=characterName;document.querySelector('#tool-name').textContent=itemLabels[specialItem];document.querySelector('#tool-glyph').textContent=itemGlyphs[specialItem];const random=document.querySelector('#randomize');random.disabled=randomizeUsed;random.textContent=randomizeUsed?'Randomize used':'Randomize once';document.querySelector('#note').textContent=randomizeUsed?'This is your character.':'You can throw this character back once.';draw()}
 function differentPick(list,current){const options=list.filter(x=>x!==current);return pick(options.length?options:list)}
