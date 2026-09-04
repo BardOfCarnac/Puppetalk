@@ -95,15 +95,24 @@ ${helperNeedle}`;
     const transmitNeedle = `  function transmit(force=false){`;
     const controllerHelpers = `  function controllerSpecialType(){
     if(slot === null) return null;
-    return SPECIAL_ITEM_BY_SLOT[Math.max(0,slot)%SPECIAL_ITEM_BY_SLOT.length] || 'ball';
+    const items = ['frisbee','pump','ball','dart','frisbee','pump'];
+    return items[Math.max(0,slot)%items.length] || 'ball';
+  }
+  function controllerSpecialLabel(type){
+    if(type === 'frisbee') return 'Laser frisbee';
+    if(type === 'pump') return 'Balloon pump';
+    if(type === 'ball') return 'Ball';
+    if(type === 'dart') return 'Dart';
+    return 'Item';
   }
   function updateSpecialItemButton(isOut=false){
     const button = document.querySelector('#special-item');
     if(!button) return;
     const type = controllerSpecialType();
     if(!type){ button.textContent='Special item'; button.disabled=true; return; }
+    const label = controllerSpecialLabel(type);
     button.disabled=!!isOut;
-    button.textContent = isOut ? specialItemLabel(type)+' is out' : 'Bring out '+specialItemLabel(type);
+    button.textContent = isOut ? label+' is out' : 'Bring out '+label;
   }
   function bringOutMySpecialItem(){
     if(!conn?.open || slot === null) return;
