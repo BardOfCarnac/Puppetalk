@@ -2,7 +2,6 @@ import { WORLD } from "./config.js";
 
 const { Body, Vector } = Matter;
 
-// These are the pose values from the frozen Puppetalk build.
 const POSES = Object.freeze({
   stand:  [.12,.05,-.12,-.05,.04,.02,-.04,-.02,0],
   point:  [1.48,1.48,-.18,-.08,.02,0,-.03,0,-.05],
@@ -47,73 +46,182 @@ function worldPoint(body, local) {
   return { x: body.position.x + rotated.x, y: body.position.y + rotated.y };
 }
 
-function springPull(body, point, target, stiffness, damping = .003, factor = 1) {
+function springPull(body, point, target, stiffness, damping = .003) {
   if (!body || !point) return;
   const mass = Math.max(.2, body.mass || 1);
   Body.applyForce(body, point, {
-    x: ((target.x - point.x) * stiffness - body.velocity.x * damping) * mass * factor,
-    y: ((target.y - point.y) * stiffness - body.velocity.y * damping) * mass * factor,
+    x: ((target.x - point.x) * stiffness - body.velocity.x * damping) * mass,
+    y: ((target.y - point.y) * stiffness - body.velocity.y * damping) * mass,
   });
 }
 
-function servo(body, target, strength = .006, factor = 1) {
+function servo(body, target, strength = .006) {
   if (!body) return;
   const correction = angleDelta(target, body.angle) * strength - body.angularVelocity * strength * .72;
-  body.torque += clamp(correction, -.028, .028) * factor;
+  body.torque += clamp(correction, -.028, .028);
 }
 
-function poseRamp(puppet, now) {
-  const started = puppet.behaviour.poseRampStartedAt;
-  if (!started) return 1;
-  const raw = smoothstep((now - started) / 520);
-  if (raw >= .999) puppet.behaviour.poseRampStartedAt = 0;
-  return .30 + .70 * raw;
-}
-
-function active(puppet, name) {
-  return puppet.grabbedParts.has(name);
-}
-
-function armHeld(puppet, side) {
-  return active(puppet, side === "left" ? "leftHand" : "rightHand") ||
-    active(puppet, side === "left" ? "leftShoulder" : "rightShoulder");
-}
-
-function legHeld(puppet, side) {
-  return active(puppet, side === "left" ? "leftFoot" : "rightFoot") || active(puppet, "pelvis");
-}
-
-// This is the important part that was missing from the first Hollerday port.
-// The frozen build did not merely rotate joints into a standing pose: it held the
-// torso at a floor-relative standing height, supported the whole leg chain, pinned
-// the virtual feet to the floor, held the head up and leaned the torso over the
-// midpoint of the feet. These springs are what actually make the ragdoll stand.
-function applyFrozenPoseController(puppet, now) {
+function grabBody(puppet, part) {
   const p = puppet.parts;
-  const q = POSES[puppet.behaviour.pose] || POSES.stand;
-  const base = q[8];
-  const ramp = poseRamp(puppet, now);
-  const crouched = puppet.behaviour.pose === "crouch";
+  if (part === "head") return p.head;
+  if (part === "leftHand") return p.lowerArmL;
+  if (part === "rightHand") return p.lowerArmR;
+  if (part === "leftFoot") return p.lowerLegL;
+  if (part === "rightFoot") return p.lowerLegR;
+  return p.torso;
+}
+
+function grabWorldPoint(puppet, part) {
+  const p = puppet.parts;
+  if (part === "pelvis") return worldPoint(p.torso, { x: 0, y: 34 });
+  if (part === "leftShoulder") return worldPoint(p.torso, { x: -24, y: -27 });
+  if (part === "rightShoulder") return worldPoint(p.torso, { x: 24, y: -27 });
+  if (part === "leftHand") return worldPoint(p.lowerArmL, { x: 0, y: 23 });
+  if (part === "rightHand") return worldPoint(p.lowerArmR, { x: 0, y: 23 });
+  if (part === "leftFoot") return worldPoint(p.lowerLegL, { x: 0, y: 25 });
+  if (part === "rightFoot") return worldPoint(p.lowerLegR, { x: 0, y: 25 });
+  return grabBody(puppet, part).position;
+}
+
+function antiTangleTarget(puppet, part, desired, age) {
+  if (!(part.includes("Hand") || part.includes("Foot"))) return desired;
+  const t = puppet.parts.torso.position;
+  let clear = desired;
+  if (part === "leftHand") clear = { x: t.x - 54, y: t.y + 4 };
+  if (part === "rightHand") clear = { x: t.x + 54, y: t.y + 4 };
+  if (part === "leftFoot") clear = { x: t.x - 23, y: t.y + 132 };
+  if (part === "rightFoot") clear = { x: t.x + 23, y: t.y + 132 };
+  const fade = 1 - clamp(age / 120, 0, 1);
+  const amount = .10 * fade;
+  return {
+    x: desired.x + (clear.x - desired.x) * amount,
+    y: desired.y + (clear.y - desired.y) * amount,
+  };
+}
+
+function rootFollow(part) {
+  if (part === "torso") return 1;
+  if (part === "pelvis") return .92;
+  if (part.includes("Shoulder")) return .78;
+  if (part === "head") return .66;
+  if (part.includes("Hand")) return .40;
+  return .27;
+}
+
+function rootSlack(part) {
+  if (part === "torso" || part === "pelvis") return { free: 0, ramp: 1 };
+  if (part.includes("Shoulder")) return { free: 24, ramp: 48 };
+  if (part === "head") return { free: 36, ramp: 64 };
+  if (part.includes("Hand")) return { free: 58, ramp: 82 };
+  return { free: 48, ramp: 76 };
+}
+
+function followAfterSlack(part, dx, dy) {
+  if (part === "torso" || part === "pelvis") return 1;
+  const slack = rootSlack(part);
+  const travel = Math.hypot(dx, dy);
+  const t = clamp((travel - slack.free) / slack.ramp, 0, 1);
+  const eased = t * t * (3 - 2 * t);
+  return rootFollow(part) * eased;
+}
+
+function drivePuppet(puppet) {
+  const p = puppet.parts;
+  const state = puppet.behaviour;
+  const t = p.torso;
   const floorY = WORLD.floorY;
+  const crouched = state.pose === "crouch";
   const standingY = floorY - (crouched ? 112 : 145);
-  const anchorX = clamp(puppet.behaviour.anchorX, 70, WORLD.width - 70);
 
-  const coreGrab = active(puppet, "torso") || active(puppet, "pelvis") ||
-    active(puppet, "leftShoulder") || active(puppet, "rightShoulder");
-  const limbGrab = [...puppet.grabbedParts].some(name =>
-    !["torso", "pelvis", "leftShoulder", "rightShoulder"].includes(name)
-  );
+  if (state.lastPose !== state.pose || state.lastPoseVersion !== state.poseVersion) {
+    state.lastPose = state.pose;
+    state.lastPoseVersion = state.poseVersion;
+    state.pins = { head: null, leftHand: null, rightHand: null, leftFoot: null, rightFoot: null };
+  }
 
-  // Frozen boot.js: .00015 ordinary stand, .00011 while another limb is held.
+  const grabs = [...state.grabs.values()].slice(0, 2);
+  const activeParts = new Set(grabs.map(grab => grab.part));
+  puppet.grabbedParts = activeParts;
+
+  for (const key of [...state.sessions.keys()]) {
+    if (!grabs.some(grab => grab.pointerId === key)) state.sessions.delete(key);
+  }
+
+  const now = performance.now();
+  const prepared = [];
+  let rootSum = 0;
+  let rootWeight = 0;
+  let torsoDesired = null;
+
+  for (const grab of grabs) {
+    const desired = {
+      x: clamp(grab.x, 20, WORLD.width - 20),
+      y: clamp(grab.y, 30, WORLD.height - 24),
+    };
+    let session = state.sessions.get(grab.pointerId);
+    if (!session) {
+      session = {
+        startDesired: { x: desired.x, y: desired.y },
+        startRootX: state.targetX,
+        startTorsoY: t.position.y,
+        startedAt: now,
+      };
+      state.sessions.set(grab.pointerId, session);
+    }
+
+    const age = now - session.startedAt;
+    const guided = antiTangleTarget(puppet, grab.part, desired, age);
+    const dx = desired.x - session.startDesired.x;
+    const dy = desired.y - session.startDesired.y;
+    const follow = followAfterSlack(grab.part, dx, dy);
+    const baseFollow = rootFollow(grab.part);
+    const followBlend = baseFollow > 0 ? clamp(follow / baseFollow, 0, 1) : 1;
+    const rootX = grab.part === "torso" || grab.part === "pelvis"
+      ? desired.x
+      : session.startRootX + dx * follow;
+    const weight = grab.part === "torso" ? 2 : grab.part === "pelvis" ? 1.7 : 1;
+    rootSum += clamp(rootX, 70, WORLD.width - 70) * weight;
+    rootWeight += weight;
+    if (grab.part === "torso" || grab.part === "pelvis") torsoDesired = desired;
+    prepared.push({ grab, desired, guided, session, followBlend });
+  }
+
+  if (rootWeight) state.targetX = clamp(rootSum / rootWeight, 70, WORLD.width - 70);
+  const anchorX = clamp(state.targetX, 70, WORLD.width - 70);
+  const coreGrab = grabs.some(grab => ["torso", "pelvis", "leftShoulder", "rightShoulder"].includes(grab.part));
+  const limbGrab = grabs.some(grab => !["torso", "pelvis", "leftShoulder", "rightShoulder"].includes(grab.part));
+
+  for (const item of prepared) {
+    const part = item.grab.part;
+    const body = grabBody(puppet, part);
+    const point = grabWorldPoint(puppet, part);
+    const twoFingerScale = grabs.length > 1 ? .86 : 1;
+    const strength = (
+      state.mode === "limp" ? .00017 :
+      part === "head" ? .00022 :
+      part === "torso" || part === "pelvis" ? .00019 :
+      part.includes("Shoulder") ? .0002 : .00019
+    ) * twoFingerScale;
+
+    springPull(body, point, item.guided, strength, .0026);
+
+    if (!['torso', 'pelvis'].includes(part)) {
+      const followY = part.includes("Shoulder") ? .68 : part === "head" ? .7 : part.includes("Hand") ? .38 : .28;
+      const bodyTargetY = item.session.startTorsoY + (item.desired.y - item.session.startDesired.y) * followY * item.followBlend;
+      springPull(t, t.position, { x: anchorX, y: bodyTargetY }, (.000052 + .000036 * item.followBlend) / grabs.length, .0045);
+    }
+
+    if (["head", "leftHand", "rightHand", "leftFoot", "rightFoot"].includes(part)) {
+      state.pins[part] = { x: item.desired.x - anchorX, y: item.desired.y - standingY };
+    }
+  }
+
+  if (state.mode === "limp") return;
+
   if (!coreGrab) {
-    springPull(
-      p.torso,
-      p.torso.position,
-      { x: anchorX, y: standingY },
-      limbGrab ? .00011 : .00015,
-      .0049,
-      ramp
-    );
+    springPull(t, t.position, { x: anchorX, y: standingY }, limbGrab ? .00011 : .00015, .0049);
+  } else if (torsoDesired) {
+    springPull(t, t.position, torsoDesired, .000075, .0042);
   }
 
   const legSpread = crouched ? 22 : 16;
@@ -121,119 +229,77 @@ function applyFrozenPoseController(puppet, now) {
   const shinY = standingY + (crouched ? 88 : 112);
   const footY = floorY - 2;
 
-  if (!legHeld(puppet, "left")) {
-    springPull(p.upperLegL, p.upperLegL.position, { x: anchorX - 13, y: thighY }, .000078, .0055, ramp);
-    springPull(p.lowerLegL, p.lowerLegL.position, { x: anchorX - legSpread, y: shinY }, .0001, .0057, ramp);
-    springPull(
-      p.lowerLegL,
-      worldPoint(p.lowerLegL, { x: 0, y: 25 }),
-      { x: anchorX - legSpread, y: footY },
-      .00017,
-      .0059,
-      ramp
-    );
+  if (!activeParts.has("leftFoot") && !state.pins.leftFoot) {
+    springPull(p.upperLegL, p.upperLegL.position, { x: anchorX - 13, y: thighY }, .000078, .0055);
+    springPull(p.lowerLegL, p.lowerLegL.position, { x: anchorX - legSpread, y: shinY }, .0001, .0057);
+    springPull(p.lowerLegL, grabWorldPoint(puppet, "leftFoot"), { x: anchorX - legSpread, y: footY }, .00017, .0059);
+  }
+  if (!activeParts.has("rightFoot") && !state.pins.rightFoot) {
+    springPull(p.upperLegR, p.upperLegR.position, { x: anchorX + 13, y: thighY }, .000078, .0055);
+    springPull(p.lowerLegR, p.lowerLegR.position, { x: anchorX + legSpread, y: shinY }, .0001, .0057);
+    springPull(p.lowerLegR, grabWorldPoint(puppet, "rightFoot"), { x: anchorX + legSpread, y: footY }, .00017, .0059);
   }
 
-  if (!legHeld(puppet, "right")) {
-    springPull(p.upperLegR, p.upperLegR.position, { x: anchorX + 13, y: thighY }, .000078, .0055, ramp);
-    springPull(p.lowerLegR, p.lowerLegR.position, { x: anchorX + legSpread, y: shinY }, .0001, .0057, ramp);
-    springPull(
-      p.lowerLegR,
-      worldPoint(p.lowerLegR, { x: 0, y: 25 }),
-      { x: anchorX + legSpread, y: footY },
-      .00017,
-      .0059,
-      ramp
-    );
+  for (const part of ["head", "leftHand", "rightHand", "leftFoot", "rightFoot"]) {
+    const pin = state.pins[part];
+    if (!pin || activeParts.has(part)) continue;
+    const body = grabBody(puppet, part);
+    const point = grabWorldPoint(puppet, part);
+    const strength = part === "head" ? .00017 : part.includes("Foot") ? .000145 : .00013;
+    springPull(body, point, { x: anchorX + pin.x, y: standingY + pin.y }, strength, .0044);
   }
 
-  if (!active(puppet, "head")) {
-    springPull(p.head, p.head.position, { x: anchorX, y: standingY - 65 }, .000095, .0046, ramp);
+  if (!state.pins.head && !activeParts.has("head")) {
+    springPull(p.head, p.head.position, { x: anchorX, y: standingY - 65 }, .000095, .0046);
   }
 
-  // The final compatibility pass also settled neutral hands rather than letting
-  // the hidden arm mass torque them upward in Stand.
-  if (puppet.behaviour.pose === "stand") {
-    if (!armHeld(puppet, "left")) {
-      springPull(
-        p.lowerArmL,
-        worldPoint(p.lowerArmL, { x: 0, y: 23 }),
-        { x: anchorX - 42, y: standingY + 53 },
-        .000085,
-        .0056,
-        ramp
-      );
+  if (state.pose === "stand") {
+    if (!activeParts.has("leftHand") && !state.pins.leftHand) {
+      springPull(p.lowerArmL, grabWorldPoint(puppet, "leftHand"), { x: anchorX - 42, y: standingY + 53 }, .000085, .0056);
     }
-    if (!armHeld(puppet, "right")) {
-      springPull(
-        p.lowerArmR,
-        worldPoint(p.lowerArmR, { x: 0, y: 23 }),
-        { x: anchorX + 42, y: standingY + 53 },
-        .000085,
-        .0056,
-        ramp
-      );
+    if (!activeParts.has("rightHand") && !state.pins.rightHand) {
+      springPull(p.lowerArmR, grabWorldPoint(puppet, "rightHand"), { x: anchorX + 42, y: standingY + 53 }, .000085, .0056);
     }
   }
 
-  // Readable pose pulls from the final pose-tuning pass.
-  if (puppet.behaviour.pose === "point" && !armHeld(puppet, "left")) {
-    springPull(
-      p.lowerArmL,
-      worldPoint(p.lowerArmL, { x: 0, y: 23 }),
-      { x: p.torso.position.x - 112, y: p.torso.position.y - 27 },
-      .00025,
-      .0038,
-      ramp
-    );
+  if (state.pose === "point" && !activeParts.has("leftHand") && !activeParts.has("leftShoulder")) {
+    springPull(p.lowerArmL, grabWorldPoint(puppet, "leftHand"), { x: t.position.x - 112, y: t.position.y - 27 }, .00025, .0038);
   }
-
-  if (puppet.behaviour.pose === "cheer") {
-    if (!armHeld(puppet, "left")) {
-      springPull(
-        p.lowerArmL,
-        worldPoint(p.lowerArmL, { x: 0, y: 23 }),
-        { x: p.torso.position.x - 44, y: p.torso.position.y - 124 },
-        .000265,
-        .0039,
-        ramp
-      );
+  if (state.pose === "cheer") {
+    if (!activeParts.has("leftHand") && !activeParts.has("leftShoulder")) {
+      springPull(p.lowerArmL, grabWorldPoint(puppet, "leftHand"), { x: t.position.x - 44, y: t.position.y - 124 }, .000265, .0039);
     }
-    if (!armHeld(puppet, "right")) {
-      springPull(
-        p.lowerArmR,
-        worldPoint(p.lowerArmR, { x: 0, y: 23 }),
-        { x: p.torso.position.x + 44, y: p.torso.position.y - 124 },
-        .000265,
-        .0039,
-        ramp
-      );
+    if (!activeParts.has("rightHand") && !activeParts.has("rightShoulder")) {
+      springPull(p.lowerArmR, grabWorldPoint(puppet, "rightHand"), { x: t.position.x + 44, y: t.position.y - 124 }, .000265, .0039);
     }
   }
 
-  const leftFoot = worldPoint(p.lowerLegL, { x: 0, y: 25 });
-  const rightFoot = worldPoint(p.lowerLegR, { x: 0, y: 25 });
+  const leftFoot = grabWorldPoint(puppet, "leftFoot");
+  const rightFoot = grabWorldPoint(puppet, "rightFoot");
+  const q = POSES[state.pose] || POSES.stand;
+  const base = q[8];
   const midFootX = (leftFoot.x + rightFoot.x) * .5;
-  const balanceLean = clamp((midFootX - p.torso.position.x) * .0045 - p.torso.velocity.x * .014, -.24, .24);
+  const balanceLean = clamp((midFootX - t.position.x) * .0045 - t.velocity.x * .014, -.24, .24);
   const muscle = limbGrab ? .86 : coreGrab ? .9 : 1;
 
-  // These are the final frozen strengths, not the much weaker original app.js values.
-  servo(p.torso, base + balanceLean, .018 * muscle, ramp);
-  servo(p.head, base * .2, .011 * muscle, ramp);
-  servo(p.upperArmL, base + q[0], .0072 * muscle, ramp * (armHeld(puppet, "left") ? .62 : 1));
-  servo(p.lowerArmL, base + q[1], .0062 * muscle, ramp * (armHeld(puppet, "left") ? .62 : 1));
-  servo(p.upperArmR, base + q[2], .0072 * muscle, ramp * (armHeld(puppet, "right") ? .62 : 1));
-  servo(p.lowerArmR, base + q[3], .0062 * muscle, ramp * (armHeld(puppet, "right") ? .62 : 1));
-  servo(p.upperLegL, base + q[4], .0155 * muscle, ramp * (legHeld(puppet, "left") ? .72 : 1));
-  servo(p.lowerLegL, base + q[5], .014 * muscle, ramp * (legHeld(puppet, "left") ? .72 : 1));
-  servo(p.upperLegR, base + q[6], .0155 * muscle, ramp * (legHeld(puppet, "right") ? .72 : 1));
-  servo(p.lowerLegR, base + q[7], .014 * muscle, ramp * (legHeld(puppet, "right") ? .72 : 1));
+  servo(t, base + balanceLean, .018 * muscle);
+  servo(p.head, base * .2, .011 * muscle);
+  const limbs = [p.upperArmL, p.lowerArmL, p.upperArmR, p.lowerArmR, p.upperLegL, p.lowerLegL, p.upperLegR, p.lowerLegR];
+  limbs.forEach((body, index) => {
+    const strength = index < 4 ? (index % 2 ? .0062 : .0072) : (index % 2 ? .014 : .0155);
+    servo(body, base + q[index], strength * muscle);
+  });
 }
 
 function beginRecovery(puppet, now) {
-  puppet.behaviour.mode = "recovering";
-  puppet.behaviour.pose = "stand";
-  puppet.behaviour.recover = {
+  const state = puppet.behaviour;
+  state.mode = "recovering";
+  state.pose = "stand";
+  state.poseVersion += 1;
+  state.grabs.clear();
+  state.sessions.clear();
+  puppet.grabbedParts = new Set();
+  state.recover = {
     startedAt: now,
     x: clamp(puppet.parts.torso.position.x, 70, WORLD.width - 70),
     torsoY: WORLD.floorY - 145,
@@ -271,7 +337,6 @@ function guidedRecover(puppet, now) {
 
     const turn = angleDelta(targetAngle, body.angle);
     body.torque += clamp(turn * (.006 + .010 * engage) - body.angularVelocity * (.016 + .012 * engage), -.032, .032);
-
     if (age < 360) scaleVelocity(body, .90 + .07 * finish);
   }
 
@@ -279,8 +344,8 @@ function guidedRecover(puppet, now) {
     puppet.behaviour.recover = null;
     puppet.behaviour.mode = "active";
     puppet.behaviour.pose = "stand";
-    puppet.behaviour.anchorX = clamp(puppet.parts.torso.position.x, 70, WORLD.width - 70);
-    puppet.behaviour.poseRampStartedAt = now;
+    puppet.behaviour.poseVersion += 1;
+    puppet.behaviour.targetX = puppet.parts.torso.position.x;
     return false;
   }
   return true;
@@ -288,20 +353,17 @@ function guidedRecover(puppet, now) {
 
 function enforceJointLimits(puppet) {
   if (puppet.behaviour.mode === "limp") return;
-
   for (const constraint of puppet.joints) {
     const a = constraint.bodyA;
     const b = constraint.bodyB;
     if (!a || !b) continue;
-
     let limit = 2.25;
     if (a.circleRadius || b.circleRadius) limit = 1.0;
     else {
-      const p = constraint.pointA || { x: 0, y: 0 };
-      if (Math.abs(p.x) > 20 && p.y < -15) limit = 2.35;
-      else if (Math.abs(p.x) > 9 && p.y > 28) limit = 1.75;
+      const pointA = constraint.pointA || { x: 0, y: 0 };
+      if (Math.abs(pointA.x) > 20 && pointA.y < -15) limit = 2.35;
+      else if (Math.abs(pointA.x) > 9 && pointA.y > 28) limit = 1.75;
     }
-
     const rel = angleDelta(b.angle, a.angle);
     const excess = Math.abs(rel) - limit;
     if (excess <= 0) continue;
@@ -309,7 +371,6 @@ function enforceJointLimits(puppet) {
     const correction = Math.min(.075, excess * .06);
     Body.setAngularVelocity(b, b.angularVelocity - sign * correction);
     Body.setAngularVelocity(a, a.angularVelocity + sign * correction * .35);
-
     if (excess > .48) {
       const extra = Math.min(.11, (excess - .48) * .11 + .035);
       Body.setAngularVelocity(b, (b.angularVelocity - sign * extra) * .62);
@@ -320,111 +381,96 @@ function enforceJointLimits(puppet) {
 
 export function initialisePuppetBehaviour(puppet) {
   puppet.grabbedParts = new Set();
-  puppet.grabCounts = new Map();
   puppet.behaviour = {
     mode: "active",
     pose: "stand",
-    anchorX: clamp(puppet.parts.torso.position.x, 70, WORLD.width - 70),
-    poseRampStartedAt: performance.now(),
+    poseVersion: 0,
+    lastPose: "stand",
+    lastPoseVersion: -1,
+    targetX: puppet.parts.torso.position.x,
+    grabs: new Map(),
+    sessions: new Map(),
+    pins: { head: null, leftHand: null, rightHand: null, leftFoot: null, rightFoot: null },
     recover: null,
     heat: 0,
   };
   return puppet;
 }
 
+export function beginPuppetGrab(puppet, pointerId, part, point) {
+  if (!puppet?.behaviour || !part || !point) return false;
+  if (!puppet.behaviour.grabs.has(pointerId) && puppet.behaviour.grabs.size >= 2) return false;
+  puppet.behaviour.grabs.set(pointerId, { pointerId, part, x: point.x, y: point.y });
+  return true;
+}
+
+export function movePuppetGrab(puppet, pointerId, point) {
+  const grab = puppet?.behaviour?.grabs.get(pointerId);
+  if (!grab || !point) return false;
+  grab.x = point.x;
+  grab.y = point.y;
+  return true;
+}
+
+export function endPuppetGrab(puppet, pointerId) {
+  if (!puppet?.behaviour) return false;
+  puppet.behaviour.grabs.delete(pointerId);
+  puppet.behaviour.sessions.delete(pointerId);
+  return true;
+}
+
 export function setPuppetAction(puppet, action, poseName = null) {
   if (!puppet?.behaviour) return false;
   const now = performance.now();
-
   if (action === "limp") {
     puppet.behaviour.mode = "limp";
     puppet.behaviour.recover = null;
     return true;
   }
-
   if (action === "recover") {
     beginRecovery(puppet, now);
     return true;
   }
-
   if (action === "pose" && POSES[poseName]) {
     puppet.behaviour.mode = "active";
     puppet.behaviour.pose = poseName;
+    puppet.behaviour.poseVersion += 1;
     puppet.behaviour.recover = null;
-    puppet.behaviour.poseRampStartedAt = now;
-    // Stand deliberately does not untangle, but it does always stand at the
-    // floor-relative standing height. Only horizontal position is inherited.
-    if (poseName === "stand") {
-      puppet.behaviour.anchorX = clamp(puppet.parts.torso.position.x, 70, WORLD.width - 70);
-    }
     return true;
   }
-
   return false;
 }
 
-export function setPuppetGrabbed(puppet, partName, grabbed) {
-  if (!puppet?.grabbedParts || !puppet?.grabCounts || !partName) return;
-  const current = puppet.grabCounts.get(partName) || 0;
-  const next = grabbed ? current + 1 : Math.max(0, current - 1);
-  if (next > 0) {
-    puppet.grabCounts.set(partName, next);
-    puppet.grabbedParts.add(partName);
-  } else {
-    puppet.grabCounts.delete(partName);
-    puppet.grabbedParts.delete(partName);
-  }
-}
-
-export function setPuppetAnchorFromGrab(puppet, partName, point) {
-  if (!puppet?.behaviour || !point) return;
-  if (partName === "torso") {
-    puppet.behaviour.anchorX = clamp(point.x, 70, WORLD.width - 70);
-    return;
-  }
-  if (partName === "pelvis") {
-    const torso = puppet.parts.torso;
-    const offset = Vector.rotate({ x: 0, y: 38 }, torso.angle);
-    puppet.behaviour.anchorX = clamp(point.x - offset.x, 70, WORLD.width - 70);
-  }
-}
-
 export function stepPuppetBehaviour(puppet) {
-  const state = puppet?.behaviour;
-  if (!state || state.mode === "limp") return;
-  const now = performance.now();
-  if (state.mode === "recovering") {
-    guidedRecover(puppet, now);
+  if (!puppet?.behaviour) return;
+  if (puppet.behaviour.mode === "recovering") {
+    guidedRecover(puppet, performance.now());
     return;
   }
-  applyFrozenPoseController(puppet, now);
+  drivePuppet(puppet);
 }
 
 export function stabilisePuppet(puppet) {
   if (!puppet?.behaviour) return;
   enforceJointLimits(puppet);
-
   let hottestSpeed = 0;
   let hottestAngular = 0;
   for (const body of Object.values(puppet.parts)) {
     hottestSpeed = Math.max(hottestSpeed, Math.hypot(body.velocity.x, body.velocity.y));
     hottestAngular = Math.max(hottestAngular, Math.abs(body.angularVelocity));
   }
-
   const runaway = hottestSpeed > 9 || hottestAngular > .24;
   puppet.behaviour.heat = runaway ? puppet.behaviour.heat + 1 : Math.max(0, puppet.behaviour.heat - 1);
-
   for (const body of Object.values(puppet.parts)) {
     const speed = Math.hypot(body.velocity.x, body.velocity.y);
     if (speed > 7.2) {
-      const f = 7.2 / speed;
-      Body.setVelocity(body, { x: body.velocity.x * f, y: body.velocity.y * f });
+      const factor = 7.2 / speed;
+      Body.setVelocity(body, { x: body.velocity.x * factor, y: body.velocity.y * factor });
     }
     if (Math.abs(body.angularVelocity) > .18) {
       Body.setAngularVelocity(body, Math.sign(body.angularVelocity) * .18);
     }
   }
-
   if (puppet.behaviour.heat >= 3) {
     for (const body of Object.values(puppet.parts)) scaleVelocity(body, .22);
     puppet.behaviour.heat = 0;

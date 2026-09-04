@@ -1,21 +1,14 @@
 import { WORLD, makeRoomCode, normaliseRoomCode, getStablePlayerId, getLocalProfile } from "./config.js";
 import { createCamera } from "./camera.js";
-import {
-  createPuppet,
-  serializePuppet,
-  findGrabBody,
-  createGrabConstraint,
-  moveGrabConstraint,
-  removeGrabConstraint,
-  drawPuppet,
-} from "./rig.js";
+import { createPuppet, serializePuppet, findGrabBody, drawPuppet } from "./rig.js";
 import {
   setPuppetAction,
-  setPuppetGrabbed,
-  setPuppetAnchorFromGrab,
+  beginPuppetGrab,
+  movePuppetGrab,
+  endPuppetGrab,
   stepPuppetBehaviour,
   stabilisePuppet,
-} from "./behaviour.js";
+} from "./behaviour-port.js";
 import { HostTransport, ClientTransport } from "./network.js";
 
 const { Engine, Bodies, Composite } = Matter;
@@ -117,25 +110,15 @@ function spawnForPlayer(id, playerProfile) {
     ownerPlayerId: id,
     profile: playerProfile,
     x: slots[index % slots.length],
-    y: 470,
+    y: WORLD.floorY - 145,
   });
   puppets.set(puppetId, puppet);
-  players.set(id, {
-    playerId: id,
-    puppetId,
-    connected: true,
-    connection: null,
-    lastSeq: -1,
-  });
+  players.set(id, { playerId: id, puppetId, connected: true, connection: null, lastSeq: -1 });
   return puppet;
 }
 
 function makeSnapshot() {
-  return {
-    type: "snapshot",
-    tick,
-    puppets: Array.from(puppets.values(), serializePuppet),
-  };
+  return { type: "snapshot", tick, puppets: Array.from(puppets.values(), serializePuppet) };
 }
 
 function syncControls(snapshot) {
@@ -145,7 +128,6 @@ function syncControls(snapshot) {
   const key = `${local.behaviour.mode}:${local.behaviour.pose}`;
   if (key === lastControlState) return;
   lastControlState = key;
-
   for (const button of puppetControls.querySelectorAll("button")) {
     const isPose = button.dataset.action === "pose" && local.behaviour.mode === "active" && button.dataset.pose === local.behaviour.pose;
     const isLimp = button.dataset.action === "limp" && local.behaviour.mode === "limp";
@@ -192,7 +174,6 @@ function snapshotForRender() {
   if (mode === "host") return makeSnapshot();
   if (!snapshotBuffer.length) return null;
   if (snapshotBuffer.length === 1) return snapshotBuffer[0].snapshot;
-
   const target = performance.now() - WORLD.interpolationMs;
   let before = snapshotBuffer[0];
   let after = snapshotBuffer[snapshotBuffer.length - 1];
@@ -214,12 +195,10 @@ function render(snapshot) {
   ctx.clearRect(0, 0, camera.cssWidth, camera.cssHeight);
   ctx.fillStyle = "#d9a13c";
   ctx.fillRect(0, 0, camera.cssWidth, camera.cssHeight);
-
   const topLeft = worldToScreen(0, 0);
   const bottomRight = worldToScreen(WORLD.width, WORLD.height);
   ctx.fillStyle = "#f7e7b8";
   ctx.fillRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
-
   const horizon = worldToScreen(0, WORLD.floorY);
   ctx.fillStyle = "#d7bd7f";
   ctx.fillRect(topLeft.x, horizon.y, bottomRight.x - topLeft.x, bottomRight.y - horizon.y);
@@ -229,9 +208,8 @@ function render(snapshot) {
   ctx.moveTo(topLeft.x, horizon.y);
   ctx.lineTo(bottomRight.x, horizon.y);
   ctx.stroke();
-
   if (snapshot) {
-    const ordered = [...snapshot.puppets].sort((a, b) => (a.parts.pelvis?.y || 0) - (b.parts.pelvis?.y || 0));
+    const ordered = [...snapshot.puppets].sort((a, b) => (a.parts.torso?.y || 0) - (b.parts.torso?.y || 0));
     for (const puppet of ordered) drawPuppet(ctx, puppet, cameraApi);
   }
 }
@@ -243,16 +221,13 @@ function renderLoop() {
 
 function releaseGrab(key) {
   const grab = grabs.get(key);
-  if (!grab || !engine) return;
-  removeGrabConstraint(engine.world, grab.constraint);
-  setPuppetGrabbed(grab.puppet, grab.partName, false);
+  if (!grab) return;
+  endPuppetGrab(grab.puppet, grab.pointerId);
   grabs.delete(key);
 }
 
 function releasePlayerGrabs(id) {
-  for (const key of [...grabs.keys()]) {
-    if (key.startsWith(`${id}:`)) releaseGrab(key);
-  }
+  for (const key of [...grabs.keys()]) if (key.startsWith(`${id}:`)) releaseGrab(key);
 }
 
 function clampPoint(payload) {
@@ -281,17 +256,11 @@ function handleIntent(id, message) {
     const point = clampPoint(message);
     const hit = findGrabBody(puppet, point);
     if (!hit) return;
-    const constraint = createGrabConstraint(engine.world, hit.body, point);
-    setPuppetGrabbed(puppet, hit.name, true);
-    setPuppetAnchorFromGrab(puppet, hit.name, point);
-    grabs.set(key, { constraint, puppet, partName: hit.name });
+    if (!beginPuppetGrab(puppet, message.pointerId, hit.name, point)) return;
+    grabs.set(key, { puppet, pointerId: message.pointerId, partName: hit.name });
   } else if (message.type === "grab:move") {
     const grab = grabs.get(key);
-    if (grab) {
-      const point = clampPoint(message);
-      moveGrabConstraint(grab.constraint, point);
-      setPuppetAnchorFromGrab(grab.puppet, grab.partName, point);
-    }
+    if (grab) movePuppetGrab(grab.puppet, grab.pointerId, clampPoint(message));
   } else if (message.type === "grab:end") {
     releaseGrab(key);
   } else if (message.type === "action") {
@@ -305,7 +274,6 @@ function physicsLoop(now) {
   lastFrame = now;
   const stepMs = 1000 / WORLD.physicsHz;
   const snapshotEvery = Math.max(1, Math.round(WORLD.physicsHz / WORLD.snapshotHz));
-
   while (accumulator >= stepMs) {
     for (const puppet of puppets.values()) stepPuppetBehaviour(puppet);
     Engine.update(engine, Math.min(stepMs, 1000 / 60));
@@ -318,7 +286,6 @@ function physicsLoop(now) {
       transport?.broadcast(snapshot);
     }
   }
-
   const liveSnapshot = snapshotForRender();
   syncControls(liveSnapshot);
   render(liveSnapshot);
@@ -332,7 +299,6 @@ async function beginHost(room) {
   createPhysicsWorld();
   const hostPuppet = spawnForPlayer(playerId, profile);
   localPuppetId = hostPuppet.id;
-
   transport = new HostTransport(room);
   transport.onMessage((message, conn) => {
     if (!message || typeof message.type !== "string") return;
@@ -345,16 +311,9 @@ async function beginHost(room) {
       player.connection = conn;
       player.connected = true;
       player.lastSeq = -1;
-      transport.send(conn, {
-        type: "join:accepted",
-        sessionId: room,
-        playerId: id,
-        puppetId: puppet.id,
-        snapshot: makeSnapshot(),
-      });
+      transport.send(conn, { type: "join:accepted", sessionId: room, playerId: id, puppetId: puppet.id, snapshot: makeSnapshot() });
       return;
     }
-
     const id = conn.__hollerdayPlayerId;
     if (id && (message.type.startsWith("grab:") || message.type === "action")) handleIntent(id, message);
   });
@@ -365,7 +324,6 @@ async function beginHost(room) {
     const player = players.get(id);
     if (player) player.connected = false;
   });
-
   try {
     await transport.open();
     setConnection("Table open");
@@ -389,12 +347,9 @@ async function beginClient(room) {
       localPuppetId = message.puppetId;
       if (message.snapshot) pushSnapshot(message.snapshot);
       setConnection("Joined");
-    } else if (message.type === "snapshot") {
-      pushSnapshot(message);
-    }
+    } else if (message.type === "snapshot") pushSnapshot(message);
   });
   transport.onClose(() => setConnection("Connection lost"));
-
   try {
     await transport.open();
     transport.send({ type: "join", playerId, profile });
@@ -409,25 +364,14 @@ function sendGrab(type, event) {
   if (mode !== "host" && mode !== "client") return;
   const rect = canvas.getBoundingClientRect();
   const point = cameraApi.screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
-  const message = {
-    type,
-    seq: ++inputSeq,
-    pointerId: event.pointerId,
-    x: point.x,
-    y: point.y,
-  };
+  const message = { type, seq: ++inputSeq, pointerId: event.pointerId, x: point.x, y: point.y };
   if (mode === "host") handleIntent(playerId, message);
   else transport?.send(message);
 }
 
 function sendAction(action, pose = null) {
   if (mode !== "host" && mode !== "client") return;
-  const message = {
-    type: "action",
-    seq: ++inputSeq,
-    action,
-    pose,
-  };
+  const message = { type: "action", seq: ++inputSeq, action, pose };
   if (mode === "host") handleIntent(playerId, message);
   else transport?.send(message);
 }
@@ -448,8 +392,7 @@ for (const type of ["pointerup", "pointercancel"]) {
 
 puppetControls.addEventListener("click", event => {
   const button = event.target.closest("button[data-action]");
-  if (!button) return;
-  sendAction(button.dataset.action, button.dataset.pose || null);
+  if (button) sendAction(button.dataset.action, button.dataset.pose || null);
 });
 
 startBtn.addEventListener("click", async () => {
@@ -458,7 +401,6 @@ startBtn.addEventListener("click", async () => {
   updateUrl(room, true);
   await beginHost(room);
 });
-
 joinBtn.addEventListener("click", async () => {
   const room = normaliseRoomCode(roomInput.value);
   if (!room) {
@@ -469,7 +411,6 @@ joinBtn.addEventListener("click", async () => {
   updateUrl(room, false);
   await beginClient(room);
 });
-
 roomInput.addEventListener("input", () => { roomInput.value = normaliseRoomCode(roomInput.value); });
 roomInput.addEventListener("keydown", event => { if (event.key === "Enter") joinBtn.click(); });
 leaveBtn.addEventListener("click", leaveTable);
@@ -487,6 +428,4 @@ const initialRoom = normaliseRoomCode(params.get("room") || "");
 if (initialRoom) {
   if (params.get("host") === "1") beginHost(initialRoom);
   else beginClient(initialRoom);
-} else {
-  render(null);
-}
+} else render(null);
