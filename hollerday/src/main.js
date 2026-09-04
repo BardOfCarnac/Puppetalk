@@ -11,6 +11,8 @@ import {
 } from "./behaviour.js";
 import { createPropSystem, drawProp } from "./props.js";
 import { setupCharacterEditor } from "./character-ui.js";
+import { projectSnapshotForViewer } from "./seat-projection.js";
+import { drawScene, nextSceneId, sceneLabel, warmScene, sceneById } from "./scenes.js";
 import { HostTransport, ClientTransport } from "./network.js";
 
 const { Engine, Bodies, Composite } = Matter;
@@ -34,12 +36,16 @@ const gripRightBtn = document.querySelector("#gripRight");
 const throwLeftBtn = document.querySelector("#throwLeft");
 const throwRightBtn = document.querySelector("#throwRight");
 const useItemBtn = document.querySelector("#useItem");
+const sceneBtn = document.querySelector("#sceneBtn");
 
 const playerId = getStablePlayerId();
 let profile = getLocalProfile(playerId);
 const characterEditor = setupCharacterEditor(playerId);
 const cameraApi = createCamera(canvas);
 window.addEventListener("resize", cameraApi.resize);
+window.addEventListener("hollerday-scene-ready", () => {
+  if (mode === "home") render(null);
+});
 
 let mode = "home";
 let roomCode = "";
@@ -65,6 +71,8 @@ let micAnalyser = null;
 let micTimer = null;
 let lastMouthState = -1;
 let statusRestoreTimer = null;
+let sceneId = sceneById(localStorage.getItem("hollerday.scene") || "stage").id;
+warmScene(sceneId);
 
 function refreshProfile() {
   profile = characterEditor?.getProfile?.() || getLocalProfile(playerId);
@@ -79,6 +87,13 @@ function transientStatus(text) {
   setConnection(text);
   statusRestoreTimer = setTimeout(() => setConnection(normalConnectionText()), 1600);
 }
+function setScene(id) {
+  sceneId = sceneById(id).id;
+  localStorage.setItem("hollerday.scene", sceneId);
+  warmScene(sceneId);
+  if (sceneBtn) sceneBtn.textContent = sceneLabel(sceneId);
+}
+setScene(sceneId);
 
 function showTable(room) {
   roomCode = room;
@@ -151,8 +166,9 @@ function spawnForPlayer(id, playerProfile) {
     x: slots[index % slots.length],
     y: WORLD.floorY - 145,
   });
+  puppet.seat = index;
   puppets.set(puppetId, puppet);
-  players.set(id, { playerId: id, puppetId, connected: true, connection: null, lastSeq: -1 });
+  players.set(id, { playerId: id, puppetId, seat: index, connected: true, connection: null, lastSeq: -1 });
   return puppet;
 }
 
@@ -160,6 +176,7 @@ function makeSnapshot() {
   return {
     type: "snapshot",
     tick,
+    sceneId,
     puppets: Array.from(puppets.values(), serializePuppet),
     props: propSystem?.serialize() || [],
   };
@@ -167,6 +184,7 @@ function makeSnapshot() {
 
 function syncControls(snapshot) {
   if (!snapshot || !localPuppetId) return;
+  if (snapshot.sceneId && snapshot.sceneId !== sceneId) setScene(snapshot.sceneId);
   const local = snapshot.puppets.find(puppet => puppet.id === localPuppetId);
   if (!local?.behaviour) return;
   const key = `${local.behaviour.mode}:${local.behaviour.pose}`;
@@ -184,7 +202,7 @@ function syncControls(snapshot) {
   const heldLeft = props.find(prop => prop.heldBy?.playerId === playerId && prop.heldBy?.hand === "left");
   const heldRight = props.find(prop => prop.heldBy?.playerId === playerId && prop.heldBy?.hand === "right");
   const specialOut = props.find(prop => prop.special && prop.ownerPlayerId === playerId);
-  const propKey = `${heldLeft?.id || "-"}:${heldRight?.id || "-"}:${specialOut?.id || "-"}:${profile.specialItem}`;
+  const propKey = `${heldLeft?.id || "-"}:${heldRight?.id || "-"}:${specialOut?.id || "-"}:${profile.specialItem}:${sceneId}`;
   if (propKey !== lastPropControlState) {
     lastPropControlState = propKey;
     if (gripLeftBtn) gripLeftBtn.textContent = heldLeft ? "Drop L" : "Grip L";
@@ -198,11 +216,13 @@ function syncControls(snapshot) {
       specialItemBtn.textContent = specialOut ? `${label} is out` : `Bring out ${label}`;
       specialItemBtn.disabled = !!specialOut;
     }
+    if (sceneBtn) sceneBtn.textContent = sceneLabel(sceneId);
   }
 }
 
 function pushSnapshot(snapshot) {
   latestSnapshot = snapshot;
+  if (snapshot?.sceneId && snapshot.sceneId !== sceneId) setScene(snapshot.sceneId);
   snapshotBuffer.push({ at: performance.now(), snapshot });
   if (snapshotBuffer.length > 12) snapshotBuffer.splice(0, snapshotBuffer.length - 12);
   syncControls(snapshot);
@@ -233,6 +253,7 @@ function interpolateSnapshots(a, b, t) {
   return {
     type: "snapshot",
     tick: b.tick,
+    sceneId: b.sceneId || a.sceneId || "stage",
     puppets: b.puppets.map(next => {
       const prev = oldById.get(next.id);
       if (!prev) return next;
@@ -255,30 +276,31 @@ function interpolateSnapshots(a, b, t) {
 }
 
 function snapshotForRender() {
-  if (mode === "host") return makeSnapshot();
-  if (!snapshotBuffer.length) return null;
-  if (snapshotBuffer.length === 1) return snapshotBuffer[0].snapshot;
-  const target = performance.now() - WORLD.interpolationMs;
-  let before = snapshotBuffer[0];
-  let after = snapshotBuffer[snapshotBuffer.length - 1];
-  for (let i = 1; i < snapshotBuffer.length; i += 1) {
-    if (snapshotBuffer[i].at >= target) {
-      before = snapshotBuffer[i - 1];
-      after = snapshotBuffer[i];
-      break;
+  let snapshot = null;
+  if (mode === "host") snapshot = makeSnapshot();
+  else if (!snapshotBuffer.length) return null;
+  else if (snapshotBuffer.length === 1) snapshot = snapshotBuffer[0].snapshot;
+  else {
+    const target = performance.now() - WORLD.interpolationMs;
+    let before = snapshotBuffer[0];
+    let after = snapshotBuffer[snapshotBuffer.length - 1];
+    for (let i = 1; i < snapshotBuffer.length; i += 1) {
+      if (snapshotBuffer[i].at >= target) {
+        before = snapshotBuffer[i - 1];
+        after = snapshotBuffer[i];
+        break;
+      }
+    }
+    if (after.at <= before.at) snapshot = after.snapshot;
+    else {
+      const t = Math.max(0, Math.min(1, (target - before.at) / (after.at - before.at)));
+      snapshot = interpolateSnapshots(before.snapshot, after.snapshot, t);
     }
   }
-  if (after.at <= before.at) return after.snapshot;
-  const t = Math.max(0, Math.min(1, (target - before.at) / (after.at - before.at)));
-  return interpolateSnapshots(before.snapshot, after.snapshot, t);
+  return projectSnapshotForViewer(snapshot, localPuppetId);
 }
 
-function render(snapshot) {
-  const { camera, worldToScreen } = cameraApi;
-  ctx.setTransform(camera.dpr, 0, 0, camera.dpr, 0, 0);
-  ctx.clearRect(0, 0, camera.cssWidth, camera.cssHeight);
-  ctx.fillStyle = "#d9a13c";
-  ctx.fillRect(0, 0, camera.cssWidth, camera.cssHeight);
+function drawFallbackStage(worldToScreen) {
   const topLeft = worldToScreen(0, 0);
   const bottomRight = worldToScreen(WORLD.width, WORLD.height);
   ctx.fillStyle = "#f7e7b8";
@@ -287,11 +309,21 @@ function render(snapshot) {
   ctx.fillStyle = "#d7bd7f";
   ctx.fillRect(topLeft.x, horizon.y, bottomRight.x - topLeft.x, bottomRight.y - horizon.y);
   ctx.strokeStyle = "#1d1711";
-  ctx.lineWidth = Math.max(1.5, 3 * camera.scale);
+  ctx.lineWidth = Math.max(1.5, 3 * cameraApi.camera.scale);
   ctx.beginPath();
   ctx.moveTo(topLeft.x, horizon.y);
   ctx.lineTo(bottomRight.x, horizon.y);
   ctx.stroke();
+}
+
+function render(snapshot) {
+  const { camera, worldToScreen } = cameraApi;
+  ctx.setTransform(camera.dpr, 0, 0, camera.dpr, 0, 0);
+  ctx.clearRect(0, 0, camera.cssWidth, camera.cssHeight);
+  ctx.fillStyle = "#d9a13c";
+  ctx.fillRect(0, 0, camera.cssWidth, camera.cssHeight);
+  const activeScene = snapshot?.sceneId || sceneId;
+  if (!drawScene(ctx, activeScene, cameraApi)) drawFallbackStage(worldToScreen);
 
   if (snapshot) {
     const renderables = [
@@ -351,11 +383,8 @@ function handleIntent(id, message) {
   } else if (message.type === "grab:move") {
     const grab = grabs.get(key);
     if (grab) movePuppetGrab(grab.puppet, grab.pointerId, clampPoint(message));
-  } else if (message.type === "grab:end") {
-    releaseGrab(key);
-  } else if (message.type === "action") {
-    setPuppetAction(puppet, message.action, message.pose ?? null);
-  }
+  } else if (message.type === "grab:end") releaseGrab(key);
+  else if (message.type === "action") setPuppetAction(puppet, message.action, message.pose ?? null);
 }
 
 function propResultFor(id, result) {
@@ -380,6 +409,17 @@ function handlePropIntent(id, message) {
     }
   }
   propResultFor(id, result);
+}
+
+function handleSceneIntent(id, message) {
+  const player = players.get(id);
+  if (!player || !acceptSequence(player, message)) return;
+  setScene(message.sceneId || nextSceneId(sceneId));
+  const snapshot = makeSnapshot();
+  pushSnapshot(snapshot);
+  transport?.broadcast(snapshot);
+  if (id === playerId && mode === "host") transientStatus(`Scene: ${sceneLabel(sceneId)}`);
+  if (player.connection) transport?.send(player.connection, { type: "scene-result", sceneId, message: `Scene: ${sceneLabel(sceneId)}` });
 }
 
 function physicsLoop(now) {
@@ -434,6 +474,7 @@ async function beginHost(room) {
     if (!id) return;
     if (message.type.startsWith("grab:") || message.type === "action") handleIntent(id, message);
     else if (message.type === "prop") handlePropIntent(id, message);
+    else if (message.type === "scene") handleSceneIntent(id, message);
   });
   transport.onDisconnect(conn => {
     const id = conn.__hollerdayPlayerId;
@@ -468,7 +509,7 @@ async function beginClient(room) {
       if (message.snapshot) pushSnapshot(message.snapshot);
       setConnection("Joined");
     } else if (message.type === "snapshot") pushSnapshot(message);
-    else if (message.type === "prop-result") transientStatus(message.message || "Toy updated.");
+    else if (message.type === "prop-result" || message.type === "scene-result") transientStatus(message.message || "Updated.");
   });
   transport.onClose(() => setConnection("Connection lost"));
   try {
@@ -501,6 +542,13 @@ function sendProp(action, extras = {}) {
   if (mode !== "host" && mode !== "client") return;
   const message = { type: "prop", seq: ++inputSeq, action, ...extras };
   if (mode === "host") handlePropIntent(playerId, message);
+  else transport?.send(message);
+}
+
+function sendScene(id) {
+  if (mode !== "host" && mode !== "client") return;
+  const message = { type: "scene", seq: ++inputSeq, sceneId: id };
+  if (mode === "host") handleSceneIntent(playerId, message);
   else transport?.send(message);
 }
 
@@ -560,6 +608,7 @@ puppetControls.addEventListener("click", event => {
   if (button) sendAction(button.dataset.action, button.dataset.pose || null);
 });
 micBtn?.addEventListener("click", startMicrophone);
+sceneBtn?.addEventListener("click", () => sendScene(nextSceneId(sceneId)));
 specialItemBtn?.addEventListener("click", () => { refreshProfile(); sendProp("bring-out", { item: profile.specialItem }); });
 gripLeftBtn?.addEventListener("click", () => sendProp("toggle-grip", { hand: "left" }));
 gripRightBtn?.addEventListener("click", () => sendProp("toggle-grip", { hand: "right" }));
