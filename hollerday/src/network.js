@@ -6,15 +6,25 @@ export class HostTransport {
     this.connections = new Set();
     this.messageHandlers = new Set();
     this.disconnectHandlers = new Set();
+    this.online = false;
+    this.lastError = null;
   }
 
   async open() {
+    // Local simulation must never depend on the signalling server. Register the
+    // PeerJS listeners immediately, then let signalling come online alongside the
+    // already-running table. This restores the frozen build's local-first feel.
     this.peer = new Peer(this.peerId);
-    await new Promise((resolve, reject) => {
-      this.peer.once("open", resolve);
-      this.peer.once("error", reject);
-    });
 
+    this.peer.on("open", () => {
+      this.online = true;
+      this.lastError = null;
+    });
+    this.peer.on("error", error => {
+      this.lastError = error;
+      this.online = false;
+      console.error("Hollerday host signalling error", error);
+    });
     this.peer.on("connection", conn => {
       this.connections.add(conn);
       conn.on("data", data => {
@@ -25,6 +35,9 @@ export class HostTransport {
         for (const handler of this.disconnectHandlers) handler(conn);
       });
     });
+
+    // Deliberately resolve now: beginHost can start Matter/rendering immediately.
+    // PeerJS will emit `open` when the room is reachable by other devices.
   }
 
   onMessage(handler) { this.messageHandlers.add(handler); }
