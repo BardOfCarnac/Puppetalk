@@ -15,6 +15,9 @@ const NEUTRAL_DEPTH_PLANE = DEPTH_PLANES.indexOf(0);
 const EDGE_DEPTH_ZONE = 90;
 const DEPTH_STEP_TRAVEL = 64;
 const DEPTH_STEP_COOLDOWN = 180;
+const MANUAL_PIN_HOLD_MS = 170;
+const MANUAL_PIN_FADE_MS = 920;
+const PIN_PARTS = Object.freeze(["head","leftHand","rightHand","leftFoot","rightFoot"]);
 
 const RECOVERY_LAYOUT = Object.freeze({
   torso: [0, 0, 0],
@@ -35,6 +38,21 @@ const smoothstep = value => {
   return t * t * (3 - 2 * t);
 };
 const lerp = (a,b,t) => a + (b-a)*t;
+const makePins = () => ({ head:null,leftHand:null,rightHand:null,leftFoot:null,rightFoot:null });
+
+function pinInfluence(state, part, now) {
+  const pin = state.pins?.[part];
+  if (!pin) return 0;
+  if (!Number.isFinite(pin.releasedAt)) return 1;
+  const age = now - pin.releasedAt;
+  if (age <= MANUAL_PIN_HOLD_MS) return 1;
+  const progress = (age - MANUAL_PIN_HOLD_MS) / MANUAL_PIN_FADE_MS;
+  if (progress >= 1) {
+    state.pins[part] = null;
+    return 0;
+  }
+  return 1 - smoothstep(progress);
+}
 
 export function depthScale(depth) {
   return depth >= 0 ? clamp(1 + depth * 1.58, 1, 2.58) : clamp(1 + depth * .58, .72, 1);
@@ -62,7 +80,7 @@ function worldPoint(body, local) {
 }
 
 function springPull(body, point, target, stiffness, damping = .003, cap = Infinity) {
-  if (!body || !point) return;
+  if (!body || !point || stiffness <= 0) return;
   const mass = Math.max(.2, body.mass || 1);
   let fx = ((target.x - point.x) * stiffness - body.velocity.x * damping) * mass;
   let fy = ((target.y - point.y) * stiffness - body.velocity.y * damping) * mass;
@@ -290,7 +308,7 @@ function drivePuppet(puppet) {
   if (state.lastPose !== state.pose || state.lastPoseVersion !== state.poseVersion) {
     state.lastPose = state.pose;
     state.lastPoseVersion = state.poseVersion;
-    state.pins = { head: null, leftHand: null, rightHand: null, leftFoot: null, rightFoot: null };
+    state.pins = makePins();
   }
 
   const activeParts = new Set(grabs.map(grab => grab.part));
@@ -351,8 +369,8 @@ function drivePuppet(puppet) {
       springPull(t, t.position, { x: anchorX, y: bodyTargetY }, (.000052 + .000036 * item.followBlend) / grabs.length, .0045);
     }
 
-    if (["head", "leftHand", "rightHand", "leftFoot", "rightFoot"].includes(part)) {
-      state.pins[part] = { x: item.desired.x - anchorX, y: item.desired.y - standingY };
+    if (PIN_PARTS.includes(part)) {
+      state.pins[part] = { x: item.desired.x - anchorX, y: item.desired.y - standingY, releasedAt: null };
     }
   }
 
@@ -367,46 +385,53 @@ function drivePuppet(puppet) {
     springPull(t, t.position, torsoDesired, .000075, .0042);
   }
 
+  const pinBlend = {};
+  for (const part of PIN_PARTS) pinBlend[part] = activeParts.has(part) ? 1 : pinInfluence(state, part, now);
+
   const legSpread = crouched ? 22 : 16;
   const thighY = standingY + (crouched ? 48 : 61);
   const shinY = standingY + (crouched ? 88 : 112);
   const footY = floorY - 2;
 
-  if (!activeParts.has("leftFoot") && !state.pins.leftFoot) {
-    springPull(p.upperLegL, p.upperLegL.position, { x: anchorX - 13, y: thighY }, .000078, .0055);
-    springPull(p.lowerLegL, p.lowerLegL.position, { x: anchorX - legSpread, y: shinY }, .0001, .0057);
-    springPull(p.lowerLegL, grabWorldPoint(puppet, "leftFoot"), { x: anchorX - legSpread, y: footY }, .00017, .0059);
+  if (!activeParts.has("leftFoot")) {
+    const blend = 1 - pinBlend.leftFoot;
+    springPull(p.upperLegL, p.upperLegL.position, { x: anchorX - 13, y: thighY }, .000078 * blend, .0055);
+    springPull(p.lowerLegL, p.lowerLegL.position, { x: anchorX - legSpread, y: shinY }, .0001 * blend, .0057);
+    springPull(p.lowerLegL, grabWorldPoint(puppet, "leftFoot"), { x: anchorX - legSpread, y: footY }, .00017 * blend, .0059);
   }
-  if (!activeParts.has("rightFoot") && !state.pins.rightFoot) {
-    springPull(p.upperLegR, p.upperLegR.position, { x: anchorX + 13, y: thighY }, .000078, .0055);
-    springPull(p.lowerLegR, p.lowerLegR.position, { x: anchorX + legSpread, y: shinY }, .0001, .0057);
-    springPull(p.lowerLegR, grabWorldPoint(puppet, "rightFoot"), { x: anchorX + legSpread, y: footY }, .00017, .0059);
+  if (!activeParts.has("rightFoot")) {
+    const blend = 1 - pinBlend.rightFoot;
+    springPull(p.upperLegR, p.upperLegR.position, { x: anchorX + 13, y: thighY }, .000078 * blend, .0055);
+    springPull(p.lowerLegR, p.lowerLegR.position, { x: anchorX + legSpread, y: shinY }, .0001 * blend, .0057);
+    springPull(p.lowerLegR, grabWorldPoint(puppet, "rightFoot"), { x: anchorX + legSpread, y: footY }, .00017 * blend, .0059);
   }
 
-  for (const part of ["head", "leftHand", "rightHand", "leftFoot", "rightFoot"]) {
+  for (const part of PIN_PARTS) {
     const pin = state.pins[part];
-    if (!pin || activeParts.has(part)) continue;
+    const influence = pinBlend[part];
+    if (!pin || activeParts.has(part) || influence <= .001) continue;
     const body = grabBody(puppet, part);
     const point = grabWorldPoint(puppet, part);
     const strength = part === "head" ? .00017 : part.includes("Foot") ? .000145 : .00013;
-    springPull(body, point, { x: anchorX + pin.x, y: standingY + pin.y }, strength, .0044);
+    springPull(body, point, { x: anchorX + pin.x, y: standingY + pin.y }, strength * influence, .0044);
   }
 
-  if (!state.pins.head && !activeParts.has("head")) {
-    springPull(p.head, p.head.position, { x: anchorX, y: standingY - 65 }, .000095, .0046);
+  if (!activeParts.has("head")) {
+    const blend = 1 - pinBlend.head;
+    springPull(p.head, p.head.position, { x: anchorX, y: standingY - 65 }, .000095 * blend, .0046);
   }
 
   if (state.pose === "stand") {
-    if (!activeParts.has("leftHand") && !state.pins.leftHand) springPull(p.lowerArmL, grabWorldPoint(puppet, "leftHand"), { x: anchorX - 42, y: standingY + 53 }, .000085, .0056);
-    if (!activeParts.has("rightHand") && !state.pins.rightHand) springPull(p.lowerArmR, grabWorldPoint(puppet, "rightHand"), { x: anchorX + 42, y: standingY + 53 }, .000085, .0056);
+    if (!activeParts.has("leftHand")) springPull(p.lowerArmL, grabWorldPoint(puppet, "leftHand"), { x: anchorX - 42, y: standingY + 53 }, .000085 * (1 - pinBlend.leftHand), .0056);
+    if (!activeParts.has("rightHand")) springPull(p.lowerArmR, grabWorldPoint(puppet, "rightHand"), { x: anchorX + 42, y: standingY + 53 }, .000085 * (1 - pinBlend.rightHand), .0056);
   }
 
   if (state.pose === "point" && !activeParts.has("leftHand") && !activeParts.has("leftShoulder")) {
-    springPull(p.lowerArmL, grabWorldPoint(puppet, "leftHand"), { x: t.position.x - 112, y: t.position.y - 27 }, .00025, .0038);
+    springPull(p.lowerArmL, grabWorldPoint(puppet, "leftHand"), { x: t.position.x - 112, y: t.position.y - 27 }, .00025 * (1 - pinBlend.leftHand), .0038);
   }
   if (state.pose === "cheer") {
-    if (!activeParts.has("leftHand") && !activeParts.has("leftShoulder")) springPull(p.lowerArmL, grabWorldPoint(puppet, "leftHand"), { x: t.position.x - 44, y: t.position.y - 124 }, .000265, .0039);
-    if (!activeParts.has("rightHand") && !activeParts.has("rightShoulder")) springPull(p.lowerArmR, grabWorldPoint(puppet, "rightHand"), { x: t.position.x + 44, y: t.position.y - 124 }, .000265, .0039);
+    if (!activeParts.has("leftHand") && !activeParts.has("leftShoulder")) springPull(p.lowerArmL, grabWorldPoint(puppet, "leftHand"), { x: t.position.x - 44, y: t.position.y - 124 }, .000265 * (1 - pinBlend.leftHand), .0039);
+    if (!activeParts.has("rightHand") && !activeParts.has("rightShoulder")) springPull(p.lowerArmR, grabWorldPoint(puppet, "rightHand"), { x: t.position.x + 44, y: t.position.y - 124 }, .000265 * (1 - pinBlend.rightHand), .0039);
   }
 
   const leftFoot = grabWorldPoint(puppet, "leftFoot");
@@ -433,6 +458,7 @@ function beginRecovery(puppet, now) {
   state.poseVersion += 1;
   state.grabs.clear();
   state.sessions.clear();
+  state.pins = makePins();
   state.walkFeet = null;
   state.walkStep = null;
   puppet.grabbedParts = new Set();
@@ -526,7 +552,7 @@ export function initialisePuppetBehaviour(puppet) {
     grabs: new Map(),
     grabsArray: [],
     sessions: new Map(),
-    pins: { head: null, leftHand: null, rightHand: null, leftFoot: null, rightFoot: null },
+    pins: makePins(),
     recover: null,
     heat: 0,
     walkFeet: null,
@@ -560,6 +586,9 @@ export function movePuppetGrab(puppet, pointerId, point) {
 
 export function endPuppetGrab(puppet, pointerId) {
   if (!puppet?.behaviour) return false;
+  const grab = puppet.behaviour.grabs.get(pointerId);
+  const pin = grab && puppet.behaviour.pins?.[grab.part];
+  if (pin) pin.releasedAt = performance.now();
   puppet.behaviour.grabs.delete(pointerId);
   puppet.behaviour.sessions.delete(pointerId);
   return true;
