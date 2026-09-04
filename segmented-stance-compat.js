@@ -14,7 +14,7 @@
     const thighY = standingY+(crouched ? 48 : 61);
     const shinY = standingY+(crouched ? 88 : 112);
     const footY = floorY-2;`,
-`    const legSpread = crouched ? 22 : 16;
+`    const legSpread = crouched ? 22 : 12;
     // thighY/shinY describe the centre of the historic whole limb. The control
     // bodies are now the proximal halves, so shift their centre targets upward.
     const wholeThighY = standingY+(crouched ? 48 : 61);
@@ -26,11 +26,11 @@
 
     patched = patched.replace(
       "springPull(p.shL,grabWorldPoint(p,'leftFoot'),{x:anchorX-legSpread,y:footY},.00017,.0059);",
-      "springPull(p.shL2 || p.shL,grabWorldPoint(p,'leftFoot'),{x:anchorX-legSpread,y:footY},.00017,.0059);"
+      "springPull(p.shL2 || p.shL,grabWorldPoint(p,'leftFoot'),{x:anchorX-legSpread,y:footY},crouched?.00017:.00023,crouched?.0059:.0065);"
     );
     patched = patched.replace(
       "springPull(p.shR,grabWorldPoint(p,'rightFoot'),{x:anchorX+legSpread,y:footY},.00017,.0059);",
-      "springPull(p.shR2 || p.shR,grabWorldPoint(p,'rightFoot'),{x:anchorX+legSpread,y:footY},.00017,.0059);"
+      "springPull(p.shR2 || p.shR,grabWorldPoint(p,'rightFoot'),{x:anchorX+legSpread,y:footY},crouched?.00017:.00023,crouched?.0059:.0065);"
     );
 
     // jump-feel has already rewritten this support by the time this Blob wrapper
@@ -81,17 +81,17 @@
       `puppets.forEach(p=>{ drivePuppet(p); repairBrokenSeams(p); stabilizeIntactSeams(p); repairSeveredJoints(p); });`
     );
 
-    // In Stand the hands should settle into a readable neutral silhouette rather
-    // than allowing the extra hidden segment mass to torque an arm upward.
+    // In Stand the hands should settle into the same narrow neutral silhouette shown
+    // on the character card, while manual grabs still override this immediately.
     patched = patched.replace(
 `    const leftFoot = grabWorldPoint(p,'leftFoot');
     const rightFoot = grabWorldPoint(p,'rightFoot');`,
 `    if(p.pose === 'stand' && !rig.air?.active){
       if(!activeParts.has('leftHand') && !rig.pins.leftHand){
-        springPull(grabBody(p,'leftHand'),grabWorldPoint(p,'leftHand'),{x:anchorX-42,y:standingY+53},.000085,.0056);
+        springPull(grabBody(p,'leftHand'),grabWorldPoint(p,'leftHand'),{x:anchorX-34,y:standingY+50},.00012,.0062);
       }
       if(!activeParts.has('rightHand') && !rig.pins.rightHand){
-        springPull(grabBody(p,'rightHand'),grabWorldPoint(p,'rightHand'),{x:anchorX+42,y:standingY+53},.000085,.0056);
+        springPull(grabBody(p,'rightHand'),grabWorldPoint(p,'rightHand'),{x:anchorX+34,y:standingY+50},.00012,.0062);
       }
     }
 
@@ -114,5 +114,5 @@
   SegmentedStanceBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(SegmentedStanceBlob, NativeBlob);
   window.Blob = SegmentedStanceBlob;
-  window.PuppetalkSegmentedStanceCompat = { version: 3 };
+  window.PuppetalkSegmentedStanceCompat = { version: 4 };
 })();
