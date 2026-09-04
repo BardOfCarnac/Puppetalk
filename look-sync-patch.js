@@ -1,14 +1,30 @@
-// Keeps the selected character look attached to ordinary controller input packets.
-// This makes the authoritative host adopt head/face choices even if a one-off look packet is missed.
+// Reasserts the selected character look over the ordinary controller connection.
+// The host already understands type:'look'; this makes delivery reliable without
+// touching boot.js's later replacement of applyInput().
 (() => {
   const decoratedFetch = window.fetch.bind(window);
 
   function patch(source){
-    if(!source.includes('function applyInput(slot,msg)') || !source.includes('function cleanLook')) return source;
+    if(!source.includes("const send = (conn,msg) => { if(conn?.open) conn.send(msg); };")) return source;
 
     source = source.replace(
-      "    const input = msg.input || {};",
-      "    const input = msg.input || {};\n    if(input.look){\n      p.look = cleanLook(input.look,slot);\n      p.color = p.look.color;\n    }"
+      "const send = (conn,msg) => { if(conn?.open) conn.send(msg); };",
+      `const PUPPETALK_LAST_LOOK_SENT = new WeakMap();
+const send = (conn,msg) => {
+  if(!conn?.open) return;
+  conn.send(msg);
+  // The normal input object already contains input.look. Mirror it as the profile
+  // packet the host understands, but only when that profile actually changes.
+  if(msg?.type === 'input' && msg.input?.look){
+    const name = typeof savedPlayerName === 'function' ? savedPlayerName() : '';
+    const profile = {type:'look',look:msg.input.look,name};
+    const key = JSON.stringify(profile);
+    if(PUPPETALK_LAST_LOOK_SENT.get(conn) !== key){
+      PUPPETALK_LAST_LOOK_SENT.set(conn,key);
+      conn.send(profile);
+    }
+  }
+};`
     );
 
     return source;
