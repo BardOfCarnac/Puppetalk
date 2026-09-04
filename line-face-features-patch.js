@@ -186,10 +186,17 @@ function drawLineFaceNose(ctx,name,hr){
   if(look.extra==='moustache'){ctx.beginPath();ctx.ellipse(-hr*.13,hr*.27,hr*.2,hr*.09,-.25,0,Math.PI*2);ctx.ellipse(hr*.13,hr*.27,hr*.2,hr*.09,.25,0,Math.PI*2);ctx.fill();}
   ctx.restore();`;
 
+    const headRendererPattern = /  const hx = p\.head\.x\*w;[\s\S]*?  ctx\.restore\(\);\s+  ctx\.font =/;
+    if(!headRendererPattern.test(source)){
+      throw new Error('Line Face features patch failed: head renderer');
+    }
     source = source.replace(
-      /  const hx = p\.head\.x\*w;[\s\S]*?  ctx\.restore\(\);\n\n  ctx\.font =/,
+      headRendererPattern,
       `${newHead}\n\n  ctx.font =`
     );
+    if(!source.includes('puppetHeadPath(ctx,look.headStyle,hr)')){
+      throw new Error('Line Face features patch failed: renderer not installed');
+    }
 
     return source;
   }
