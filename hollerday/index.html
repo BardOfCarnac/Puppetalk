@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#f3b33d" />
+  <title>Hollerday</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fontdiner+Swanky&family=Nunito:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main id="home" class="home">
+    <section class="poster" aria-labelledby="title">
+      <div class="sunburst" aria-hidden="true"></div>
+      <p class="eyebrow">A shared puppet room</p>
+      <h1 id="title">Hollerday</h1>
+      <p class="strap">Turn up. Grab your puppet. See everybody.</p>
+      <div class="actions">
+        <button id="startBtn" class="primary">Start a table</button>
+        <div class="joinRow">
+          <label class="srOnly" for="roomInput">Table code</label>
+          <input id="roomInput" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="CODE" />
+          <button id="joinBtn">Join</button>
+        </div>
+      </div>
+      <p id="homeStatus" class="status" role="status"></p>
+    </section>
+  </main>
+
+  <main id="table" class="table hidden">
+    <canvas id="stage" aria-label="Hollerday puppet stage"></canvas>
+    <header class="tableTop">
+      <div class="miniTitle">Hollerday</div>
+      <button id="roomBadge" class="roomBadge" title="Copy table code"></button>
+    </header>
+    <div class="tableBottom">
+      <span id="connectionState">Connecting…</span>
+      <button id="leaveBtn" class="quiet">Leave</button>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
