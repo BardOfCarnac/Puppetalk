@@ -19,10 +19,9 @@ const decorators = [
   'severable-joints.js',
   'laser-frisbee.js',
   'item-polish.js',
+  'special-items.js',
   'segmented-puppet.js',
-  'seat-render.js',
-  'voice-layer.js',
-  'voice-stage-compat.js'
+  'seat-render.js'
 ];
 
 const stubNode = () => ({
@@ -76,25 +75,16 @@ for(const marker of [
   'PUPPETALK_SEVERABLE_JOINTS_V1',
   'PUPPETALK_LASER_FRISBEE_V1',
   'PUPPETALK_ITEM_POLISH_V1',
+  'PUPPETALK_SPECIAL_ITEMS_V1',
   'PUPPETALK_SEGMENTED_PUPPET_V1',
-  'PUPPETALK_SEAT_RENDER_V1',
-  'PUPPETALK_VOICE_STAGE_COMPAT_V1'
+  'PUPPETALK_SEAT_RENDER_V1'
 ]){
   if(!composed.includes(marker)) throw new Error(`Missing composed marker: ${marker}`);
 }
 
 for(const hook of [
-  'window.PuppetalkVoice?.stageJoin(conn,slot);',
-  'window.PuppetalkVoice?.stageData(conn,slot,msg);',
-  'window.PuppetalkVoice?.controllerPeer(peer,room);',
-  'window.PuppetalkVoice?.setLocalStream(stream);',
-  'window.PuppetalkVoice?.mouthState?.(rms,now)',
-  'id="deafen"'
-]){
-  if(!composed.includes(hook)) throw new Error(`Missing live voice hook: ${hook}`);
-}
-
-for(const hook of [
+  'specialItemType(slot)',
+  'bringOutSpecialItem(slot)',
   'brokenSeams:new Set()',
   'severSeam(p,name)',
   "best.kind === 'seam'",
@@ -103,10 +93,11 @@ for(const hook of [
   'puppetalkSeatProjection(scene,propScene,slot)',
   'PUPPETALK_SEAT_ORDER = [0,3,1,4,2,5]'
 ]){
-  if(!composed.includes(hook)) throw new Error(`Missing segmented/seat hook: ${hook}`);
+  if(!composed.includes(hook)) throw new Error(`Missing live architecture hook: ${hook}`);
 }
 
 if(composed.includes('splitPuppetBody(')) throw new Error('Runtime body slicing should not be in the live composed source.');
+if(composed.includes('PUPPETALK_SEAT_VIEW')) throw new Error('Peer-wrapped seat view should not be in the live composed source.');
 
 new Function(composed);
-console.log('Composed app + segmented bodies + controller-local seat projection + live voice source smoke check passed.');
+console.log('Composed live app + special items + segmented bodies + controller-local seat projection source smoke check passed.');
