@@ -1,29 +1,8 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {appSourceDecorators as decorators} from './translation/manifest.mjs';
 
 const appSource = fs.readFileSync('app.js','utf8');
-const decorators = [
-  'character-creator-patch.js',
-  'character-creator-hotfix.js',
-  'line-face-mouths-patch.js',
-  'line-face-features-patch.js',
-  'face-spacing-patch.js',
-  'toy-system.js',
-  'toy-tap.js',
-  'dart-stick.js',
-  'balloon-tie.js',
-  'toy-throw.js',
-  'prop-extremities.js',
-  'balloon-buoyancy.js',
-  'dart-balloon-pop.js',
-  'severable-joints.js',
-  'laser-frisbee.js',
-  'item-polish.js',
-  'special-items.js',
-  'segmented-puppet.js',
-  'seat-render.js',
-  'depth-assist.js'
-];
 
 const stubNode = () => ({
   appendChild(){}, remove(){}, pause(){},
@@ -79,7 +58,8 @@ for(const marker of [
   'PUPPETALK_SPECIAL_ITEMS_V1',
   'PUPPETALK_SEGMENTED_PUPPET_V1',
   'PUPPETALK_SEAT_RENDER_V1',
-  'PUPPETALK_DEPTH_ASSIST_V1'
+  'PUPPETALK_DEPTH_ASSIST_V1',
+  'PUPPETALK_VISUAL_THICKNESS_V1'
 ]){
   if(!composed.includes(marker)) throw new Error(`Missing composed marker: ${marker}`);
 }
@@ -100,7 +80,9 @@ for(const hook of [
   'puppetalkAimProjectPropPoint(prop,prop._throwerSlot)',
   'puppetalkAimProjectPoint(p,qRaw,prop._throwerSlot)',
   'throwerSlot:Number.isInteger(prop._throwerSlot)',
-  'viewScale:depthApi?.scaleForDepth?.(viewDepth)||1'
+  'viewScale:depthApi?.scaleForDepth?.(viewDepth)||1',
+  'const tw = Math.max(18,40*scale);',
+  'const hr = Math.max(12,23.5*scale);'
 ]){
   if(!composed.includes(hook)) throw new Error(`Missing live architecture hook: ${hook}`);
 }
@@ -109,4 +91,4 @@ if(composed.includes('splitPuppetBody(')) throw new Error('Runtime body slicing 
 if(composed.includes('PUPPETALK_SEAT_VIEW')) throw new Error('Peer-wrapped seat view should not be in the live composed source.');
 
 new Function(composed);
-console.log('Composed live app + profile items + segmented bodies + seat projection passed.');
+console.log('Composed frozen Puppetalk app, including final visual proportions, passed.');
