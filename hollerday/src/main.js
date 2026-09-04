@@ -9,6 +9,11 @@ import {
   removeGrabConstraint,
   drawPuppet,
 } from "./rig.js";
+import {
+  setPuppetAction,
+  setPuppetGrabbed,
+  stepPuppetBehaviour,
+} from "./behaviour.js";
 import { HostTransport, ClientTransport } from "./network.js";
 
 const { Engine, Bodies, Composite } = Matter;
@@ -24,6 +29,7 @@ const homeStatus = document.querySelector("#homeStatus");
 const roomBadge = document.querySelector("#roomBadge");
 const connectionState = document.querySelector("#connectionState");
 const leaveBtn = document.querySelector("#leaveBtn");
+const puppetControls = document.querySelector("#puppetControls");
 
 const playerId = getStablePlayerId();
 const profile = getLocalProfile(playerId);
@@ -39,11 +45,13 @@ let players = new Map();
 let grabs = new Map();
 let latestSnapshot = null;
 let snapshotBuffer = [];
+let localPuppetId = null;
 let rafId = 0;
 let lastFrame = 0;
 let accumulator = 0;
 let tick = 0;
 let inputSeq = 0;
+let lastControlState = "";
 
 function setHomeStatus(text) { homeStatus.textContent = text || ""; }
 function setConnection(text) { connectionState.textContent = text || ""; }
@@ -106,10 +114,16 @@ function spawnForPlayer(id, playerProfile) {
     ownerPlayerId: id,
     profile: playerProfile,
     x: slots[index % slots.length],
-    y: 445,
+    y: 470,
   });
   puppets.set(puppetId, puppet);
-  players.set(id, { playerId: id, puppetId, connected: true, connection: null });
+  players.set(id, {
+    playerId: id,
+    puppetId,
+    connected: true,
+    connection: null,
+    lastSeq: -1,
+  });
   return puppet;
 }
 
@@ -121,10 +135,27 @@ function makeSnapshot() {
   };
 }
 
+function syncControls(snapshot) {
+  if (!snapshot || !localPuppetId) return;
+  const local = snapshot.puppets.find(puppet => puppet.id === localPuppetId);
+  if (!local?.behaviour) return;
+  const key = `${local.behaviour.mode}:${local.behaviour.pose}`;
+  if (key === lastControlState) return;
+  lastControlState = key;
+
+  for (const button of puppetControls.querySelectorAll("button")) {
+    const isPose = button.dataset.action === "pose" && local.behaviour.mode === "active" && button.dataset.pose === local.behaviour.pose;
+    const isLimp = button.dataset.action === "limp" && local.behaviour.mode === "limp";
+    const isRecover = button.dataset.action === "recover" && local.behaviour.mode === "recovering";
+    button.classList.toggle("selected", isPose || isLimp || isRecover);
+  }
+}
+
 function pushSnapshot(snapshot) {
   latestSnapshot = snapshot;
   snapshotBuffer.push({ at: performance.now(), snapshot });
   if (snapshotBuffer.length > 12) snapshotBuffer.splice(0, snapshotBuffer.length - 12);
+  syncControls(snapshot);
 }
 
 function lerpAngle(a, b, t) {
@@ -155,7 +186,7 @@ function interpolateSnapshots(a, b, t) {
 }
 
 function snapshotForRender() {
-  if (mode === "host") return latestSnapshot;
+  if (mode === "host") return makeSnapshot();
   if (!snapshotBuffer.length) return null;
   if (snapshotBuffer.length === 1) return snapshotBuffer[0].snapshot;
 
@@ -208,9 +239,10 @@ function renderLoop() {
 }
 
 function releaseGrab(key) {
-  const constraint = grabs.get(key);
-  if (!constraint || !engine) return;
-  removeGrabConstraint(engine.world, constraint);
+  const grab = grabs.get(key);
+  if (!grab || !engine) return;
+  removeGrabConstraint(engine.world, grab.constraint);
+  setPuppetGrabbed(grab.puppet, grab.partName, false);
   grabs.delete(key);
 }
 
@@ -227,10 +259,18 @@ function clampPoint(payload) {
   };
 }
 
+function acceptSequence(player, message) {
+  const seq = Number(message.seq);
+  if (!Number.isFinite(seq)) return true;
+  if (seq <= player.lastSeq) return false;
+  player.lastSeq = seq;
+  return true;
+}
+
 function handleIntent(id, message) {
   const player = players.get(id);
   const puppet = player ? puppets.get(player.puppetId) : null;
-  if (!puppet || !engine) return;
+  if (!puppet || !engine || !acceptSequence(player, message)) return;
   const key = `${id}:${message.pointerId}`;
 
   if (message.type === "grab:start") {
@@ -238,12 +278,16 @@ function handleIntent(id, message) {
     const point = clampPoint(message);
     const hit = findGrabBody(puppet, point);
     if (!hit) return;
-    grabs.set(key, createGrabConstraint(engine.world, hit.body, point));
+    const constraint = createGrabConstraint(engine.world, hit.body, point);
+    setPuppetGrabbed(puppet, hit.name, true);
+    grabs.set(key, { constraint, puppet, partName: hit.name });
   } else if (message.type === "grab:move") {
-    const constraint = grabs.get(key);
-    if (constraint) moveGrabConstraint(constraint, clampPoint(message));
+    const grab = grabs.get(key);
+    if (grab) moveGrabConstraint(grab.constraint, clampPoint(message));
   } else if (message.type === "grab:end") {
     releaseGrab(key);
+  } else if (message.type === "action") {
+    setPuppetAction(puppet, message.action, message.pose || null);
   }
 }
 
@@ -255,6 +299,7 @@ function physicsLoop(now) {
   const snapshotEvery = Math.max(1, Math.round(WORLD.physicsHz / WORLD.snapshotHz));
 
   while (accumulator >= stepMs) {
+    for (const puppet of puppets.values()) stepPuppetBehaviour(puppet, stepMs);
     Engine.update(engine, stepMs);
     tick += 1;
     accumulator -= stepMs;
@@ -264,7 +309,10 @@ function physicsLoop(now) {
       transport?.broadcast(snapshot);
     }
   }
-  render(snapshotForRender());
+
+  const liveSnapshot = snapshotForRender();
+  syncControls(liveSnapshot);
+  render(liveSnapshot);
   rafId = requestAnimationFrame(physicsLoop);
 }
 
@@ -273,7 +321,8 @@ async function beginHost(room) {
   showTable(room);
   setConnection("Opening table…");
   createPhysicsWorld();
-  spawnForPlayer(playerId, profile);
+  const hostPuppet = spawnForPlayer(playerId, profile);
+  localPuppetId = hostPuppet.id;
 
   transport = new HostTransport(room);
   transport.onMessage((message, conn) => {
@@ -286,6 +335,7 @@ async function beginHost(room) {
       const player = players.get(id);
       player.connection = conn;
       player.connected = true;
+      player.lastSeq = -1;
       transport.send(conn, {
         type: "join:accepted",
         sessionId: room,
@@ -297,7 +347,7 @@ async function beginHost(room) {
     }
 
     const id = conn.__hollerdayPlayerId;
-    if (id && message.type.startsWith("grab:")) handleIntent(id, message);
+    if (id && (message.type.startsWith("grab:") || message.type === "action")) handleIntent(id, message);
   });
   transport.onDisconnect(conn => {
     const id = conn.__hollerdayPlayerId;
@@ -327,6 +377,7 @@ async function beginClient(room) {
   transport.onMessage(message => {
     if (!message) return;
     if (message.type === "join:accepted") {
+      localPuppetId = message.puppetId;
       if (message.snapshot) pushSnapshot(message.snapshot);
       setConnection("Joined");
     } else if (message.type === "snapshot") {
@@ -360,6 +411,18 @@ function sendGrab(type, event) {
   else transport?.send(message);
 }
 
+function sendAction(action, pose = null) {
+  if (mode !== "host" && mode !== "client") return;
+  const message = {
+    type: "action",
+    seq: ++inputSeq,
+    action,
+    pose,
+  };
+  if (mode === "host") handleIntent(playerId, message);
+  else transport?.send(message);
+}
+
 canvas.addEventListener("pointerdown", event => {
   canvas.setPointerCapture(event.pointerId);
   sendGrab("grab:start", event);
@@ -373,6 +436,12 @@ for (const type of ["pointerup", "pointercancel"]) {
     try { canvas.releasePointerCapture(event.pointerId); } catch {}
   });
 }
+
+puppetControls.addEventListener("click", event => {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  sendAction(button.dataset.action, button.dataset.pose || null);
+});
 
 startBtn.addEventListener("click", async () => {
   const room = makeRoomCode();

@@ -1,3 +1,5 @@
+import { initialisePuppetBehaviour, serialisePuppetBehaviour } from "./behaviour.js";
+
 const { Bodies, Body, Composite, Constraint, Vector, Bounds } = Matter;
 
 export const PART_META = Object.freeze({
@@ -40,7 +42,7 @@ function joint(bodyA, pointA, bodyB, pointB, stiffness = 0.78) {
   return Constraint.create({ bodyA, pointA, bodyB, pointB, length: 0, stiffness, damping: 0.14 });
 }
 
-export function createPuppet(world, { id, ownerPlayerId, profile, x = 500, y = 455 }) {
+export function createPuppet(world, { id, ownerPlayerId, profile, x = 500, y = 470 }) {
   const group = Body.nextGroup(true);
   const o = bodyOptions(group);
   const parts = {
@@ -79,7 +81,7 @@ export function createPuppet(world, { id, ownerPlayerId, profile, x = 500, y = 4
   ];
 
   Composite.add(world, [...Object.values(parts), ...joints]);
-  return { id, ownerPlayerId, profile, parts, joints };
+  return initialisePuppetBehaviour({ id, ownerPlayerId, profile, parts, joints });
 }
 
 export function destroyPuppet(world, puppet) {
@@ -91,7 +93,13 @@ export function serializePuppet(puppet) {
   for (const [name, body] of Object.entries(puppet.parts)) {
     parts[name] = { x: body.position.x, y: body.position.y, angle: body.angle };
   }
-  return { id: puppet.id, ownerPlayerId: puppet.ownerPlayerId, profile: puppet.profile, parts };
+  return {
+    id: puppet.id,
+    ownerPlayerId: puppet.ownerPlayerId,
+    profile: puppet.profile,
+    behaviour: serialisePuppetBehaviour(puppet),
+    parts,
+  };
 }
 
 export function findGrabBody(puppet, point) {

@@ -64,3 +64,9 @@ jobs:
       - run: node compose-smoke.mjs
       - run: node --check boot-final-smoke.mjs
       - run: node boot-final-smoke.mjs
+      - run: node --check hollerday/src/config.js
+      - run: node --check hollerday/src/camera.js
+      - run: node --check hollerday/src/network.js
+      - run: node --check hollerday/src/behaviour.js
+      - run: node --check hollerday/src/rig.js
+      - run: node --check hollerday/src/main.js

@@ -36,4 +36,9 @@ input:focus{box-shadow:0 0 0 4px rgba(184,51,36,.18)}
 .miniTitle{font-size:1.35rem;color:var(--red);text-shadow:1px 1px 0 #fff8df}
 .roomBadge,.quiet{min-height:36px;padding:0 14px;border-width:1.5px;box-shadow:0 2px 0 var(--ink);background:rgba(255,249,232,.88);font-size:.8rem;letter-spacing:.08em}
 .quiet{letter-spacing:0}
-@media(max-width:480px){.poster{padding-top:44px;border-radius:28px}.strap{font-size:1rem}}
+.puppetControls{position:absolute;left:0;right:0;bottom:58px;display:flex;gap:8px;padding:8px 12px 10px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;pointer-events:auto;touch-action:pan-x}
+.puppetControls::-webkit-scrollbar{display:none}
+.puppetControls button{flex:0 0 auto;min-height:39px;padding:0 14px;border-width:1.5px;background:rgba(255,249,232,.92);box-shadow:0 2px 0 var(--ink);font-size:.78rem}
+.puppetControls button.selected{background:var(--red);color:var(--cream)}
+.puppetControls .recover{border-style:dashed}
+@media(max-width:480px){.poster{padding-top:44px;border-radius:28px}.strap{font-size:1rem}.puppetControls{bottom:54px;padding-left:10px;padding-right:10px}.puppetControls button{min-height:37px;padding:0 12px;font-size:.74rem}}
