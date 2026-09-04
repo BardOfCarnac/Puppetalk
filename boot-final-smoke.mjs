@@ -10,6 +10,7 @@ const decorators = [
   'face-spacing-patch.js',
   'profile-name-patch.js',
   'look-sync-patch.js',
+  'live-face-render-patch.js',
   'toy-system.js',
   'toy-tap.js',
   'dart-stick.js',
@@ -128,9 +129,12 @@ for(const hook of [
   'puppetalkAimProjectPoint(p,qRaw,prop._throwerSlot)',
   'throwerSlot:Number.isInteger(prop._throwerSlot)',
   'const activePointers = new Map()',
-  'puppetHeadPath(ctx,look.headStyle,hr)',
+  'puppetalkLiveHeadPath(ctx,look.headStyle,hr)',
   'headStyle:LOOK_PARTS.headStyle.includes',
   'look:cleanLook(p.look,p.slot)',
+  'puppetalkDrawLiveEyes(ctx,look.eyes,hr)',
+  'puppetalkDrawLiveNose(ctx,look.nose,hr)',
+  'puppetalkDrawLiveMouth(ctx,look.mouth,p.mouth,hr)',
   'PUPPETALK_LAST_LOOK_SENT',
   "type:'look',look:msg.input.look,name"
 ]){
@@ -142,4 +146,4 @@ for(const hook of [
 }
 if(finalSource.includes('splitPuppetBody(')) throw new Error('Old runtime slicing survived into final boot source.');
 new Function(finalSource);
-console.log('Final boot-transformed Puppetalk source, including live character look/head sync, passed.');
+console.log('Final boot-transformed Puppetalk source, including canonical live character face/head sync, passed.');
