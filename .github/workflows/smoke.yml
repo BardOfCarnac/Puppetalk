@@ -69,6 +69,8 @@ jobs:
       - run: node --check hollerday/src/network.js
       - run: node --check hollerday/src/behaviour.js
       - run: node hollerday/behaviour-smoke.mjs
+      - run: node --check hollerday/src/segmentation.js
+      - run: node hollerday/segmentation-smoke.mjs
       - run: node --check hollerday/src/rig.js
       - run: node --check hollerday/src/character-ui.js
       - run: node --check hollerday/src/props.js
