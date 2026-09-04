@@ -1,13 +1,19 @@
-// Routes table entry through the pre-table lobby exactly once.
+// Routes first app entry and invited controllers through the character pre-show screen.
 (() => {
   const params = new URLSearchParams(location.search);
+  const mode = params.get('mode');
   const room = String(params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
-  const enteringController = params.get('mode') === 'controller' && !!room;
-  if(!enteringController || params.get('lobby') === 'done') return;
 
-  const lobby = new URL('./creator.html', location.href);
+  // The hidden/authoritative stage and an already-approved controller must never be rerouted.
+  if(mode === 'stage' || params.get('lobby') === 'done') return;
+
+  const freshAppOpen = !mode && !room;
+  const enteringController = mode === 'controller' && !!room;
+  if(!freshAppOpen && !enteringController) return;
+
+  const lobby = new URL('./load.html', location.href);
   lobby.search = '';
-  lobby.searchParams.set('room', room);
+  if(room) lobby.searchParams.set('room', room);
   if(params.get('host') === '1') lobby.searchParams.set('host','1');
   location.replace(lobby.href);
 })();
