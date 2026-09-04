@@ -139,7 +139,7 @@ function puppetalkDrawLiveMouth(ctx,name,state,hr){
   ctx.restore();`;
 
     // Match whichever legacy/partial character renderer survived previous decorators.
-    const headPattern=/  const hx = p\.head\.x\*w;[\s\S]*?  ctx\.restore\(\);\n\n  ctx\.font =/;
+    const headPattern=/  const hx = p\.head\.x\*w;[\s\S]*?  ctx\.restore\(\);\s+  ctx\.font =/;
     if(!headPattern.test(source)) throw new Error('Live face renderer patch could not locate the head block.');
     source=source.replace(headPattern,`${liveHead}\n\n  ctx.font =`);
     return source;
@@ -148,7 +148,7 @@ function puppetalkDrawLiveMouth(ctx,name,state,hr){
   window.fetch=async(...args)=>{
     const response=await decoratedFetch(...args);
     const target=String(args[0]?.url||args[0]||'');
-    if(!/app\\.js(?:\\?|$)/.test(target)) return response;
+    if(!/app\.js(?:\?|$)/.test(target)) return response;
     const text=await response.text();
     return new Response(patch(text),{status:response.status,statusText:response.statusText,headers:response.headers});
   };
