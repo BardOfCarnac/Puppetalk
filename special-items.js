@@ -1,5 +1,5 @@
 // Puppetalk special item pass.
-// Starts the table clean and lets each player bring one assigned prop into the shared scene.
+// Starts the table clean and lets each player bring their saved character item into the shared scene.
 (() => {
   const decoratedFetch = window.fetch.bind(window);
 
@@ -18,13 +18,11 @@
   const propGrips = new Map();
   let nextPropId = 1;
   const specialItems = new Map();
+  const SPECIAL_ITEM_TYPES = ['frisbee','pump','ball','dart'];
   const SPECIAL_ITEM_BY_SLOT = ['frisbee','pump','ball','dart','frisbee','pump'];`;
     if(!source.includes(registryNeedle)) throw new Error('Special item patch failed: prop registries');
     source = source.replace(registryNeedle,registryCode);
 
-    // Do not replace everything between ensureTestProps and driveProps: other item
-    // layers deliberately insert helpers there. Keep the old test-spawn function as
-    // dormant reference code and make the production entry point empty instead.
     const testNeedle = `  function ensureTestProps(){`;
     const testCode = `  function ensureTestProps(){
     // A normal table begins empty; players introduce their own item deliberately.
@@ -38,20 +36,21 @@
     if(type === 'frisbee') return 'Laser frisbee';
     if(type === 'pump') return 'Balloon pump';
     if(type === 'ball') return 'Ball';
-    if(type === 'dart') return 'Dart';
+    if(type === 'dart') return 'Sticky darts';
     return 'Item';
   }
-  function specialItemType(slot){
+  function specialItemType(slot,requested){
+    if(SPECIAL_ITEM_TYPES.includes(requested)) return requested;
     return SPECIAL_ITEM_BY_SLOT[Math.max(0,Number(slot)||0)%SPECIAL_ITEM_BY_SLOT.length] || 'ball';
   }
   function specialItemStillOut(slot){
     const id = specialItems.get(slot);
     return !!(id && props.has(id));
   }
-  function bringOutSpecialItem(slot){
+  function bringOutSpecialItem(slot,requested){
     const p = puppets.get(slot);
     if(!p) return {ok:false,message:'Your puppet is not ready yet.'};
-    const type = specialItemType(slot);
+    const type = specialItemType(slot,requested);
     if(specialItemStillOut(slot)) return {ok:false,alreadyOut:true,type,message:specialItemLabel(type)+' is already out.'};
 
     let x = p.torso.position.x + (slot%2 ? -72 : 72);
@@ -71,7 +70,7 @@
   }
   function handleSpecialItemInput(slot,msg){
     if(msg?.type !== 'special-item' || msg.action !== 'bring-out') return;
-    const result = bringOutSpecialItem(slot);
+    const result = bringOutSpecialItem(slot,msg.item);
     send(conns.get(slot),{type:'special-item-result',...result});
   }
 
@@ -95,15 +94,20 @@ ${helperNeedle}`;
 
     const transmitNeedle = `  function transmit(force=false){`;
     const controllerHelpers = `  function controllerSpecialType(){
+    const valid = ['frisbee','pump','ball','dart'];
+    try{
+      const saved = localStorage.getItem('puppetalk-special-item');
+      if(valid.includes(saved)) return saved;
+    }catch{}
     if(slot === null) return null;
-    const items = ['frisbee','pump','ball','dart','frisbee','pump'];
-    return items[Math.max(0,slot)%items.length] || 'ball';
+    const fallback = ['frisbee','pump','ball','dart','frisbee','pump'];
+    return fallback[Math.max(0,slot)%fallback.length] || 'ball';
   }
   function controllerSpecialLabel(type){
     if(type === 'frisbee') return 'Laser frisbee';
     if(type === 'pump') return 'Balloon pump';
     if(type === 'ball') return 'Ball';
-    if(type === 'dart') return 'Dart';
+    if(type === 'dart') return 'Sticky darts';
     return 'Item';
   }
   function updateSpecialItemButton(isOut=false){
@@ -117,7 +121,7 @@ ${helperNeedle}`;
   }
   function bringOutMySpecialItem(){
     if(!conn?.open || slot === null) return;
-    send(conn,{type:'special-item',action:'bring-out'});
+    send(conn,{type:'special-item',action:'bring-out',item:controllerSpecialType()});
   }
 
 ${transmitNeedle}`;
