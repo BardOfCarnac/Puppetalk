@@ -6,7 +6,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function worldPoint(body,local){const r=Vector.rotate(local,body.angle);return{x:body.position.x+r.x,y:body.position.y+r.y};}
 function localPoint(body,world){return Vector.rotate({x:world.x-body.position.x,y:world.y-body.position.y},-body.angle);}
 function handBody(puppet,hand){if(hand==="left")return puppet.parts.lowerArmL;if(hand==="right")return puppet.parts.lowerArmR;return null;}
-function handPoint(puppet,hand){return worldPoint(handBody(puppet,hand),{x:0,y:23});}
+function handPoint(puppet,hand){const body=handBody(puppet,hand);return body?worldPoint(body,{x:0,y:23}):null;}
 function gripKey(playerId,hand){return `${playerId}:${hand}`;}
 function segmentDistance(point,a,b){const abx=b.x-a.x,aby=b.y-a.y,d=abx*abx+aby*aby;if(d<.0001)return Math.hypot(point.x-a.x,point.y-a.y);const t=clamp(((point.x-a.x)*abx+(point.y-a.y)*aby)/d,0,1);return Math.hypot(point.x-(a.x+abx*t),point.y-(a.y+aby*t));}
 function constraintPoint(c){if(!c?.bodyA||!c?.bodyB)return null;const a=worldPoint(c.bodyA,c.pointA||{x:0,y:0}),b=worldPoint(c.bodyB,c.pointB||{x:0,y:0});return{x:(a.x+b.x)/2,y:(a.y+b.y)/2};}
@@ -26,48 +26,110 @@ export function createPropSystem(engine,puppets){
     else {body=Bodies.rectangle(x,y,44,6,{density:.00034,restitution:.1,friction:.32,frictionAir:.006,chamfer:{radius:2}});gripPoint={x:-13,y:0};}
     body.label=`hollerday-prop:${id}:${type}`;
     const owner=ownerPlayerId?puppets.get(`puppet-${ownerPlayerId}`):null;
-    const prop={id,type,body,gripPoint,heldBy:null,ownerPlayerId,attached:null,depth:Number(owner?.behaviour?.depth)||0,cutArmed:false,previous:null,thrownAt:0,special:false};
+    const prop={id,type,body,gripPoint,heldBy:null,contest:null,ownerPlayerId,attached:null,depth:Number(owner?.behaviour?.depth)||0,cutArmed:false,previous:null,thrownAt:0,special:false};
     props.set(id,prop);Composite.add(engine.world,body);return prop;
   }
 
   function removeProp(prop){
     if(!prop)return;
-    for(const [key,grip] of [...grips])if(grip.propId===prop.id)releaseGripByKey(key);
+    for(const [key,grip] of [...grips])if(grip.propId===prop.id)clearGrip(key);
     if(prop.attached?.constraint)Composite.remove(engine.world,prop.attached.constraint,true);
     Composite.remove(engine.world,prop.body,true);props.delete(prop.id);
   }
 
-  function releaseGripByKey(key){
-    const grip=grips.get(key);if(!grip)return false;
-    Composite.remove(engine.world,grip.constraint,true);
-    const prop=props.get(grip.propId);if(prop?.heldBy)prop.heldBy=null;
-    grips.delete(key);return true;
+  function clearGrip(key){
+    const grip=grips.get(key);if(!grip)return null;
+    Composite.remove(engine.world,grip.constraint,true);grips.delete(key);
+    const prop=props.get(grip.propId);
+    if(prop){
+      if(grip.role==="holder"&&prop.heldBy?.playerId===grip.playerId&&prop.heldBy?.hand===grip.hand)prop.heldBy=null;
+      if(grip.role==="contest"&&prop.contest?.playerId===grip.playerId&&prop.contest?.hand===grip.hand)prop.contest=null;
+    }
+    return grip;
+  }
+
+  function handFree(playerId,hand,propId=null){const grip=grips.get(gripKey(playerId,hand));return !grip||grip.propId===propId;}
+
+  function makeGrip(prop,playerId,hand,stiffness,role){
+    const puppet=puppets.get(`puppet-${playerId}`),body=handBody(puppet,hand);if(!body||!handFree(playerId,hand,prop.id))return null;
+    const constraint=Constraint.create({bodyA:body,pointA:{x:0,y:23},bodyB:prop.body,pointB:prop.gripPoint,length:3,stiffness,damping:.19});
+    Composite.add(engine.world,constraint);
+    const grip={propId:prop.id,constraint,role,playerId,hand};grips.set(gripKey(playerId,hand),grip);return grip;
+  }
+
+  function cancelContest(prop){
+    const tug=prop?.contest;if(!tug)return;
+    clearGrip(gripKey(tug.playerId,tug.hand));prop.contest=null;
+    if(prop.heldBy){const holder=grips.get(gripKey(prop.heldBy.playerId,prop.heldBy.hand));if(holder)holder.constraint.stiffness=.88;}
+  }
+
+  function promoteContest(prop){
+    const tug=prop?.contest;if(!tug)return false;
+    if(prop.heldBy)clearGrip(gripKey(prop.heldBy.playerId,prop.heldBy.hand));
+    const record=grips.get(gripKey(tug.playerId,tug.hand));if(!record)return false;
+    record.role="holder";record.constraint.stiffness=.88;prop.heldBy={playerId:tug.playerId,hand:tug.hand};prop.ownerPlayerId=tug.playerId;prop.contest=null;return true;
+  }
+
+  function beginHold(prop,playerId,hand){
+    const grip=makeGrip(prop,playerId,hand,.88,"holder");if(!grip)return false;
+    prop.heldBy={playerId,hand};prop.ownerPlayerId=playerId;prop.cutArmed=false;
+    const puppet=puppets.get(`puppet-${playerId}`);prop.depth=Number(puppet?.behaviour?.depth)||0;return true;
+  }
+
+  function beginContest(prop,playerId,hand,now){
+    const grip=makeGrip(prop,playerId,hand,.17,"contest");if(!grip)return false;
+    prop.contest={playerId,hand,score:.18,lastTapAt:now,lastUpdateAt:now};return true;
+  }
+
+  function nearestHand(playerId,prop,maxDistance=86){
+    const puppet=puppets.get(`puppet-${playerId}`);if(!puppet)return null;
+    let best=null;for(const hand of ["left","right"]){const point=handPoint(puppet,hand);if(!point)continue;const distance=Math.hypot(prop.body.position.x-point.x,prop.body.position.y-point.y);if(distance<=maxDistance&&(!best||distance<best.distance))best={hand,distance};}
+    return best?.hand||null;
+  }
+
+  function tapProp(playerId,propId,requestedHand=null){
+    const prop=props.get(propId);if(!prop)return{ok:false,message:"That object is gone."};
+    const hand=(requestedHand==="left"||requestedHand==="right")?requestedHand:nearestHand(playerId,prop);
+    if(!hand)return{ok:false,message:"Move a hand a little closer first."};
+    const hp=handPoint(puppets.get(`puppet-${playerId}`),hand);if(!hp||Math.hypot(prop.body.position.x-hp.x,prop.body.position.y-hp.y)>86)return{ok:false,message:"Move a hand a little closer first."};
+    const now=performance.now();
+    if(!prop.heldBy){if(!handFree(playerId,hand,prop.id)||!beginHold(prop,playerId,hand))return{ok:false,message:"That hand is already holding something."};return{ok:true,message:`Picked up ${prop.type}.`};}
+    if(prop.heldBy.playerId===playerId){
+      if(prop.contest){prop.contest.score=Math.max(0,prop.contest.score-.19);prop.contest.lastTapAt=now;prop.contest.lastUpdateAt=now;if(prop.contest.score<=.01)cancelContest(prop);return{ok:true,message:"Held your ground."};}
+      return{ok:true,message:`Still holding ${prop.type}.`};
+    }
+    if(prop.contest){
+      if(prop.contest.playerId!==playerId)return{ok:false,message:"Someone else is already tugging at it."};
+      if(prop.contest.hand!==hand)return{ok:false,message:"Keep using the same hand for this tug."};
+      prop.contest.score=Math.min(1.05,prop.contest.score+.19);prop.contest.lastTapAt=now;prop.contest.lastUpdateAt=now;
+      if(prop.contest.score>=1){promoteContest(prop);return{ok:true,message:`Pulled the ${prop.type} free.`};}
+      return{ok:true,message:`Tugging ${prop.type} — keep tapping.`};
+    }
+    if(!handFree(playerId,hand,prop.id)||!beginContest(prop,playerId,hand,now))return{ok:false,message:"That hand is already holding something."};
+    return{ok:true,message:`Tugging ${prop.type} — keep tapping.`};
   }
 
   function toggleGrip(playerId,hand){
-    const key=gripKey(playerId,hand);
-    if(releaseGripByKey(key))return{ok:true,held:false,message:`Released ${hand} hand.`};
+    const key=gripKey(playerId,hand),existing=grips.get(key);
+    if(existing){const prop=props.get(existing.propId);if(existing.role==="contest")cancelContest(prop);else{clearGrip(key);if(prop?.contest)promoteContest(prop);}return{ok:true,held:false,message:`Released ${hand} hand.`};}
     const puppet=puppets.get(`puppet-${playerId}`);if(!puppet)return{ok:false,message:"Your puppet is not ready yet."};
     const hp=handPoint(puppet,hand);let best=null;
     for(const prop of props.values()){
-      if(prop.heldBy||prop.attached)continue;
+      if(prop.attached)continue;
       const d=Math.hypot(prop.body.position.x-hp.x,prop.body.position.y-hp.y);
       if(d<=74&&(!best||d<best.distance))best={prop,distance:d};
     }
     if(!best)return{ok:false,message:`Move your ${hand} hand closer to a prop.`};
-    const prop=best.prop;
-    const constraint=Constraint.create({bodyA:handBody(puppet,hand),pointA:{x:0,y:23},bodyB:prop.body,pointB:prop.gripPoint,length:3,stiffness:.9,damping:.18});
-    Composite.add(engine.world,constraint);prop.heldBy={playerId,hand};prop.ownerPlayerId=playerId;prop.depth=Number(puppet.behaviour?.depth)||0;prop.cutArmed=false;grips.set(key,{propId:prop.id,constraint});
-    return{ok:true,held:true,propId:prop.id,type:prop.type,message:`Gripped ${prop.type} with ${hand} hand.`};
+    return tapProp(playerId,best.prop.id,hand);
   }
 
-  function heldProp(playerId,hand){const grip=grips.get(gripKey(playerId,hand));return grip?props.get(grip.propId):null;}
+  function heldProp(playerId,hand){const grip=grips.get(gripKey(playerId,hand));return grip?.role==="holder"?props.get(grip.propId):null;}
 
   function throwHeld(playerId,hand,velocity=null){
     const prop=heldProp(playerId,hand);if(!prop)return{ok:false,message:`Nothing in ${hand} hand.`};
     const puppet=puppets.get(`puppet-${playerId}`);const hb=handBody(puppet,hand);
     const v=velocity||{x:(hb?.velocity?.x||0)*1.35+(hand==="left"?-2.8:2.8),y:(hb?.velocity?.y||0)*1.15-1.2};
-    releaseGripByKey(gripKey(playerId,hand));Body.setVelocity(prop.body,{x:clamp(v.x,-16,16),y:clamp(v.y,-16,16)});prop.ownerPlayerId=playerId;prop.depth=Number(puppet?.behaviour?.depth)||0;prop.previous={...prop.body.position};prop.thrownAt=performance.now();
+    if(prop.contest)cancelContest(prop);clearGrip(gripKey(playerId,hand));Body.setVelocity(prop.body,{x:clamp(v.x,-16,16),y:clamp(v.y,-16,16)});prop.ownerPlayerId=playerId;prop.depth=Number(puppet?.behaviour?.depth)||0;prop.previous={...prop.body.position};prop.thrownAt=performance.now();
     if(prop.type==="frisbee"){prop.cutArmed=true;Body.setAngularVelocity(prop.body,.42*Math.sign(v.x||1));}
     return{ok:true,message:`Threw ${prop.type}.`};
   }
@@ -107,6 +169,15 @@ export function createPropSystem(engine,puppets){
     }
   });
 
+  function updateContest(prop,now){
+    const tug=prop.contest;if(!tug||!prop.heldBy)return;
+    const holder=grips.get(gripKey(prop.heldBy.playerId,prop.heldBy.hand));const challenger=grips.get(gripKey(tug.playerId,tug.hand));
+    if(!holder||!challenger){cancelContest(prop);return;}
+    const dt=clamp((now-tug.lastUpdateAt)/1000,0,.08);tug.lastUpdateAt=now;if(now-tug.lastTapAt>260)tug.score=Math.max(0,tug.score-dt*.12);tug.score=clamp(tug.score,0,1.05);
+    holder.constraint.stiffness=.86-tug.score*.58;challenger.constraint.stiffness=.14+tug.score*.72;
+    if(tug.score>=1)promoteContest(prop);else if(tug.score<=0&&now-tug.lastTapAt>700)cancelContest(prop);
+  }
+
   function driveFrisbee(prop){
     if(!prop.cutArmed||prop.heldBy||prop.attached)return;
     const current={...prop.body.position},previous=prop.previous||current;prop.previous=current;
@@ -121,8 +192,10 @@ export function createPropSystem(engine,puppets){
   }
 
   function step(){
+    const now=performance.now();
     for(const prop of props.values()){
       if(prop.type==="balloon"&&!prop.heldBy)Body.applyForce(prop.body,prop.body.position,{x:0,y:-prop.body.mass*engine.gravity.y*engine.gravity.scale*1.42});
+      updateContest(prop,now);
       if(prop.type==="frisbee")driveFrisbee(prop);
       if(prop.heldBy){const puppet=puppets.get(`puppet-${prop.heldBy.playerId}`);if(puppet)prop.depth=Number(puppet.behaviour?.depth)||0;}
     }
@@ -131,18 +204,28 @@ export function createPropSystem(engine,puppets){
   function serialize(){
     return [...props.values()].map(prop=>({
       id:prop.id,type:prop.type,x:prop.body.position.x,y:prop.body.position.y,angle:prop.body.angle,
-      heldBy:prop.heldBy,depth:prop.depth||0,attached:!!prop.attached,cutArmed:!!prop.cutArmed,
-      ownerPlayerId:prop.ownerPlayerId||null,special:!!prop.special
+      heldBy:prop.heldBy,contestedBy:prop.contest?{playerId:prop.contest.playerId,hand:prop.contest.hand}:null,tug:prop.contest?clamp(prop.contest.score,0,1):0,
+      depth:prop.depth||0,attached:!!prop.attached,cutArmed:!!prop.cutArmed,ownerPlayerId:prop.ownerPlayerId||null,special:!!prop.special
     }));
   }
 
-  function releasePlayer(playerId){for(const hand of ["left","right"])releaseGripByKey(gripKey(playerId,hand));}
-  return{props,step,serialize,toggleGrip,throwHeld,bringOut,useHeld,releasePlayer,makeProp};
+  function releasePlayer(playerId){
+    for(const prop of props.values()){
+      if(prop.contest?.playerId===playerId)cancelContest(prop);
+      if(prop.heldBy?.playerId===playerId){clearGrip(gripKey(playerId,prop.heldBy.hand));if(prop.contest)promoteContest(prop);}
+    }
+  }
+  return{props,step,serialize,toggleGrip,tapProp,throwHeld,bringOut,useHeld,releasePlayer,makeProp};
 }
 
 function projectedPoint(prop){
   const depth=Number(prop.depth)||0;if(Math.abs(depth)<.0001)return{x:prop.x,y:prop.y,scale:1};
   return{x:prop.x,y:prop.y+depthShift(depth),scale:depthScale(depth)};
+}
+
+export function propScreenPoint(prop,cameraApi){const q=projectedPoint(prop);const screen=cameraApi.worldToScreen(q.x,q.y);return{...screen,scale:q.scale};}
+export function pickPropAtScreen(props,x,y,cameraApi){
+  let best=null;for(const prop of props||[]){const q=propScreenPoint(prop,cameraApi);const base=prop.type==="balloon"?38:prop.type==="ball"?34:prop.type==="frisbee"?36:32;const radius=base*Math.max(.7,q.scale);const distance=Math.hypot(x-q.x,y-q.y);if(distance<=radius&&(!best||distance<best.distance))best={prop,distance};}return best?.prop||null;
 }
 
 export function drawProp(ctx,prop,cameraApi){
@@ -159,6 +242,7 @@ export function drawProp(ctx,prop,cameraApi){
   }else{
     ctx.strokeStyle="#08090a";ctx.lineWidth=Math.max(7,8*s);ctx.beginPath();ctx.moveTo(-22*s,0);ctx.lineTo(22*s,0);ctx.stroke();ctx.strokeStyle="#e9edf2";ctx.lineWidth=Math.max(3,4*s);ctx.beginPath();ctx.moveTo(-18*s,0);ctx.lineTo(17*s,0);ctx.stroke();ctx.fillStyle="#cf6c63";ctx.beginPath();ctx.moveTo(22*s,0);ctx.lineTo(13*s,-5*s);ctx.lineTo(13*s,5*s);ctx.closePath();ctx.fill();
   }
-  if(prop.heldBy){ctx.strokeStyle="rgba(255,255,255,.7)";ctx.lineWidth=1;ctx.beginPath();ctx.arc(0,0,24*s,0,Math.PI*2);ctx.stroke();}
+  if(prop.contestedBy){ctx.strokeStyle="rgba(184,51,36,.9)";ctx.lineWidth=Math.max(1.5,2*s);ctx.beginPath();ctx.arc(0,0,(26+8*(prop.tug||0))*s,0,Math.PI*2);ctx.stroke();}
+  else if(prop.heldBy){ctx.strokeStyle="rgba(255,255,255,.7)";ctx.lineWidth=1;ctx.beginPath();ctx.arc(0,0,24*s,0,Math.PI*2);ctx.stroke();}
   ctx.restore();
 }
