@@ -46,6 +46,7 @@ jobs:
       - run: node special-items-smoke.mjs
       - run: node --check segmented-puppet.js
       - run: node --check seat-render.js
+      - run: node --check depth-assist.js
       - run: node --check body-slicing.js
       - run: node --check voice-layer.js
       - run: node --check voice-stage-compat.js
