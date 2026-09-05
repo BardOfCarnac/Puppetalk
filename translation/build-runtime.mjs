@@ -654,6 +654,27 @@ replaceOnce(
   document.querySelector('#poses').addEventListener('click',event=>{`
 );
 
+removeBetweenOnce(
+  'embedded controller command panel',
+  `  document.querySelector('#poses').addEventListener('click',event=>{`,
+  `  itemInteraction.installButtons();`
+);
+
+replaceOnce(
+  'controller command panel setup point',
+  `  itemInteraction.installButtons();`,
+  `  const commandPanel = window.PuppetalkControllerCommands?.create?.({
+    document,input,activePointers,transmit,connect,
+    getCentreTimer:()=>centreTimer,setCentreTimer:value=>{ centreTimer=value; },
+    setTimeoutFn:(callback,ms)=>setTimeout(callback,ms),
+    clearTimeoutFn:id=>clearTimeout(id)
+  });
+  if(!commandPanel) throw new Error('Puppetalk controller command panel failed to load.');
+  commandPanel.install();
+
+  itemInteraction.installButtons();`
+);
+
 replaceOnce('prop collision setup point',
   `  resize();`,
   `  const dartImpacts = window.PuppetalkDartImpacts?.create?.({

@@ -41,6 +41,7 @@ assert.match(actual,/PuppetalkControllerItems/,'Translated runtime is not connec
 assert.match(actual,/PuppetalkCharacterCreator/,'Translated runtime is not connected to extracted character creator controller.');
 assert.match(actual,/PuppetalkControllerThrowGesture/,'Translated runtime is not connected to extracted controller throw gesture.');
 assert.match(actual,/PuppetalkControllerAudio/,'Translated runtime is not connected to extracted controller audio system.');
+assert.match(actual,/PuppetalkControllerCommands/,'Translated runtime is not connected to extracted controller command panel.');
 
 assert.doesNotMatch(actual,/const LOOK_PALETTE = \[/,'Embedded LOOK_PALETTE survived look-model extraction.');
 assert.doesNotMatch(actual,/function defaultLook\(slot=0\)/,'Embedded defaultLook survived look-model extraction.');
@@ -162,6 +163,9 @@ assert.doesNotMatch(actual,/let manualTimer = null;/,'Embedded manualTimer state
 assert.doesNotMatch(actual,/async function enableMic\(\)/,'Embedded enableMic survived controller-audio extraction.');
 assert.doesNotMatch(actual,/function startManualTalk\(event\)/,'Embedded startManualTalk survived controller-audio extraction.');
 assert.doesNotMatch(actual,/function stopManualTalk\(\)/,'Embedded stopManualTalk survived controller-audio extraction.');
+assert.doesNotMatch(actual,/document\.querySelector\('#poses'\)\.addEventListener\('click'/,'Embedded pose command listener survived command-panel extraction.');
+assert.doesNotMatch(actual,/document\.querySelector\('#centre'\)\.addEventListener\('click'/,'Embedded centre command listener survived command-panel extraction.');
+assert.doesNotMatch(actual,/document\.querySelector\('#retry'\)\.addEventListener\('click',connect\)/,'Embedded retry listener survived command-panel extraction.');
 
 assert.match(actual,/const \{LOOK_PALETTE,LOOK_PARTS,defaultLook,cleanLook\} = window\.PuppetalkLookModel \|\| \{\};/,'Runtime is not bound to the extracted look model.');
 assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
@@ -198,6 +202,8 @@ assert.match(actual,/const controllerThrowGesture = window\.PuppetalkControllerT
 assert.match(actual,/controllerThrowGesture\.install\(\);/,'Extracted controller throw gesture is not installed.');
 assert.match(actual,/const controllerAudio = window\.PuppetalkControllerAudio\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller audio.');
 assert.match(actual,/controllerAudio\.install\(\);/,'Extracted controller audio is not installed.');
+assert.match(actual,/const commandPanel = window\.PuppetalkControllerCommands\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller command panel.');
+assert.match(actual,/commandPanel\.install\(\);/,'Extracted controller command panel is not installed.');
 
 assert.ok(actual.includes("addEventListener('resize',resize,{passive:true});"),'Resize listener moved during prop extraction.');
 assert.ok(actual.includes(`  resize();
