@@ -31,7 +31,36 @@ replaceOnce('character helper factory point',`  const {Engine,Bodies,Body,Compos
   const {worldPoint,grabBody,grabWorldPoint} = grabGeometry;
   const driveForces = window.PuppetalkDriveForces?.create?.({Body,clamp,angleDelta});
   if(!driveForces) throw new Error('Puppetalk drive forces failed to load.');
-  const {servo,springPull} = driveForces;`);
+  const {servo,springPull} = driveForces;
+  const recoveryGeometry = window.PuppetalkRecoveryGeometry?.create?.(Vector);
+  if(!recoveryGeometry) throw new Error('Puppetalk recovery geometry failed to load.');
+  const {jointWorldPoint,jointGap,jointCutPoint,seamCutPoint} = recoveryGeometry;`);
+
+replaceOnce('embedded recovery geometry',`  function jointWorldPoint(constraint,side){
+    const body = side === 'A' ? constraint?.bodyA : constraint?.bodyB;
+    const point = side === 'A' ? constraint?.pointA : constraint?.pointB;
+    if(!body || !point) return null;
+    const r = Vector.rotate(point,body.angle||0);
+    return {x:body.position.x+r.x,y:body.position.y+r.y};
+  }
+  function jointGap(constraint){
+    const a = jointWorldPoint(constraint,'A');
+    const b = jointWorldPoint(constraint,'B');
+    return a && b ? Math.hypot(a.x-b.x,a.y-b.y) : Infinity;
+  }
+  function jointCutPoint(constraint){
+    const a = jointWorldPoint(constraint,'A');
+    const b = jointWorldPoint(constraint,'B');
+    if(!a || !b) return null;
+    return {x:(a.x+b.x)*.5,y:(a.y+b.y)*.5};
+  }
+`,``);
+
+replaceOnce('embedded seam cut geometry',`  function seamCutPoint(p,name){
+    const c=p?.seams?.[name];
+    return c ? jointCutPoint(c) : null;
+  }
+`,``);
 
 replaceOnce('embedded servo',`  function servo(body,target,strength=.006){
     body.torque += clamp(angleDelta(target,body.angle)*strength-body.angularVelocity*strength*.72,-.028,.028);
@@ -116,4 +145,4 @@ replaceOnce('pose pin reset',`      rig.pins = {head:null,leftHand:null,rightHan
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: rig core, grab geometry and drive forces extracted with V1 coefficients intact.`);
+console.log(`Built ${output}: rig, grab, force and recovery geometry extracted with V1 behaviour intact.`);
