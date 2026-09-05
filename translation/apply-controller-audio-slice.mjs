@@ -19,9 +19,9 @@ function insertBefore(text,label,marker,addition){
 }
 
 let build=read('translation/build-runtime.mjs');
-const controllerExtraction=`removeBetweenOnce(\n  'embedded controller throw gesture',`;
+const controllerSetup=`replaceOnce(\n  'controller throw gesture setup point',`;
 const audioExtraction=`replaceOnce(\n  'embedded controller audio state',\n  \`  let micStop = null;\n  let manualTimer = null;\n\`,\n  \`\`\n);\n\nremoveBetweenOnce(\n  'embedded controller audio',\n  \`  async function enableMic(){\`,\n  \`  addEventListener('resize',resizeCanvas,{passive:true});\`\n);\n\nreplaceOnce(\n  'controller audio setup point',\n  \`  addEventListener('resize',resizeCanvas,{passive:true});\`,\n  \`  const controllerAudio = window.PuppetalkControllerAudio?.create?.({\n    micButton,level,talkButton,input,transmit,setStatus,clamp,\n    getUserMedia:constraints=>navigator.mediaDevices.getUserMedia(constraints),\n    createAudioContext:()=>new AudioContext(),\n    requestFrame:callback=>requestAnimationFrame(callback),\n    cancelFrame:id=>cancelAnimationFrame(id),\n    setTimer:(callback,ms)=>setInterval(callback,ms),\n    clearTimer:id=>clearInterval(id)\n  });\n  if(!controllerAudio) throw new Error('Puppetalk controller audio failed to load.');\n  controllerAudio.install();\n\n  addEventListener('resize',resizeCanvas,{passive:true});\`\n);\n\n`;
-if(!build.includes("'embedded controller audio'")) build=insertAfter(build,'controller audio extraction',controllerExtraction,audioExtraction);
+if(!build.includes("'embedded controller audio'")) build=insertBefore(build,'controller audio extraction',controllerSetup,audioExtraction);
 write('translation/build-runtime.mjs',build);
 
 let parity=read('translation/runtime-parity-smoke.mjs');
