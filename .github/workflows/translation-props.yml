@@ -27,6 +27,8 @@ jobs:
       - run: node translation/props/prop-state-smoke.mjs
       - run: node --check translation/props/prop-input.js
       - run: node translation/props/prop-input-smoke.mjs
+      - run: node --check translation/props/special-items.js
+      - run: node translation/props/special-items-smoke.mjs
       - run: node --check translation/build-runtime.mjs
       - run: node --check translation/runtime-parity-smoke.mjs
       - run: node translation/runtime-parity-smoke.mjs
