@@ -10,7 +10,7 @@ assert.ok(api?.create,'Balloon pop candidate did not install.');
 
 const props=new Map(),calls=[];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const Vector={rotate(v,a)=>({x:v.x*Math.cos(a)-v.y*Math.sin(a),y:v.x*Math.sin(a)+v.y*Math.cos(a)})};
+const Vector={rotate:(v,a)=>({x:v.x*Math.cos(a)-v.y*Math.sin(a),y:v.x*Math.sin(a)+v.y*Math.cos(a)})};
 const engine={world:{id:'world'}};
 const Composite={remove(world,body){calls.push(['remove',world.id,body.id]);}};
 const Body={setVelocity(body,v){body.velocity={...v};calls.push(['velocity',body.id,v.x,v.y]);}};
