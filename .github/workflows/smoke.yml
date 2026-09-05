@@ -88,7 +88,7 @@ jobs:
             cat /tmp/translation-lobby.html || true
             exit 1
           fi
-          google-chrome --headless --no-sandbox --disable-gpu --virtual-time-budget=5000 --dump-dom 'http://127.0.0.1:8081/translation/?mode=controller&room=SMOKE&lobby=done&host=1' >/tmp/translation-controller.html 2>/tmp/translation-controller-chrome.log || true
+          google-chrome --headless --no-sandbox --disable-gpu --virtual-time-budget=5000 --dump-dom 'http://127.0.0.1:8081/translation/?mode=controller&room=SMOKE&lobby=done' >/tmp/translation-controller.html 2>/tmp/translation-controller-chrome.log || true
           if ! grep -q 'personal-controller' /tmp/translation-controller.html || ! grep -q 'controller-footer' /tmp/translation-controller.html; then
             echo 'Translation did not boot the frozen Puppetalk controller from precomposed source.'
             cat /tmp/translation-controller-chrome.log || true
