@@ -5,9 +5,6 @@ on:
     branches: [main, puppetalk-translation]
   pull_request:
 
-permissions:
-  contents: write
-
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -21,9 +18,12 @@ jobs:
       - run: node --check app.js
       - run: node --check boot.js
       - run: node --check translation/manifest.mjs
+      - run: node --check translation/build-preboot.mjs
+      - run: node --check translation/precomposed-fetch.js
+      - run: node --check translation/generated-parity-smoke.mjs
       - run: node translation/manifest-smoke.mjs
       - run: node translation/entry-smoke.mjs
-      - run: node translation/build-preboot.mjs
+      - run: node translation/generated-parity-smoke.mjs
       - run: node --check translation/generated/app-preboot.js
       - run: node --check lobby-routing.js
       - run: node --check profile-name-patch.js
@@ -74,6 +74,28 @@ jobs:
       - run: node compose-smoke.mjs
       - run: node --check boot-final-smoke.mjs
       - run: node boot-final-smoke.mjs
+      - name: Translation browser parity smoke
+        run: |
+          python3 -m http.server 8081 >/tmp/translation-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid || true' EXIT
+          sleep 1
+          google-chrome --headless --no-sandbox --disable-gpu --virtual-time-budget=5000 --dump-dom http://127.0.0.1:8081/translation/ >/tmp/translation-lobby.html 2>/tmp/translation-lobby-chrome.log || true
+          if ! grep -q 'id="character-name"' /tmp/translation-lobby.html || ! grep -q 'PUPPETALK' /tmp/translation-lobby.html; then
+            echo 'Translation did not preserve the Puppetalk pre-show lobby.'
+            cat /tmp/translation-lobby-chrome.log || true
+            echo '--- DOM ---'
+            cat /tmp/translation-lobby.html || true
+            exit 1
+          fi
+          google-chrome --headless --no-sandbox --disable-gpu --virtual-time-budget=5000 --dump-dom 'http://127.0.0.1:8081/translation/?mode=controller&room=SMOKE&lobby=done&host=1' >/tmp/translation-controller.html 2>/tmp/translation-controller-chrome.log || true
+          if ! grep -q 'personal-controller' /tmp/translation-controller.html || ! grep -q 'controller-footer' /tmp/translation-controller.html; then
+            echo 'Translation did not boot the frozen Puppetalk controller from precomposed source.'
+            cat /tmp/translation-controller-chrome.log || true
+            echo '--- DOM ---'
+            cat /tmp/translation-controller.html || true
+            exit 1
+          fi
       - run: node --check hollerday/src/config.js
       - run: node --check hollerday/src/camera.js
       - run: node --check hollerday/src/network.js
@@ -109,15 +131,3 @@ jobs:
             cat /tmp/hollerday-host.html || true
             exit 1
           fi
-      - name: Commit translated preboot source
-        if: github.ref == 'refs/heads/puppetalk-translation'
-        run: |
-          if [ -z "$(git status --porcelain -- translation/generated/app-preboot.js)" ]; then
-            echo 'Generated preboot source already current.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add translation/generated/app-preboot.js
-          git commit -m 'Build translated preboot source'
-          git push origin HEAD:${GITHUB_REF_NAME}
