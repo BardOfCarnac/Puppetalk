@@ -205,6 +205,9 @@ assert.match(actual,/const sceneRenderer = window\.PuppetalkSceneRenderer\?\.cre
 assert.match(actual,/const \{drawBackdrop,drawAnatomy,drawProp,roundRect\} = sceneRenderer;/,'Runtime callers are not bound to extracted shared scene renderer.');
 assert.match(actual,/const seatProjection = window\.PuppetalkSeatProjection\?\.create\?\.\(\{/,'Runtime is not bound to extracted seat projection.');
 assert.match(actual,/const \{puppetalkSeatProjection\} = seatProjection;/,'Runtime callers are not bound to extracted seat projection.');
+const seatProjectionBindingIndex=actual.indexOf('const seatProjection = window.PuppetalkSeatProjection');
+const controllerDispatchIndex=actual.indexOf("if(mode === 'controller') startController(room);");
+assert.ok(seatProjectionBindingIndex>=0 && controllerDispatchIndex>=0 && seatProjectionBindingIndex<controllerDispatchIndex,'Seat projection must be initialized before early controller dispatch.');
 assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
 assert.match(actual,/const \{severJoint,repairSeveredJoints,handleJointRecovery,severSeam,repairBrokenSeams\} = recoverySystem;/,'Runtime callers are not bound to the extracted recovery system.');
 assert.match(actual,/const \{anatomy\} = sceneState;/,'Runtime callers are not bound to the extracted anatomy serializer.');

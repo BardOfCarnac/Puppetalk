@@ -49,6 +49,13 @@ const sceneRenderer = window.PuppetalkSceneRenderer?.create?.({
 if(!sceneRenderer) throw new Error('Puppetalk scene renderer failed to load.');
 const {drawBackdrop,drawAnatomy,drawProp,roundRect} = sceneRenderer;
 
+const seatProjection = window.PuppetalkSeatProjection?.create?.({
+  getDepthState:()=>window.PuppetalkDepthState,
+  getForegroundTuning:()=>window.PuppetalkForegroundTuning
+});
+if(!seatProjection) throw new Error('Puppetalk seat projection failed to load.');
+const {puppetalkSeatProjection} = seatProjection;
+
 if(mode === 'controller') startController(room);
 else startStage(room || roomCode());
 
@@ -300,13 +307,6 @@ function startStage(room){
   installPropContactPhysics();
   requestAnimationFrame(tick);
 }
-
-const seatProjection = window.PuppetalkSeatProjection?.create?.({
-  getDepthState:()=>window.PuppetalkDepthState,
-  getForegroundTuning:()=>window.PuppetalkForegroundTuning
-});
-if(!seatProjection) throw new Error('Puppetalk seat projection failed to load.');
-const {puppetalkSeatProjection} = seatProjection;
 
 function startController(room){
   if(!window.Peer){

@@ -810,7 +810,7 @@ removeBetweenOnce(
 
 replaceOnce(
   'seat projection setup point',
-  `function startController(room){`,
+  `if(mode === 'controller') startController(room);`,
   `const seatProjection = window.PuppetalkSeatProjection?.create?.({
   getDepthState:()=>window.PuppetalkDepthState,
   getForegroundTuning:()=>window.PuppetalkForegroundTuning
@@ -818,7 +818,7 @@ replaceOnce(
 if(!seatProjection) throw new Error('Puppetalk seat projection failed to load.');
 const {puppetalkSeatProjection} = seatProjection;
 
-function startController(room){`
+if(mode === 'controller') startController(room);`
 );
 
 removeBetweenOnce(
