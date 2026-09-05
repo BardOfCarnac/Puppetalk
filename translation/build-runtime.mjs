@@ -45,7 +45,7 @@ replaceOnce('character helper factory point',`  const {Engine,Bodies,Body,Compos
   if(!recoveryGeometry) throw new Error('Puppetalk recovery geometry failed to load.');
   const {jointWorldPoint,jointGap,jointCutPoint,seamCutPoint} = recoveryGeometry;`);
 
-replaceOnce('rig/recovery factory setup point',`  const puppets = new Map();
+replaceOnce('character factory setup point',`  const puppets = new Map();
   const conns = new Map();`, `  const puppets = new Map();
   const conns = new Map();
   const rigFactory = window.PuppetalkRigFactory?.create?.({
@@ -58,7 +58,15 @@ replaceOnce('rig/recovery factory setup point',`  const puppets = new Map();
     Composite,Body,engine,makePuppet,jointGap,jointWorldPoint,angleDelta,clamp
   });
   if(!recoverySystem) throw new Error('Puppetalk recovery system failed to load.');
-  const {severJoint,repairSeveredJoints,handleJointRecovery,severSeam,repairBrokenSeams} = recoverySystem;`);
+  const {severJoint,repairSeveredJoints,handleJointRecovery,severSeam,repairBrokenSeams} = recoverySystem;
+  const sceneState = window.PuppetalkCharacterSceneState?.create?.({
+    getDimensions:()=>({W,H}),worldPoint,cleanLook
+  });
+  if(!sceneState) throw new Error('Puppetalk character scene state failed to load.');
+  const {anatomy} = sceneState;
+  const inputSystem = window.PuppetalkCharacterInputSystem?.create?.({makePuppet,GRAB_PARTS,POSES,clamp});
+  if(!inputSystem) throw new Error('Puppetalk character input system failed to load.');
+  const {applyInput} = inputSystem;`);
 
 replaceOnce('embedded joint constructor',`  const joint = (a,pa,b,pb,stiff=.97) => Constraint.create({
     bodyA:a,pointA:pa,bodyB:b,pointB:pb,length:1,stiffness:stiff,damping:.13
@@ -178,7 +186,19 @@ replaceOnce('embedded rig helpers',`  function ensureRig(p){
 
 replaceOnce('pose pin reset',`      rig.pins = {head:null,leftHand:null,rightHand:null,leftFoot:null,rightFoot:null};`,`      resetPins(rig);`);
 
+removeBetweenOnce(
+  'embedded character scene serialization',
+  `  function norm(point){`,
+  `  function drawStage(){`
+);
+
+removeBetweenOnce(
+  'embedded character input normalization',
+  `  function applyInput(slot,msg){`,
+  `  const peer = new Peer(peerId(room));`
+);
+
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: rig construction, recovery mutations and character helper seams extracted with V1 behaviour intact.`);
+console.log(`Built ${output}: rig construction, recovery, scene serialization, input normalization and character helper seams extracted with V1 behaviour intact.`);
