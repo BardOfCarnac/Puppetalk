@@ -29,9 +29,9 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="./look-migration.js?v=1"></script>
 
-  <!-- Translation boundary: these 23 V1 source decorators have already been
-       applied, in their frozen order, to translation/generated/app-preboot.js. -->
-  <script src="./translation/precomposed-fetch.js?v=1"></script>
-  <script src="./boot.js?v=32"></script>
+  <!-- The V1 decorator stack and boot-time source transforms are frozen into
+       translation/generated/app-final.js. Bootstrap preserves only routing,
+       session-host startup, invite UI and startup error handling. -->
+  <script src="./translation/bootstrap.js?v=1"></script>
 </body>
 </html>
