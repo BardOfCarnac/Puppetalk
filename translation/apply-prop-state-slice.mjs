@@ -13,17 +13,20 @@ function insertAfter(text,label,marker,addition){
   if(text.includes(addition.trim())) return text;
   return replaceOnce(text,label,marker,marker+addition);
 }
+function insertBefore(text,label,marker,addition){
+  if(text.includes(addition.trim())) return text;
+  return replaceOnce(text,label,marker,addition+marker);
+}
 
 let build=read('translation/build-runtime.mjs');
 const geometryBinding=`  const {handBody,handPoint,propGripLocalPoint,validPropEffector,gripKey,ATTACHABLE_PARTS,puppetPartForBody,propForBody,closestPointOnBody,nearestBalloonTarget,localOffset,worldOffset} = propGeometry;\n`;
 const stateSetup=`  const propStateSystem = window.PuppetalkPropState?.create?.({\n    getDimensions:()=>({W,H}),worldOffset,clamp\n  });\n  if(!propStateSystem) throw new Error('Puppetalk prop state failed to load.');\n  const {balloonAttachmentState,propState} = propStateSystem;\n`;
 if(!build.includes('window.PuppetalkPropState?.create?.')) build=insertAfter(build,'prop state setup',geometryBinding,stateSetup);
 
-const balloonAttachmentState=`  function balloonAttachmentState(prop){\n    const a = prop?.attachedTo;\n    if(!a) return null;\n    const anchor = a.body ? worldOffset(a.body,a.offset) : null;\n    return {\n      slot:a.slot,\n      part:a.part,\n      mode:a.mode || 'embedded',\n      anchor:anchor ? {x:anchor.x/W,y:anchor.y/H} : null\n    };\n  }\n`;
-if(build.includes(balloonAttachmentState)) build=replaceOnce(build,'embedded balloon attachment state',balloonAttachmentState,'');
-
-const propState=`  function propState(prop){\n    const b = prop.body;\n    return {\n      id:prop.id,\n      type:prop.type,\n      depth:Number.isFinite(prop._depth) ? prop._depth : undefined,\n      throwerSlot:Number.isInteger(prop._throwerSlot) ? prop._throwerSlot : undefined,\n      armed:prop.type === 'frisbee' ? !!prop._cutArmed : undefined,\n      inflation:prop.type === 'balloon' ? (prop._inflation||0) : undefined,\n      scale:prop.type === 'balloon' ? (prop._renderScale||1) : undefined,\n      pumpBalloon:prop.type === 'pump' ? (prop._balloonId||null) : undefined,\n      x:b.position.x/W,\n      y:b.position.y/H,\n      a:b.angle || 0,\n      heldBy:prop.heldBy ? {slot:prop.heldBy.slot,hand:prop.heldBy.hand} : null,\n      contestedBy:prop.contest ? {slot:prop.contest.slot,hand:prop.contest.hand} : null,\n      tug:prop.contest ? clamp(prop.contest.score,0,1) : 0,\n      attachedTo:balloonAttachmentState(prop)\n    };\n  }\n`;
-if(build.includes(propState)) build=replaceOnce(build,'embedded prop state serializer',propState,'');
+const stateExtraction=`removeBetweenOnce(\n  'embedded prop state serializer',\n  \`  function propState(prop){\`,\n  \`  function handBody(p,hand){\`\n);\n\nremoveBetweenOnce(\n  'embedded balloon attachment state',\n  \`  function balloonAttachmentState(prop){\`,\n  \`  function localOffset(body,world){\`\n);\n\n`;
+if(!build.includes("'embedded prop state serializer'")){
+  build=insertBefore(build,'prop state extraction operations',"removeBetweenOnce(\n  'embedded prop attachment core',",stateExtraction);
+}
 write('translation/build-runtime.mjs',build);
 
 let parity=read('translation/runtime-parity-smoke.mjs');
