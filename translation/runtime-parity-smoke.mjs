@@ -12,6 +12,10 @@ assert.match(actual,/PuppetalkCharacterRigCore/,'Translated runtime is not conne
 assert.match(actual,/PuppetalkGrabGeometry/,'Translated runtime is not connected to extracted grab geometry.');
 assert.match(actual,/PuppetalkDriveForces/,'Translated runtime is not connected to extracted drive forces.');
 assert.match(actual,/PuppetalkRecoveryGeometry/,'Translated runtime is not connected to extracted recovery geometry.');
+assert.match(actual,/PuppetalkRigFactory/,'Translated runtime is not connected to extracted rig factory.');
+assert.doesNotMatch(actual,/function makePuppet\(slot\)/,'Embedded makePuppet survived rig-factory extraction.');
+assert.doesNotMatch(actual,/function tagHiddenSegment\(body,slot,part,segment\)/,'Embedded tagHiddenSegment survived rig-factory extraction.');
+assert.doesNotMatch(actual,/const joint = \(a,pa,b,pb,stiff=/,'Embedded rig joint constructor survived rig-factory extraction.');
 assert.doesNotMatch(actual,/function ensureRig\(p\)/,'Embedded ensureRig survived character extraction.');
 assert.doesNotMatch(actual,/function antiTangleTarget\(p,part,desired,age\)/,'Embedded antiTangleTarget survived character extraction.');
 assert.doesNotMatch(actual,/function rootFollow\(part\)/,'Embedded rootFollow survived character extraction.');
@@ -24,10 +28,10 @@ assert.doesNotMatch(actual,/function jointWorldPoint\(constraint,side\)/,'Embedd
 assert.doesNotMatch(actual,/function jointGap\(constraint\)/,'Embedded jointGap survived recovery-geometry extraction.');
 assert.doesNotMatch(actual,/function jointCutPoint\(constraint\)/,'Embedded jointCutPoint survived recovery-geometry extraction.');
 assert.doesNotMatch(actual,/function seamCutPoint\(p,name\)/,'Embedded seamCutPoint survived recovery-geometry extraction.');
+assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
 assert.match(actual,/resetPins\(rig\);/,'Translated pose-change path is not using extracted pin reset.');
 
 for(const invariant of [
-  'function makePuppet(slot){',
   'function severJoint(p,name){',
   'function repairSeveredJoints(p){',
   'function repairBrokenSeams(p){',
@@ -40,4 +44,4 @@ for(const invariant of [
   assert.ok(actual.includes(invariant),`Character/recovery call-site invariant changed during extraction: ${invariant}`);
 }
 
-console.log('Translated character runtime matches frozen V1 plus rig, grab, force and recovery-geometry extraction.');
+console.log('Translated character runtime matches frozen V1 with rig construction and helper seams extracted.');

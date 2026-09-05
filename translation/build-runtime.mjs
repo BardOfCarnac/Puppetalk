@@ -11,6 +11,15 @@ function replaceOnce(label,from,to){
   source=source.slice(0,first)+to+source.slice(first+from.length);
 }
 
+function removeBetweenOnce(label,startMarker,endMarker){
+  const start=source.indexOf(startMarker);
+  if(start<0) throw new Error(`Could not find ${label} start marker in frozen final source.`);
+  if(source.indexOf(startMarker,start+1)>=0) throw new Error(`${label} start marker matched more than once.`);
+  const end=source.indexOf(endMarker,start+startMarker.length);
+  if(end<0) throw new Error(`Could not find ${label} end marker in frozen final source.`);
+  source=source.slice(0,start)+source.slice(end);
+}
+
 replaceOnce('pose/grab constants',`const POSES = {
   stand:  [.12,.05,-.12,-.05,.04,.02,-.04,-.02,0],
   point:  [1.48,1.48,-.18,-.08,.02,0,-.03,0,-.05],
@@ -35,6 +44,28 @@ replaceOnce('character helper factory point',`  const {Engine,Bodies,Body,Compos
   const recoveryGeometry = window.PuppetalkRecoveryGeometry?.create?.(Vector);
   if(!recoveryGeometry) throw new Error('Puppetalk recovery geometry failed to load.');
   const {jointWorldPoint,jointGap,jointCutPoint,seamCutPoint} = recoveryGeometry;`);
+
+replaceOnce('rig factory setup point',`  const puppets = new Map();
+  const conns = new Map();`, `  const puppets = new Map();
+  const conns = new Map();
+  const rigFactory = window.PuppetalkRigFactory?.create?.({
+    Bodies,Body,Composite,Constraint,engine,puppets,
+    getDimensions:()=>({W,H}),NAMES,COLORS,defaultLook
+  });
+  if(!rigFactory) throw new Error('Puppetalk rig factory failed to load.');
+  const {makePuppet} = rigFactory;`);
+
+replaceOnce('embedded joint constructor',`  const joint = (a,pa,b,pb,stiff=.97) => Constraint.create({
+    bodyA:a,pointA:pa,bodyB:b,pointB:pb,length:1,stiffness:stiff,damping:.13
+  });
+
+`,``);
+
+removeBetweenOnce(
+  'embedded rig construction',
+  `  function tagHiddenSegment(body,slot,part,segment){`,
+  `  function jointWorldPoint(constraint,side){`
+);
 
 replaceOnce('embedded recovery geometry',`  function jointWorldPoint(constraint,side){
     const body = side === 'A' ? constraint?.bodyA : constraint?.bodyB;
@@ -145,4 +176,4 @@ replaceOnce('pose pin reset',`      rig.pins = {head:null,leftHand:null,rightHan
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: rig, grab, force and recovery geometry extracted with V1 behaviour intact.`);
+console.log(`Built ${output}: rig construction plus rig, grab, force and recovery helpers extracted with V1 behaviour intact.`);

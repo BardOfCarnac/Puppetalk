@@ -15,6 +15,7 @@ expectedRuntime.push('./translation/character/rig-core.js?v=1');
 expectedRuntime.push('./translation/character/grab-geometry.js?v=1');
 expectedRuntime.push('./translation/character/drive-forces.js?v=1');
 expectedRuntime.push('./translation/character/recovery-geometry.js?v=1');
+expectedRuntime.push('./translation/character/rig-factory.js?v=1');
 expectedRuntime.push('./translation/bootstrap.js?v=2');
 
 assert.match(html,/<title>Puppetalk<\/title>/,'Translation entry changed the product name.');
@@ -32,6 +33,7 @@ assert.ok(actualScripts.includes('./translation/character/rig-core.js?v=1'),'Ext
 assert.ok(actualScripts.includes('./translation/character/grab-geometry.js?v=1'),'Extracted grab geometry is missing.');
 assert.ok(actualScripts.includes('./translation/character/drive-forces.js?v=1'),'Extracted drive forces are missing.');
 assert.ok(actualScripts.includes('./translation/character/recovery-geometry.js?v=1'),'Extracted recovery geometry is missing.');
+assert.ok(actualScripts.includes('./translation/character/rig-factory.js?v=1'),'Extracted rig factory is missing.');
 assert.ok(actualScripts.includes('./translation/bootstrap.js?v=2'),'Translated bootstrap is missing.');
 assert.ok(fs.existsSync('translation/generated/app-preboot.js'),'Frozen preboot source is missing.');
 assert.ok(fs.existsSync('translation/generated/app-final.js'),'Frozen final source is missing.');
@@ -41,4 +43,4 @@ const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
 assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
 assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
 
-console.log('Translation entry boots extracted rig, grab, force and recovery geometry while retaining frozen V1 as control.');
+console.log('Translation entry boots extracted rig construction and helper modules while retaining frozen V1 as control.');
