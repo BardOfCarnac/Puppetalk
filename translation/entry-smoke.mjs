@@ -11,21 +11,28 @@ const expectedRuntime=scripts.filter(src=>{
   const bare=src.replace(/\?.*$/,'');
   return !decoratorSet.has(bare) && bare!=='./boot.js';
 });
-expectedRuntime.push('./translation/bootstrap.js?v=1');
+expectedRuntime.push('./translation/character/rig-core.js?v=1');
+expectedRuntime.push('./translation/bootstrap.js?v=2');
 
 assert.match(html,/<title>Puppetalk<\/title>/,'Translation entry changed the product name.');
 assert.match(html,/<main id="app" aria-live="polite"><\/main>/,'Translation entry changed the app mount.');
 assert.match(html,/<base href="\.\.\/"\s*\/>/,'Translation entry must resolve frozen runtime files from repository root.');
 assert.deepEqual(actualStyles,[...styles],'Translation entry styles differ from frozen Puppetalk.');
-assert.deepEqual(actualScripts,expectedRuntime,'Translation entry changed frozen runtime ordering before translated bootstrap.');
+assert.deepEqual(actualScripts,expectedRuntime,'Translation entry changed frozen runtime ordering before translated modules.');
 
 for(const decorator of appSourceDecorators){
   assert.ok(!actualScripts.some(src=>src.replace(/\?.*$/,'')===`./${decorator}`),`Runtime source decorator survived translation: ${decorator}`);
 }
 assert.ok(!actualScripts.some(src=>src.replace(/\?.*$/,'')==='./boot.js'),'V1 source-rewriting boot.js survived in translation runtime.');
 assert.ok(!actualScripts.some(src=>src.includes('precomposed-fetch.js')),'Preboot fetch adapter survived after final source freeze.');
-assert.ok(actualScripts.includes('./translation/bootstrap.js?v=1'),'Translated bootstrap is missing.');
+assert.ok(actualScripts.includes('./translation/character/rig-core.js?v=1'),'Extracted character rig core is missing.');
+assert.ok(actualScripts.includes('./translation/bootstrap.js?v=2'),'Translated bootstrap is missing.');
 assert.ok(fs.existsSync('translation/generated/app-preboot.js'),'Frozen preboot source is missing.');
 assert.ok(fs.existsSync('translation/generated/app-final.js'),'Frozen final source is missing.');
+assert.ok(fs.existsSync('translation/runtime/app.js'),'Translated runtime source is missing.');
 
-console.log('Translation entry runs frozen final Puppetalk without runtime source rewriting.');
+const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
+assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
+assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
+
+console.log('Translation entry boots the extracted character runtime while retaining frozen V1 as control.');
