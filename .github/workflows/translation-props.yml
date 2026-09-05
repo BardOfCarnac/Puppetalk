@@ -15,3 +15,8 @@ jobs:
           node-version: 24
       - run: node --check translation/props/contact-physics.js
       - run: node translation/props/contact-physics-smoke.mjs
+      - run: node --check translation/build-runtime.mjs
+      - run: node --check translation/runtime-parity-smoke.mjs
+      - run: node translation/runtime-parity-smoke.mjs
+      - run: node translation/entry-smoke.mjs
+      - run: node --check translation/runtime/app.js
