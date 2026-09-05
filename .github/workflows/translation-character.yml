@@ -25,5 +25,9 @@ jobs:
       - run: node translation/character/recovery-system-smoke.mjs
       - run: node --check translation/character/rig-factory.js
       - run: node translation/character/rig-factory-smoke.mjs
+      - run: node --check translation/character/scene-state.js
+      - run: node translation/character/scene-state-smoke.mjs
+      - run: node --check translation/character/input-system.js
+      - run: node translation/character/input-system-smoke.mjs
       - run: node --check translation/build-runtime.mjs
       - run: node translation/runtime-parity-smoke.mjs
