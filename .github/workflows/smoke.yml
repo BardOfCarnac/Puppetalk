@@ -30,6 +30,8 @@ jobs:
       - run: node translation/character/rig-core-smoke.mjs
       - run: node --check translation/character/grab-geometry.js
       - run: node translation/character/grab-geometry-smoke.mjs
+      - run: node --check translation/character/drive-forces.js
+      - run: node translation/character/drive-forces-smoke.mjs
       - run: node --check translation/build-runtime.mjs
       - run: node --check translation/runtime-parity-smoke.mjs
       - run: node translation/runtime-parity-smoke.mjs
