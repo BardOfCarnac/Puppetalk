@@ -9,6 +9,7 @@ const actual=fs.readFileSync('translation/runtime/app.js','utf8');
 assert.equal(actual,expected,'Committed translated runtime drifted from deterministic extraction.');
 
 assert.match(actual,/PuppetalkLookModel/,'Translated runtime is not connected to extracted character look model.');
+assert.match(actual,/PuppetalkSceneRenderer/,'Translated runtime is not connected to extracted shared scene renderer.');
 assert.match(actual,/PuppetalkCharacterRigCore/,'Translated runtime is not connected to extracted rig core.');
 assert.match(actual,/PuppetalkGrabGeometry/,'Translated runtime is not connected to extracted grab geometry.');
 assert.match(actual,/PuppetalkDriveForces/,'Translated runtime is not connected to extracted drive forces.');
@@ -174,8 +175,17 @@ assert.doesNotMatch(actual,/function transmit\(force=false\)/,'Embedded controll
 assert.doesNotMatch(actual,/function connect\(\)/,'Embedded controller connect survived session extraction.');
 assert.doesNotMatch(actual,/getConn:()=>conn/,'Controller modules still close over embedded conn state.');
 assert.doesNotMatch(actual,/getScene:()=>scene/,'Controller modules still close over embedded scene state.');
+assert.doesNotMatch(actual,/function drawBackdrop\(ctx,w,h\)/,'Embedded drawBackdrop survived scene-renderer extraction.');
+assert.doesNotMatch(actual,/const PUPPETALK_LIVE_EYES=/,'Embedded live eye renderer data survived scene-renderer extraction.');
+assert.doesNotMatch(actual,/function puppetalkLiveHeadPath\(ctx,style,r\)/,'Embedded live head renderer survived scene-renderer extraction.');
+assert.doesNotMatch(actual,/function drawAnatomy\(ctx,p,w,h,highlight=false,alpha=1\)/,'Embedded drawAnatomy survived scene-renderer extraction.');
+assert.doesNotMatch(actual,/function drawProp\(ctx,p,w,h\)/,'Embedded drawProp survived scene-renderer extraction.');
+assert.doesNotMatch(actual,/function roundRect\(ctx,x,y,w,h,r\)/,'Embedded roundRect survived scene-renderer extraction.');
+assert.match(actual,/const LINE_FACE_EYES = \{/,'Upper frozen line-face specimen moved during live-renderer extraction.');
 
 assert.match(actual,/const \{LOOK_PALETTE,LOOK_PARTS,defaultLook,cleanLook\} = window\.PuppetalkLookModel \|\| \{\};/,'Runtime is not bound to the extracted look model.');
+assert.match(actual,/const sceneRenderer = window\.PuppetalkSceneRenderer\?\.create\?\.\(\{/,'Runtime is not bound to extracted shared scene renderer.');
+assert.match(actual,/const \{drawBackdrop,drawAnatomy,drawProp,roundRect\} = sceneRenderer;/,'Runtime callers are not bound to extracted shared scene renderer.');
 assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
 assert.match(actual,/const \{severJoint,repairSeveredJoints,handleJointRecovery,severSeam,repairBrokenSeams\} = recoverySystem;/,'Runtime callers are not bound to the extracted recovery system.');
 assert.match(actual,/const \{anatomy\} = sceneState;/,'Runtime callers are not bound to the extracted anatomy serializer.');

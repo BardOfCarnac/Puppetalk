@@ -781,6 +781,27 @@ replaceOnce('prop collision setup point',
   resize();`
 );
 
+replaceOnce(
+  'scene renderer setup point',
+  `if(mode === 'controller') startController(room);`,
+  `const sceneRenderer = window.PuppetalkSceneRenderer?.create?.({
+  cleanLook,document,
+  Path2DClass:typeof Path2D === 'function' ? Path2D : null,
+  getDisplayPoint:()=>typeof displayPoint === 'function' ? displayPoint : null,
+  getProjectionRenderScale:()=>typeof projectionRenderScale === 'function' ? projectionRenderScale : null
+});
+if(!sceneRenderer) throw new Error('Puppetalk scene renderer failed to load.');
+const {drawBackdrop,drawAnatomy,drawProp,roundRect} = sceneRenderer;
+
+if(mode === 'controller') startController(room);`
+);
+
+removeBetweenOnce(
+  'embedded shared scene renderer',
+  `function drawBackdrop(ctx,w,h){`,
+  `})();`
+);
+
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
