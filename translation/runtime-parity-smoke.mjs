@@ -42,6 +42,7 @@ assert.match(actual,/PuppetalkCharacterCreator/,'Translated runtime is not conne
 assert.match(actual,/PuppetalkControllerThrowGesture/,'Translated runtime is not connected to extracted controller throw gesture.');
 assert.match(actual,/PuppetalkControllerAudio/,'Translated runtime is not connected to extracted controller audio system.');
 assert.match(actual,/PuppetalkControllerCommands/,'Translated runtime is not connected to extracted controller command panel.');
+assert.match(actual,/PuppetalkControllerSession/,'Translated runtime is not connected to extracted controller session.');
 
 assert.doesNotMatch(actual,/const LOOK_PALETTE = \[/,'Embedded LOOK_PALETTE survived look-model extraction.');
 assert.doesNotMatch(actual,/function defaultLook\(slot=0\)/,'Embedded defaultLook survived look-model extraction.');
@@ -166,6 +167,13 @@ assert.doesNotMatch(actual,/function stopManualTalk\(\)/,'Embedded stopManualTal
 assert.doesNotMatch(actual,/document\.querySelector\('#poses'\)\.addEventListener\('click'/,'Embedded pose command listener survived command-panel extraction.');
 assert.doesNotMatch(actual,/document\.querySelector\('#centre'\)\.addEventListener\('click'/,'Embedded centre command listener survived command-panel extraction.');
 assert.doesNotMatch(actual,/document\.querySelector\('#retry'\)\.addEventListener\('click',connect\)/,'Embedded retry listener survived command-panel extraction.');
+assert.doesNotMatch(actual,/let connectGeneration = 0;/,'Embedded controller connect generation survived session extraction.');
+assert.doesNotMatch(actual,/let reconnectTimer = null;/,'Embedded controller reconnect timer survived session extraction.');
+assert.doesNotMatch(actual,/function setStatus\(text,state=''\)/,'Embedded controller setStatus survived session extraction.');
+assert.doesNotMatch(actual,/function transmit\(force=false\)/,'Embedded controller transmit survived session extraction.');
+assert.doesNotMatch(actual,/function connect\(\)/,'Embedded controller connect survived session extraction.');
+assert.doesNotMatch(actual,/getConn:()=>conn/,'Controller modules still close over embedded conn state.');
+assert.doesNotMatch(actual,/getScene:()=>scene/,'Controller modules still close over embedded scene state.');
 
 assert.match(actual,/const \{LOOK_PALETTE,LOOK_PARTS,defaultLook,cleanLook\} = window\.PuppetalkLookModel \|\| \{\};/,'Runtime is not bound to the extracted look model.');
 assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
@@ -204,6 +212,9 @@ assert.match(actual,/const controllerAudio = window\.PuppetalkControllerAudio\?\
 assert.match(actual,/controllerAudio\.install\(\);/,'Extracted controller audio is not installed.');
 assert.match(actual,/const commandPanel = window\.PuppetalkControllerCommands\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller command panel.');
 assert.match(actual,/commandPanel\.install\(\);/,'Extracted controller command panel is not installed.');
+assert.match(actual,/const controllerSession = window\.PuppetalkControllerSession\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller session.');
+assert.match(actual,/const \{setStatus,transmit,connect,getConn,getSlot,getScene,getPropScene\} = controllerSession;/,'Controller session accessors are not bound.');
+assert.match(actual,/controllerSession\.setHooks\(\{updateSpecialItemButton,updateGripButtons,renderPersonalScene\}\);/,'Controller session UI hooks are not installed.');
 
 assert.ok(actual.includes("addEventListener('resize',resize,{passive:true});"),'Resize listener moved during prop extraction.');
 assert.ok(actual.includes(`  resize();

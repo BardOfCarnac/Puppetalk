@@ -623,24 +623,24 @@ function startController(room){
   const level = document.querySelector('#level');
   const talkButton = document.querySelector('#talk');
 
-  let peer;
-  let conn;
-  let slot = null;
-  let scene = [];
-  let propScene = [];
   let centreTimer = null;
   let cw = 1;
   let ch = 1;
-  let lastSent = '';
-  let reconnectTimer = null;
-  let connectGeneration = 0;
   const input = {pose:'stand',poseVersion:0,rag:false,mouth:0,grabs:[]};
 
   input.look = savedLook();
 
+  const controllerSession = window.PuppetalkControllerSession?.create?.({
+    Peer,room,peerId,NAMES,input,send,savedPlayerName,hint,youChip,status,dot,
+    setTimeoutFn:(callback,ms)=>setTimeout(callback,ms),
+    clearTimeoutFn:id=>clearTimeout(id)
+  });
+  if(!controllerSession) throw new Error('Puppetalk controller session failed to load.');
+  const {setStatus,transmit,connect,getConn,getSlot,getScene,getPropScene} = controllerSession;
+
   const puppetInteraction = window.PuppetalkControllerPuppetry?.create?.({
     canvas,ctx,hint,input,clamp,
-    getScene:()=>scene,getPropScene:()=>propScene,getSlot:()=>slot,getDimensions:()=>({cw,ch}),
+    getScene,getPropScene,getSlot,getDimensions:()=>({cw,ch}),
     drawBackdrop,seatProjection:puppetalkSeatProjection,drawProp,drawAnatomy,transmit,
     cancelCentre:()=>{ if(centreTimer){ clearTimeout(centreTimer); centreTimer = null; } }
   });
@@ -649,11 +649,6 @@ function startController(room){
     activePointers,myPuppet,grabSpots,renderGrabHandles,renderPersonalScene,
     pointerToWorld,pickGrab,describeActiveGrabs
   } = puppetInteraction;
-
-  function setStatus(text,state=''){
-    status.textContent = text;
-    dot.className = `status-dot ${state}`;
-  }
 
   function resizeCanvas(){
     const rect = stageBox.getBoundingClientRect();
@@ -671,8 +666,8 @@ function startController(room){
 
   const itemInteraction = window.PuppetalkControllerItems?.create?.({
     document,canvas,send,
-    getConn:()=>conn,getSlot:()=>slot,getPropScene:()=>propScene,getScene:()=>scene,
-    getDimensions:()=>({cw,ch}),getMyPuppet:()=>scene.find(p=>p.slot === slot),
+    getConn,getSlot,getPropScene,getScene,
+    getDimensions:()=>({cw,ch}),getMyPuppet:()=>getScene().find(p=>p.slot === getSlot()),
     seatProjection:puppetalkSeatProjection,
     displayPoint:typeof displayPoint === 'function' ? displayPoint : null,
     storage:localStorage
@@ -682,71 +677,7 @@ function startController(room){
     controllerSpecialType,controllerSpecialLabel,updateSpecialItemButton,bringOutMySpecialItem,
     heldProp,updateGripButtons,toggleGrip,propDisplayPoint,pickTappedProp,nearestPropHand
   } = itemInteraction;
-
-  function transmit(force=false){
-    if(!conn?.open) return;
-    const body = JSON.stringify(input);
-    if(!force && body === lastSent) return;
-    lastSent = body;
-    send(conn,{type:'input',input});
-  }
-
-  function connect(){
-    const generation = ++connectGeneration;
-    if(reconnectTimer){ clearTimeout(reconnectTimer); reconnectTimer = null; }
-    if(peer && !peer.destroyed) peer.destroy();
-    setStatus('connecting');
-    hint.textContent = 'Connecting to the ensemble…';
-    peer = new Peer();
-    peer.on('open',()=>{
-      setStatus('joining…');
-      conn = peer.connect(peerId(room),{serialization:'json'});
-      conn.on('data',msg=>{
-        if(msg?.type === 'welcome'){
-          slot = msg.slot;
-          updateSpecialItemButton(false);
-          setStatus(`you are ${savedPlayerName() || NAMES[slot] || msg.name}`,'live');
-          youChip.hidden = false;
-          hint.textContent = 'Use one or two fingers on any grab point';
-          setTimeout(()=>hint.classList.add('quiet'),3000);
-          lastSent = '';
-          transmit(true);
-          send(conn,{type:'look',look:input.look,name:savedPlayerName()});
-        }
-        if(msg?.type === 'scene'){
-          scene = Array.isArray(msg.puppets) ? msg.puppets : [];
-          propScene = Array.isArray(msg.props) ? msg.props : [];
-          updateGripButtons();
-          renderPersonalScene();
-        }
-        if(msg?.type === 'prop-result'){
-          hint.classList.remove('quiet');
-          hint.textContent = msg.message || (msg.ok ? 'Prop grip updated.' : 'Could not grip prop.');
-          if(msg.ok) setTimeout(()=>hint.classList.add('quiet'),1500);
-        }
-        if(msg?.type === 'special-item-result'){
-          hint.classList.remove('quiet');
-          hint.textContent = msg.message || 'Special item updated.';
-          if(msg.ok || msg.alreadyOut) updateSpecialItemButton(true);
-          setTimeout(()=>hint.classList.add('quiet'),1700);
-        }
-        if(msg?.type === 'full'){
-          setStatus('table is full','bad');
-          hint.textContent = 'This table already has six puppeteers.';
-        }
-      });
-      const autoReconnect = ()=>{
-        if(generation !== connectGeneration || reconnectTimer) return;
-        setStatus('reconnecting…','bad');
-        reconnectTimer = setTimeout(()=>{ reconnectTimer=null; connect(); },1200);
-      };
-      conn.on('close',autoReconnect);
-      conn.on('error',autoReconnect);
-    });
-    peer.on('error',err=>{
-      setStatus(err.type === 'peer-unavailable' ? 'table not found' : `network error: ${err.type || 'unknown'}`,'bad');
-    });
-  }
+  controllerSession.setHooks({updateSpecialItemButton,updateGripButtons,renderPersonalScene});
 
   puppetInteraction.install();
 
@@ -754,14 +685,14 @@ function startController(room){
 
   const characterCreator = window.PuppetalkCharacterCreator?.create?.({
     document,input,LOOK_PALETTE,LOOK_PARTS,cleanLook,saveLook,send,
-    getConn:()=>conn,getSlot:()=>slot,savedPlayerName,random:()=>Math.random()
+    getConn,getSlot,savedPlayerName,random:()=>Math.random()
   });
   if(!characterCreator) throw new Error('Puppetalk character creator controller failed to load.');
   characterCreator.install();
 
   const controllerThrowGesture = window.PuppetalkControllerThrowGesture?.create?.({
     canvas,activePointers,heldProp,pointerToWorld,
-    getConn:()=>conn,getSlot:()=>slot,send,
+    getConn,getSlot,send,
     now:()=>performance.now(),queueTask:callback=>queueMicrotask(callback)
   });
   if(!controllerThrowGesture) throw new Error('Puppetalk controller throw gesture failed to load.');

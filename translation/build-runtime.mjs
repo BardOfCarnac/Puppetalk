@@ -675,6 +675,95 @@ replaceOnce(
   itemInteraction.installButtons();`
 );
 
+replaceOnce(
+  'embedded controller session state',
+  `  let peer;
+  let conn;
+  let slot = null;
+  let scene = [];
+  let propScene = [];
+  let centreTimer = null;
+  let cw = 1;
+  let ch = 1;
+  let lastSent = '';
+  let reconnectTimer = null;
+  let connectGeneration = 0;
+  const input = {pose:'stand',poseVersion:0,rag:false,mouth:0,grabs:[]};`,
+  `  let centreTimer = null;
+  let cw = 1;
+  let ch = 1;
+  const input = {pose:'stand',poseVersion:0,rag:false,mouth:0,grabs:[]};`
+);
+
+replaceOnce(
+  'controller session setup point',
+  `  input.look = savedLook();
+
+  const puppetInteraction = window.PuppetalkControllerPuppetry?.create?.({`,
+  `  input.look = savedLook();
+
+  const controllerSession = window.PuppetalkControllerSession?.create?.({
+    Peer,room,peerId,NAMES,input,send,savedPlayerName,hint,youChip,status,dot,
+    setTimeoutFn:(callback,ms)=>setTimeout(callback,ms),
+    clearTimeoutFn:id=>clearTimeout(id)
+  });
+  if(!controllerSession) throw new Error('Puppetalk controller session failed to load.');
+  const {setStatus,transmit,connect,getConn,getSlot,getScene,getPropScene} = controllerSession;
+
+  const puppetInteraction = window.PuppetalkControllerPuppetry?.create?.({`
+);
+
+replaceOnce(
+  'controller session direct-puppetry accessors',
+  `    getScene:()=>scene,getPropScene:()=>propScene,getSlot:()=>slot,getDimensions:()=>({cw,ch}),`,
+  `    getScene,getPropScene,getSlot,getDimensions:()=>({cw,ch}),`
+);
+
+removeBetweenOnce(
+  'embedded controller status setter',
+  `  function setStatus(text,state=''){`,
+  `  function resizeCanvas(){`
+);
+
+replaceOnce(
+  'controller session item accessors',
+  `    getConn:()=>conn,getSlot:()=>slot,getPropScene:()=>propScene,getScene:()=>scene,
+    getDimensions:()=>({cw,ch}),getMyPuppet:()=>scene.find(p=>p.slot === slot),`,
+  `    getConn,getSlot,getPropScene,getScene,
+    getDimensions:()=>({cw,ch}),getMyPuppet:()=>getScene().find(p=>p.slot === getSlot()),`
+);
+
+replaceOnce(
+  'controller session hook point',
+  `  const {
+    controllerSpecialType,controllerSpecialLabel,updateSpecialItemButton,bringOutMySpecialItem,
+    heldProp,updateGripButtons,toggleGrip,propDisplayPoint,pickTappedProp,nearestPropHand
+  } = itemInteraction;`,
+  `  const {
+    controllerSpecialType,controllerSpecialLabel,updateSpecialItemButton,bringOutMySpecialItem,
+    heldProp,updateGripButtons,toggleGrip,propDisplayPoint,pickTappedProp,nearestPropHand
+  } = itemInteraction;
+  controllerSession.setHooks({updateSpecialItemButton,updateGripButtons,renderPersonalScene});`
+);
+
+removeBetweenOnce(
+  'embedded controller session operations',
+  `  function transmit(force=false){`,
+  `  puppetInteraction.install();`
+);
+
+replaceOnce(
+  'controller session character accessors',
+  `    getConn:()=>conn,getSlot:()=>slot,savedPlayerName,random:()=>Math.random()`,
+  `    getConn,getSlot,savedPlayerName,random:()=>Math.random()`
+);
+
+replaceOnce(
+  'controller session throw accessors',
+  `    getConn:()=>conn,getSlot:()=>slot,send,`,
+  `    getConn,getSlot,send,`
+);
+
 replaceOnce('prop collision setup point',
   `  resize();`,
   `  const dartImpacts = window.PuppetalkDartImpacts?.create?.({
