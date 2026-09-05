@@ -482,6 +482,62 @@ removeBetweenOnce(
 );
 
 removeBetweenOnce(
+  'embedded controller special-item helpers',
+  `  function controllerSpecialType(){`,
+  `  function transmit(force=false){`
+);
+
+replaceOnce(
+  'controller item interactions setup point',
+  `  function transmit(force=false){`,
+  `  const itemInteraction = window.PuppetalkControllerItems?.create?.({
+    document,canvas,send,
+    getConn:()=>conn,getSlot:()=>slot,getPropScene:()=>propScene,getScene:()=>scene,
+    getDimensions:()=>({cw,ch}),getMyPuppet:()=>scene.find(p=>p.slot === slot),
+    seatProjection:puppetalkSeatProjection,
+    displayPoint:typeof displayPoint === 'function' ? displayPoint : null,
+    storage:localStorage
+  });
+  if(!itemInteraction) throw new Error('Puppetalk controller item interactions failed to load.');
+  const {
+    controllerSpecialType,controllerSpecialLabel,updateSpecialItemButton,bringOutMySpecialItem,
+    heldProp,updateGripButtons,toggleGrip,propDisplayPoint,pickTappedProp,nearestPropHand
+  } = itemInteraction;
+
+  function transmit(force=false){`
+);
+
+removeBetweenOnce(
+  'embedded controller grip helpers',
+  `  function heldProp(hand){ return propScene.find(prop=>prop?.heldBy?.slot === slot && prop?.heldBy?.hand === hand); }`,
+  `  function connect(){`
+);
+
+removeBetweenOnce(
+  'embedded controller prop tap interactions',
+  `  function propDisplayPoint(q){`,
+  `  function sendLook(){`
+);
+
+replaceOnce(
+  'controller prop tap install point',
+  `  function sendLook(){`,
+  `  itemInteraction.installPropTap();
+
+  function sendLook(){`
+);
+
+replaceOnce(
+  'controller item buttons',
+  `  document.querySelector('#special-item')?.addEventListener('click',bringOutMySpecialItem);
+  updateSpecialItemButton(false);
+  document.querySelector('#grip-left')?.addEventListener('click',()=>toggleGrip('left'));
+  document.querySelector('#grip-right')?.addEventListener('click',()=>toggleGrip('right'));`,
+  `  itemInteraction.installButtons();
+  updateSpecialItemButton(false);`
+);
+
+removeBetweenOnce(
   'embedded character creator controller',
   `  function sendLook(){`,
   `  const throwGestures = new Map();`

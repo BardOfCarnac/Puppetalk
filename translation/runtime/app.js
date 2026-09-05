@@ -659,36 +659,19 @@ function startController(room){
     renderPersonalScene();
   }
 
-  function controllerSpecialType(){
-    const valid = ['frisbee','pump','ball','dart'];
-    try{
-      const saved = localStorage.getItem('puppetalk-special-item');
-      if(valid.includes(saved)) return saved;
-    }catch{}
-    if(slot === null) return null;
-    const fallback = ['frisbee','pump','ball','dart','frisbee','pump'];
-    return fallback[Math.max(0,slot)%fallback.length] || 'ball';
-  }
-  function controllerSpecialLabel(type){
-    if(type === 'frisbee') return 'Laser frisbee';
-    if(type === 'pump') return 'Balloon pump';
-    if(type === 'ball') return 'Ball';
-    if(type === 'dart') return 'Sticky darts';
-    return 'Item';
-  }
-  function updateSpecialItemButton(isOut=false){
-    const button = document.querySelector('#special-item');
-    if(!button) return;
-    const type = controllerSpecialType();
-    if(!type){ button.textContent='Special item'; button.disabled=true; return; }
-    const label = controllerSpecialLabel(type);
-    button.disabled=!!isOut;
-    button.textContent = isOut ? label+' is out' : 'Bring out '+label;
-  }
-  function bringOutMySpecialItem(){
-    if(!conn?.open || slot === null) return;
-    send(conn,{type:'special-item',action:'bring-out',item:controllerSpecialType()});
-  }
+  const itemInteraction = window.PuppetalkControllerItems?.create?.({
+    document,canvas,send,
+    getConn:()=>conn,getSlot:()=>slot,getPropScene:()=>propScene,getScene:()=>scene,
+    getDimensions:()=>({cw,ch}),getMyPuppet:()=>scene.find(p=>p.slot === slot),
+    seatProjection:puppetalkSeatProjection,
+    displayPoint:typeof displayPoint === 'function' ? displayPoint : null,
+    storage:localStorage
+  });
+  if(!itemInteraction) throw new Error('Puppetalk controller item interactions failed to load.');
+  const {
+    controllerSpecialType,controllerSpecialLabel,updateSpecialItemButton,bringOutMySpecialItem,
+    heldProp,updateGripButtons,toggleGrip,propDisplayPoint,pickTappedProp,nearestPropHand
+  } = itemInteraction;
 
   function transmit(force=false){
     if(!conn?.open) return;
@@ -696,18 +679,6 @@ function startController(room){
     if(!force && body === lastSent) return;
     lastSent = body;
     send(conn,{type:'input',input});
-  }
-
-  function heldProp(hand){ return propScene.find(prop=>prop?.heldBy?.slot === slot && prop?.heldBy?.hand === hand); }
-  function updateGripButtons(){
-    const left = document.querySelector('#grip-left');
-    const right = document.querySelector('#grip-right');
-    if(left) left.textContent = heldProp('left') ? 'Drop L' : 'Grip L';
-    if(right) right.textContent = heldProp('right') ? 'Drop R' : 'Grip R';
-  }
-  function toggleGrip(hand){
-    if(!conn?.open || slot === null) return;
-    send(conn,{type:'prop',action:'toggleGrip',hand});
   }
 
   function connect(){
@@ -885,72 +856,7 @@ function startController(room){
   canvas.addEventListener('pointerup',stopPointer);
   canvas.addEventListener('pointercancel',stopPointer);
 
-  function propDisplayPoint(q){
-    return typeof displayPoint === 'function' ? displayPoint(q,cw,ch) : {x:q.x*cw,y:q.y*ch};
-  }
-  function pickTappedProp(event){
-    const rect = canvas.getBoundingClientRect();
-    const px = event.clientX-rect.left;
-    const py = event.clientY-rect.top;
-    let best = null;
-    const viewProps=puppetalkSeatProjection(scene,propScene,slot).props;
-    for(const prop of viewProps){
-      const q = propDisplayPoint(prop);
-      const radius = prop.type === 'frisbee' ? 48 : prop.type === 'pump' ? 44 : prop.type === 'balloon' ? 38 : prop.type === 'ball' ? 34 : 32;
-      const distance = Math.hypot(px-q.x,py-q.y);
-      if(distance <= radius && (!best || distance < best.distance)) best = {prop,distance};
-    }
-    return best?.prop || null;
-  }
-  function nearestPropHand(prop){
-    const mine = myPuppet();
-    if(!mine) return null;
-    const q = propDisplayPoint(prop);
-    const candidates = [
-      {hand:'left',point:mine.wl},
-      {hand:'right',point:mine.wr},
-      {hand:'leftFoot',point:mine.al},
-      {hand:'rightFoot',point:mine.ar}
-    ];
-    let best = null;
-    for(const candidate of candidates){
-      if(!candidate.point) continue;
-      const p = propDisplayPoint(candidate.point);
-      const distance = Math.hypot(p.x-q.x,p.y-q.y);
-      if(!best || distance < best.distance) best = {hand:candidate.hand,distance};
-    }
-    const reach = prop?.type === 'frisbee' ? 118 : 88;
-    if(!best || best.distance > reach) return null;
-    return best.hand;
-  }
-  canvas.addEventListener('pointerdown',event=>{
-    const prop = pickTappedProp(event);
-    if(!prop) return;
-
-    // If this is already our prop, do not consume the pointer event. The normal
-    // puppet hit-test underneath will pick the hand at the same location, allowing
-    // the player to grab/swing by touching the object itself.
-    if(prop.type === 'pump'){
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      if(conn?.open && slot !== null) send(conn,{type:'prop',action:'pump',propId:prop.id});
-      return;
-    }
-    if(prop.type === 'balloon' && prop.attachedTo?.mode === 'pump'){
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      if(conn?.open && slot !== null) send(conn,{type:'prop',action:'release-pump-balloon',propId:prop.id});
-      return;
-    }
-    if(prop.heldBy?.slot === slot) return;
-
-    const hand = nearestPropHand(prop);
-    if(!hand) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if(conn?.open && slot !== null) send(conn,{type:'prop',action:'tap',propId:prop.id,hand});
-  },true);
-
+  itemInteraction.installPropTap();
 
   const characterCreator = window.PuppetalkCharacterCreator?.create?.({
     document,input,LOOK_PALETTE,LOOK_PARTS,cleanLook,saveLook,send,
@@ -1001,10 +907,8 @@ function startController(room){
     },150);
   });
   document.querySelector('#retry').addEventListener('click',connect);
-  document.querySelector('#special-item')?.addEventListener('click',bringOutMySpecialItem);
+  itemInteraction.installButtons();
   updateSpecialItemButton(false);
-  document.querySelector('#grip-left')?.addEventListener('click',()=>toggleGrip('left'));
-  document.querySelector('#grip-right')?.addEventListener('click',()=>toggleGrip('right'));
 
   const controllerAudio = window.PuppetalkControllerAudio?.create?.({
     micButton,level,talkButton,input,transmit,setStatus,clamp,

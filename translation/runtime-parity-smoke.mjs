@@ -36,6 +36,7 @@ assert.match(actual,/PuppetalkPropInput/,'Translated runtime is not connected to
 assert.match(actual,/PuppetalkSpecialItems/,'Translated runtime is not connected to extracted special items.');
 assert.match(actual,/PuppetalkDartImpacts/,'Translated runtime is not connected to extracted dart impacts.');
 assert.match(actual,/PuppetalkPropContactPhysics/,'Translated runtime is not connected to extracted prop contact physics.');
+assert.match(actual,/PuppetalkControllerItems/,'Translated runtime is not connected to extracted controller item interactions.');
 assert.match(actual,/PuppetalkCharacterCreator/,'Translated runtime is not connected to extracted character creator controller.');
 assert.match(actual,/PuppetalkControllerThrowGesture/,'Translated runtime is not connected to extracted controller throw gesture.');
 assert.match(actual,/PuppetalkControllerAudio/,'Translated runtime is not connected to extracted controller audio system.');
@@ -135,6 +136,11 @@ assert.doesNotMatch(actual,/function bringOutSpecialItem\(slot,requested\)/,'Emb
 assert.doesNotMatch(actual,/function handleSpecialItemInput\(slot,msg\)/,'Embedded handleSpecialItemInput survived special-item extraction.');
 assert.doesNotMatch(actual,/function installDartImpacts\(\)/,'Embedded installDartImpacts survived dart-impact extraction.');
 assert.doesNotMatch(actual,/function installPropContactPhysics\(\)/,'Embedded installPropContactPhysics survived prop-contact extraction.');
+assert.doesNotMatch(actual,/function controllerSpecialType\(\)/,'Embedded controllerSpecialType survived item-interaction extraction.');
+assert.doesNotMatch(actual,/function updateSpecialItemButton\(isOut=false\)/,'Embedded updateSpecialItemButton survived item-interaction extraction.');
+assert.doesNotMatch(actual,/function heldProp\(hand\)/,'Embedded heldProp survived item-interaction extraction.');
+assert.doesNotMatch(actual,/function pickTappedProp\(event\)/,'Embedded pickTappedProp survived item-interaction extraction.');
+assert.doesNotMatch(actual,/function nearestPropHand\(prop\)/,'Embedded nearestPropHand survived item-interaction extraction.');
 assert.doesNotMatch(actual,/function sendLook\(\)/,'Embedded sendLook survived character-creator extraction.');
 assert.doesNotMatch(actual,/function cycleLook\(key\)/,'Embedded cycleLook survived character-creator extraction.');
 assert.doesNotMatch(actual,/function renderCreator\(\)/,'Embedded renderCreator survived character-creator extraction.');
@@ -173,6 +179,9 @@ assert.match(actual,/const \{propHandIsClose,tapProp,releaseAllPropGrips,throwHe
 assert.match(actual,/const \{specialItemLabel,specialItemType,specialItemStillOut,bringOutSpecialItem,handleSpecialItemInput\} = specialItemSystem;/,'Runtime is not bound to extracted special items.');
 assert.match(actual,/const \{installDartImpacts\} = dartImpacts;/,'Runtime is not bound to the extracted dart impacts.');
 assert.match(actual,/const \{installPropContactPhysics\} = propContactPhysics;/,'Runtime is not bound to the extracted prop contact physics.');
+assert.match(actual,/const itemInteraction = window\.PuppetalkControllerItems\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller item interactions.');
+assert.match(actual,/itemInteraction\.installPropTap\(\);/,'Extracted controller prop-tap interactions are not installed.');
+assert.match(actual,/itemInteraction\.installButtons\(\);/,'Extracted controller item buttons are not installed.');
 assert.match(actual,/const characterCreator = window\.PuppetalkCharacterCreator\?\.create\?\.\(\{/,'Runtime is not bound to extracted character creator controller.');
 assert.match(actual,/characterCreator\.install\(\);/,'Extracted character creator controller is not installed.');
 assert.match(actual,/const controllerThrowGesture = window\.PuppetalkControllerThrowGesture\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller throw gesture.');
