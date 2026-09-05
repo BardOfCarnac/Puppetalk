@@ -45,7 +45,7 @@ replaceOnce('character helper factory point',`  const {Engine,Bodies,Body,Compos
   if(!recoveryGeometry) throw new Error('Puppetalk recovery geometry failed to load.');
   const {jointWorldPoint,jointGap,jointCutPoint,seamCutPoint} = recoveryGeometry;`);
 
-replaceOnce('rig factory setup point',`  const puppets = new Map();
+replaceOnce('rig/recovery factory setup point',`  const puppets = new Map();
   const conns = new Map();`, `  const puppets = new Map();
   const conns = new Map();
   const rigFactory = window.PuppetalkRigFactory?.create?.({
@@ -53,7 +53,12 @@ replaceOnce('rig factory setup point',`  const puppets = new Map();
     getDimensions:()=>({W,H}),NAMES,COLORS,defaultLook
   });
   if(!rigFactory) throw new Error('Puppetalk rig factory failed to load.');
-  const {makePuppet} = rigFactory;`);
+  const {makePuppet} = rigFactory;
+  const recoverySystem = window.PuppetalkRecoverySystem?.create?.({
+    Composite,Body,engine,makePuppet,jointGap,jointWorldPoint,angleDelta,clamp
+  });
+  if(!recoverySystem) throw new Error('Puppetalk recovery system failed to load.');
+  const {severJoint,repairSeveredJoints,handleJointRecovery,severSeam,repairBrokenSeams} = recoverySystem;`);
 
 replaceOnce('embedded joint constructor',`  const joint = (a,pa,b,pb,stiff=.97) => Constraint.create({
     bodyA:a,pointA:pa,bodyB:b,pointB:pb,length:1,stiffness:stiff,damping:.13
@@ -87,11 +92,11 @@ replaceOnce('embedded recovery geometry',`  function jointWorldPoint(constraint,
   }
 `,``);
 
-replaceOnce('embedded seam cut geometry',`  function seamCutPoint(p,name){
-    const c=p?.seams?.[name];
-    return c ? jointCutPoint(c) : null;
-  }
-`,``);
+removeBetweenOnce(
+  'embedded recovery mutations',
+  `  function severJoint(p,name){`,
+  `  function removePuppet(slot){`
+);
 
 replaceOnce('embedded servo',`  function servo(body,target,strength=.006){
     body.torque += clamp(angleDelta(target,body.angle)*strength-body.angularVelocity*strength*.72,-.028,.028);
@@ -176,4 +181,4 @@ replaceOnce('pose pin reset',`      rig.pins = {head:null,leftHand:null,rightHan
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: rig construction plus rig, grab, force and recovery helpers extracted with V1 behaviour intact.`);
+console.log(`Built ${output}: rig construction, recovery mutations and character helper seams extracted with V1 behaviour intact.`);
