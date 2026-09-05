@@ -11,6 +11,7 @@ assert.equal(actual,expected,'Committed translated runtime drifted from determin
 assert.match(actual,/PuppetalkLookModel/,'Translated runtime is not connected to extracted character look model.');
 assert.match(actual,/PuppetalkSceneRenderer/,'Translated runtime is not connected to extracted shared scene renderer.');
 assert.match(actual,/PuppetalkSeatProjection/,'Translated runtime is not connected to extracted seat projection.');
+assert.match(actual,/PuppetalkViewShells/,'Translated runtime is not connected to extracted view shells.');
 assert.match(actual,/PuppetalkCharacterRigCore/,'Translated runtime is not connected to extracted rig core.');
 assert.match(actual,/PuppetalkGrabGeometry/,'Translated runtime is not connected to extracted grab geometry.');
 assert.match(actual,/PuppetalkDriveForces/,'Translated runtime is not connected to extracted drive forces.');
@@ -188,6 +189,12 @@ assert.doesNotMatch(actual,/function puppetalkSeatAngle\(slot\)/,'Embedded seat 
 assert.doesNotMatch(actual,/function puppetalkProjectPuppet\(p,viewerSlot\)/,'Embedded puppet seat projection survived extraction.');
 assert.doesNotMatch(actual,/function puppetalkProjectProp\(prop,metaBySlot,viewerSlot\)/,'Embedded prop seat projection survived extraction.');
 assert.doesNotMatch(actual,/function puppetalkSeatProjection\(puppets,props,viewerSlot\)/,'Embedded seat projection entry point survived extraction.');
+assert.doesNotMatch(actual,/<section class=\"stage-shell\">/,'Embedded stage shell markup survived view-shell extraction.');
+assert.doesNotMatch(actual,/<section class=\"shell controller-shell personal-controller\">/,'Embedded controller shell markup survived view-shell extraction.');
+assert.doesNotMatch(actual,/This invite is incomplete\.<\/div><\/div><\/section>/,'Embedded incomplete-invite shell survived view-shell extraction.');
+assert.match(actual,/app\.innerHTML = stageShell\(room,joinUrl\.href\);/,'Stage does not render through extracted view shell.');
+assert.match(actual,/app\.innerHTML = controllerShell\(room,POSES\);/,'Controller does not render through extracted view shell.');
+assert.match(actual,/app\.innerHTML = incompleteInviteShell\(\);/,'Incomplete controller invite does not render through extracted view shell.');
 assert.doesNotMatch(actual,/const PUPPET_HEAD_STYLES =/,'Dead legacy head-style table survived pruning.');
 assert.doesNotMatch(actual,/const LINE_FACE_EYES =/,'Dead legacy line-face eye table survived pruning.');
 assert.doesNotMatch(actual,/const LINE_FACE_NOSES =/,'Dead legacy line-face nose table survived pruning.');
@@ -205,6 +212,10 @@ assert.match(actual,/const sceneRenderer = window\.PuppetalkSceneRenderer\?\.cre
 assert.match(actual,/const \{drawBackdrop,drawAnatomy,drawProp,roundRect\} = sceneRenderer;/,'Runtime callers are not bound to extracted shared scene renderer.');
 assert.match(actual,/const seatProjection = window\.PuppetalkSeatProjection\?\.create\?\.\(\{/,'Runtime is not bound to extracted seat projection.');
 assert.match(actual,/const \{puppetalkSeatProjection\} = seatProjection;/,'Runtime callers are not bound to extracted seat projection.');
+assert.match(actual,/const \{incompleteInviteShell,stageShell,controllerShell\} = window\.PuppetalkViewShells \|\| \{\};/,'Runtime is not bound to extracted view shells.');
+const viewShellBindingIndex=actual.indexOf('const {incompleteInviteShell,stageShell,controllerShell} = window.PuppetalkViewShells');
+const viewShellDispatchIndex=actual.indexOf("if(mode === 'controller') startController(room);");
+assert.ok(viewShellBindingIndex>=0 && viewShellDispatchIndex>=0 && viewShellBindingIndex<viewShellDispatchIndex,'View shells must be initialized before early mode dispatch.');
 const seatProjectionBindingIndex=actual.indexOf('const seatProjection = window.PuppetalkSeatProjection');
 const controllerDispatchIndex=actual.indexOf("if(mode === 'controller') startController(room);");
 assert.ok(seatProjectionBindingIndex>=0 && controllerDispatchIndex>=0 && seatProjectionBindingIndex<controllerDispatchIndex,'Seat projection must be initialized before early controller dispatch.');

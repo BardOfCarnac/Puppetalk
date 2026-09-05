@@ -14,6 +14,7 @@ const expectedRuntime=scripts.filter(src=>{
 expectedRuntime.push('./translation/character/look-model.js?v=1');
 expectedRuntime.push('./translation/render/scene-renderer.js?v=1');
 expectedRuntime.push('./translation/render/seat-projection.js?v=1');
+expectedRuntime.push('./translation/ui/shells.js?v=1');
 expectedRuntime.push('./translation/character/rig-core.js?v=1');
 expectedRuntime.push('./translation/character/grab-geometry.js?v=1');
 expectedRuntime.push('./translation/character/drive-forces.js?v=1');
@@ -64,6 +65,7 @@ assert.ok(!actualScripts.some(src=>src.includes('precomposed-fetch.js')),'Preboo
 assert.ok(actualScripts.includes('./translation/character/look-model.js?v=1'),'Extracted character look model is missing.');
 assert.ok(actualScripts.includes('./translation/render/scene-renderer.js?v=1'),'Extracted shared scene renderer is missing.');
 assert.ok(actualScripts.includes('./translation/render/seat-projection.js?v=1'),'Extracted seat projection is missing.');
+assert.ok(actualScripts.includes('./translation/ui/shells.js?v=1'),'Extracted view shells are missing.');
 assert.ok(actualScripts.includes('./translation/character/rig-core.js?v=1'),'Extracted character rig core is missing.');
 assert.ok(actualScripts.includes('./translation/character/grab-geometry.js?v=1'),'Extracted grab geometry is missing.');
 assert.ok(actualScripts.includes('./translation/character/drive-forces.js?v=1'),'Extracted drive forces are missing.');

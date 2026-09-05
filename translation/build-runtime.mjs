@@ -827,6 +827,53 @@ removeBetweenOnce(
   `function savedLook(){`
 );
 
+replaceOnce(
+  'view shell setup point',
+  `if(mode === 'controller') startController(room);`,
+  `const {incompleteInviteShell,stageShell,controllerShell} = window.PuppetalkViewShells || {};
+if(!incompleteInviteShell || !stageShell || !controllerShell){
+  throw new Error('Puppetalk view shells failed to load.');
+}
+
+if(mode === 'controller') startController(room);`
+);
+
+removeBetweenOnce(
+  'embedded stage shell',
+  `  app.innerHTML = \`
+    <section class=\"stage-shell\">`,
+  `  const canvas = document.querySelector('#stage-canvas');`
+);
+
+replaceOnce(
+  'stage shell render point',
+  `  const canvas = document.querySelector('#stage-canvas');`,
+  `  app.innerHTML = stageShell(room,joinUrl.href);
+
+  const canvas = document.querySelector('#stage-canvas');`
+);
+
+replaceOnce(
+  'incomplete controller invite shell',
+  `    app.innerHTML = \`<section class=\"join-form\"><div class=\"join-panel card\"><strong>Puppetalk</strong><div class=\"muted small\">This invite is incomplete.</div></div></section>\`;`,
+  `    app.innerHTML = incompleteInviteShell();`
+);
+
+removeBetweenOnce(
+  'embedded controller shell',
+  `  app.innerHTML = \`
+    <section class=\"shell controller-shell personal-controller\">`,
+  `  const canvas = document.querySelector('#personal-canvas');`
+);
+
+replaceOnce(
+  'controller shell render point',
+  `  const canvas = document.querySelector('#personal-canvas');`,
+  `  app.innerHTML = controllerShell(room,POSES);
+
+  const canvas = document.querySelector('#personal-canvas');`
+);
+
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
