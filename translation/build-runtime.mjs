@@ -482,6 +482,25 @@ removeBetweenOnce(
 );
 
 removeBetweenOnce(
+  'embedded character creator controller',
+  `  function sendLook(){`,
+  `  const throwGestures = new Map();`
+);
+
+replaceOnce(
+  'character creator controller setup point',
+  `  const throwGestures = new Map();`,
+  `  const characterCreator = window.PuppetalkCharacterCreator?.create?.({
+    document,input,LOOK_PALETTE,LOOK_PARTS,cleanLook,saveLook,send,
+    getConn:()=>conn,getSlot:()=>slot,savedPlayerName,random:()=>Math.random()
+  });
+  if(!characterCreator) throw new Error('Puppetalk character creator controller failed to load.');
+  characterCreator.install();
+
+  const throwGestures = new Map();`
+);
+
+removeBetweenOnce(
   'embedded controller throw gesture',
   `  const throwGestures = new Map();`,
   `  document.querySelector('#poses').addEventListener('click',event=>{`

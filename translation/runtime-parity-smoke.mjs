@@ -36,6 +36,7 @@ assert.match(actual,/PuppetalkPropInput/,'Translated runtime is not connected to
 assert.match(actual,/PuppetalkSpecialItems/,'Translated runtime is not connected to extracted special items.');
 assert.match(actual,/PuppetalkDartImpacts/,'Translated runtime is not connected to extracted dart impacts.');
 assert.match(actual,/PuppetalkPropContactPhysics/,'Translated runtime is not connected to extracted prop contact physics.');
+assert.match(actual,/PuppetalkCharacterCreator/,'Translated runtime is not connected to extracted character creator controller.');
 assert.match(actual,/PuppetalkControllerThrowGesture/,'Translated runtime is not connected to extracted controller throw gesture.');
 assert.match(actual,/PuppetalkControllerAudio/,'Translated runtime is not connected to extracted controller audio system.');
 
@@ -134,6 +135,10 @@ assert.doesNotMatch(actual,/function bringOutSpecialItem\(slot,requested\)/,'Emb
 assert.doesNotMatch(actual,/function handleSpecialItemInput\(slot,msg\)/,'Embedded handleSpecialItemInput survived special-item extraction.');
 assert.doesNotMatch(actual,/function installDartImpacts\(\)/,'Embedded installDartImpacts survived dart-impact extraction.');
 assert.doesNotMatch(actual,/function installPropContactPhysics\(\)/,'Embedded installPropContactPhysics survived prop-contact extraction.');
+assert.doesNotMatch(actual,/function sendLook\(\)/,'Embedded sendLook survived character-creator extraction.');
+assert.doesNotMatch(actual,/function cycleLook\(key\)/,'Embedded cycleLook survived character-creator extraction.');
+assert.doesNotMatch(actual,/function renderCreator\(\)/,'Embedded renderCreator survived character-creator extraction.');
+assert.doesNotMatch(actual,/document\.querySelector\('#character-random'\)\?\.addEventListener/,'Embedded character random listener survived character-creator extraction.');
 assert.doesNotMatch(actual,/const throwGestures = new Map\(\);/,'Embedded throwGestures state survived controller throw extraction.');
 assert.doesNotMatch(actual,/function sampleThrowGesture\(gesture,x,y,now\)/,'Embedded sampleThrowGesture survived controller throw extraction.');
 assert.doesNotMatch(actual,/function releaseVector\(gesture,x,y,now\)/,'Embedded releaseVector survived controller throw extraction.');
@@ -168,6 +173,8 @@ assert.match(actual,/const \{propHandIsClose,tapProp,releaseAllPropGrips,throwHe
 assert.match(actual,/const \{specialItemLabel,specialItemType,specialItemStillOut,bringOutSpecialItem,handleSpecialItemInput\} = specialItemSystem;/,'Runtime is not bound to extracted special items.');
 assert.match(actual,/const \{installDartImpacts\} = dartImpacts;/,'Runtime is not bound to the extracted dart impacts.');
 assert.match(actual,/const \{installPropContactPhysics\} = propContactPhysics;/,'Runtime is not bound to the extracted prop contact physics.');
+assert.match(actual,/const characterCreator = window\.PuppetalkCharacterCreator\?\.create\?\.\(\{/,'Runtime is not bound to extracted character creator controller.');
+assert.match(actual,/characterCreator\.install\(\);/,'Extracted character creator controller is not installed.');
 assert.match(actual,/const controllerThrowGesture = window\.PuppetalkControllerThrowGesture\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller throw gesture.');
 assert.match(actual,/controllerThrowGesture\.install\(\);/,'Extracted controller throw gesture is not installed.');
 assert.match(actual,/const controllerAudio = window\.PuppetalkControllerAudio\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller audio.');
