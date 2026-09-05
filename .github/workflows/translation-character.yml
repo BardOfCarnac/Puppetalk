@@ -21,6 +21,8 @@ jobs:
       - run: node translation/character/drive-forces-smoke.mjs
       - run: node --check translation/character/recovery-geometry.js
       - run: node translation/character/recovery-geometry-smoke.mjs
+      - run: node --check translation/character/recovery-system.js
+      - run: node translation/character/recovery-system-smoke.mjs
       - run: node --check translation/character/rig-factory.js
       - run: node translation/character/rig-factory-smoke.mjs
       - run: node --check translation/build-runtime.mjs
