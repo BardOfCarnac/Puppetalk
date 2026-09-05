@@ -37,6 +37,8 @@ jobs:
       - run: node translation/props/prop-driver-smoke.mjs
       - run: node --check translation/props/laser-frisbee.js
       - run: node translation/props/laser-frisbee-smoke.mjs
+      - run: node --check translation/props/depth-assist.js
+      - run: node translation/props/depth-assist-smoke.mjs
       - run: node --check translation/props/prop-input.js
       - run: node translation/props/prop-input-smoke.mjs
       - run: node --check translation/props/special-items.js
