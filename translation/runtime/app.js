@@ -261,6 +261,9 @@ function startStage(room){
   const driveForces = window.PuppetalkDriveForces?.create?.({Body,clamp,angleDelta});
   if(!driveForces) throw new Error('Puppetalk drive forces failed to load.');
   const {servo,springPull} = driveForces;
+  const recoveryGeometry = window.PuppetalkRecoveryGeometry?.create?.(Vector);
+  if(!recoveryGeometry) throw new Error('Puppetalk recovery geometry failed to load.');
+  const {jointWorldPoint,jointGap,jointCutPoint,seamCutPoint} = recoveryGeometry;
   const engine = Engine.create({enableSleeping:false});
   engine.gravity.y = 1.05;
   engine.gravity.scale = .001;
@@ -1258,24 +1261,6 @@ function startStage(room){
     return puppet;
   }
 
-  function jointWorldPoint(constraint,side){
-    const body = side === 'A' ? constraint?.bodyA : constraint?.bodyB;
-    const point = side === 'A' ? constraint?.pointA : constraint?.pointB;
-    if(!body || !point) return null;
-    const r = Vector.rotate(point,body.angle||0);
-    return {x:body.position.x+r.x,y:body.position.y+r.y};
-  }
-  function jointGap(constraint){
-    const a = jointWorldPoint(constraint,'A');
-    const b = jointWorldPoint(constraint,'B');
-    return a && b ? Math.hypot(a.x-b.x,a.y-b.y) : Infinity;
-  }
-  function jointCutPoint(constraint){
-    const a = jointWorldPoint(constraint,'A');
-    const b = jointWorldPoint(constraint,'B');
-    if(!a || !b) return null;
-    return {x:(a.x+b.x)*.5,y:(a.y+b.y)*.5};
-  }
   function severJoint(p,name){
     if(!p?.joints?.[name] || p.severedJoints?.has(name)) return false;
     const c = p.joints[name];
@@ -1311,10 +1296,6 @@ function startStage(room){
     p.brokenSeams.add(name);
     p.repairRequested = false;
     return true;
-  }
-  function seamCutPoint(p,name){
-    const c=p?.seams?.[name];
-    return c ? jointCutPoint(c) : null;
   }
   function repairBrokenSeams(p){
     if(!p?.repairRequested || !p.brokenSeams?.size) return;
