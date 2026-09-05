@@ -19,6 +19,7 @@ assert.match(actual,/PuppetalkCharacterInputSystem/,'Translated runtime is not c
 assert.match(actual,/PuppetalkPuppetDriver/,'Translated runtime is not connected to extracted puppet driver.');
 assert.match(actual,/PuppetalkPuppetLifecycle/,'Translated runtime is not connected to extracted puppet lifecycle.');
 assert.match(actual,/PuppetalkStageLoop/,'Translated runtime is not connected to extracted stage loop.');
+assert.match(actual,/PuppetalkHostSession/,'Translated runtime is not connected to extracted host session.');
 
 assert.doesNotMatch(actual,/function makePuppet\(slot\)/,'Embedded makePuppet survived rig-factory extraction.');
 assert.doesNotMatch(actual,/function tagHiddenSegment\(body,slot,part,segment\)/,'Embedded tagHiddenSegment survived rig-factory extraction.');
@@ -49,6 +50,9 @@ assert.doesNotMatch(actual,/function applyInput\(slot,msg\)/,'Embedded applyInpu
 assert.doesNotMatch(actual,/function drawStage\(\)/,'Embedded drawStage survived stage-loop extraction.');
 assert.doesNotMatch(actual,/function broadcastScene\(now\)/,'Embedded broadcastScene survived stage-loop extraction.');
 assert.doesNotMatch(actual,/function tick\(now\)/,'Embedded tick survived stage-loop extraction.');
+assert.doesNotMatch(actual,/function updateStatus\(extra=''\)/,'Embedded updateStatus survived host-session extraction.');
+assert.doesNotMatch(actual,/function freeSlot\(\)/,'Embedded freeSlot survived host-session extraction.');
+assert.doesNotMatch(actual,/const peer = new Peer\(peerId\(room\)\);/,'Embedded host Peer construction survived host-session extraction.');
 
 assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
 assert.match(actual,/const \{severJoint,repairSeveredJoints,handleJointRecovery,severSeam,repairBrokenSeams\} = recoverySystem;/,'Runtime callers are not bound to the extracted recovery system.');
@@ -57,15 +61,14 @@ assert.match(actual,/const \{applyInput\} = inputSystem;/,'Runtime callers are n
 assert.match(actual,/const \{drivePuppet\} = puppetDriver;/,'Runtime callers are not bound to the extracted puppet driver.');
 assert.match(actual,/const \{removePuppet\} = puppetLifecycle;/,'Runtime callers are not bound to the extracted puppet lifecycle.');
 assert.match(actual,/const \{drawStage,broadcastScene,tick\} = stageLoop;/,'Runtime callers are not bound to the extracted stage loop.');
+assert.match(actual,/const \{peer,updateStatus,freeSlot\} = hostSession;/,'Runtime is not bound to the extracted host session.');
 
 for(const invariant of [
-  "conn.on('data',msg=>handleJointRecovery(slot,msg));",
-  "send(conn,{type:'scene',puppets:[...puppets.values()].map(anatomy),props:[...props.values()].map(propState)});",
-  "conn.on('data',msg=>applyInput(slot,msg));",
-  'conns.delete(slot);\n      removePuppet(slot);\n      updateStatus();',
+  "addEventListener('resize',resize,{passive:true});",
+  'installPropContactPhysics();',
   'requestAnimationFrame(tick);'
 ]){
-  assert.ok(actual.includes(invariant),`Character/stage call-site invariant changed during extraction: ${invariant}`);
+  assert.ok(actual.includes(invariant),`Post-network startup invariant changed during extraction: ${invariant}`);
 }
 
-console.log('Translated runtime matches frozen V1 with character systems and stage loop extracted.');
+console.log('Translated runtime matches frozen V1 with character systems, stage loop and host session extracted.');
