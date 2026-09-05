@@ -25,6 +25,14 @@ jobs:
       - run: node translation/entry-smoke.mjs
       - run: node translation/generated-parity-smoke.mjs
       - run: node --check translation/generated/app-preboot.js
+      - run: node --check translation/generated/app-final.js
+      - run: node --check translation/character/rig-core.js
+      - run: node translation/character/rig-core-smoke.mjs
+      - run: node --check translation/build-runtime.mjs
+      - run: node --check translation/runtime-parity-smoke.mjs
+      - run: node translation/runtime-parity-smoke.mjs
+      - run: node --check translation/runtime/app.js
+      - run: node --check translation/bootstrap.js
       - run: node --check lobby-routing.js
       - run: node --check profile-name-patch.js
       - run: node --check look-sync-patch.js
@@ -90,7 +98,7 @@ jobs:
           fi
           google-chrome --headless --no-sandbox --disable-gpu --virtual-time-budget=5000 --dump-dom 'http://127.0.0.1:8081/translation/?mode=controller&room=SMOKE&lobby=done' >/tmp/translation-controller.html 2>/tmp/translation-controller-chrome.log || true
           if ! grep -q 'personal-controller' /tmp/translation-controller.html || ! grep -q 'controller-footer' /tmp/translation-controller.html; then
-            echo 'Translation did not boot the frozen Puppetalk controller from precomposed source.'
+            echo 'Translation did not boot the translated Puppetalk character runtime.'
             cat /tmp/translation-controller-chrome.log || true
             echo '--- DOM ---'
             cat /tmp/translation-controller.html || true
