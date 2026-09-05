@@ -327,6 +327,20 @@ function startStage(room){
   });
   if(!puppetLifecycle) throw new Error('Puppetalk puppet lifecycle failed to load.');
   const {removePuppet} = puppetLifecycle;
+  const stageLoop = window.PuppetalkStageLoop?.create?.({
+    getDimensions:()=>({W,H}),ctx,props,puppets,conns,
+    drawBackdrop,drawProp,propState,drawAnatomy,anatomy,send,
+    getLastSceneSent:()=>lastSceneSent,
+    setLastSceneSent:value=>{ lastSceneSent=value; },
+    getLast:()=>last,
+    setLast:value=>{ last=value; },
+    clamp,
+    drivePuppet,repairBrokenSeams,repairSeveredJoints,driveProps,
+    Engine,engine,driveDepthAssistedProps,driveLaserFrisbeeCuts,
+    requestFrame:callback=>requestAnimationFrame(callback)
+  });
+  if(!stageLoop) throw new Error('Puppetalk stage loop failed to load.');
+  const {drawStage,broadcastScene,tick} = stageLoop;
   const SPECIAL_ITEM_TYPES = ['frisbee','pump','ball','dart'];
   const SPECIAL_ITEM_BY_SLOT = ['frisbee','pump','ball','dart','frisbee','pump'];
 
@@ -1188,32 +1202,6 @@ function startStage(room){
     if(msg?.type !== 'special-item' || msg.action !== 'bring-out') return;
     const result = bringOutSpecialItem(slot,msg.item);
     send(conns.get(slot),{type:'special-item-result',...result});
-  }
-
-  function drawStage(){
-    drawBackdrop(ctx,W,H);
-    props.forEach(prop=>drawProp(ctx,propState(prop),W,H));
-    puppets.forEach(p=>drawAnatomy(ctx,anatomy(p),W,H,false));
-  }
-
-  function broadcastScene(now){
-    if(now-lastSceneSent < 66 || !conns.size) return;
-    lastSceneSent = now;
-    const scene = {type:'scene',puppets:[...puppets.values()].map(anatomy),props:[...props.values()].map(propState)};
-    conns.forEach(conn=>send(conn,scene));
-  }
-
-  function tick(now){
-    const dt = clamp(now-last,8,25);
-    last = now;
-    puppets.forEach(p=>{ drivePuppet(p); repairBrokenSeams(p); repairSeveredJoints(p); });
-    driveProps();
-    Engine.update(engine,dt);
-    driveDepthAssistedProps(now);
-    driveLaserFrisbeeCuts(now);
-    drawStage();
-    broadcastScene(now);
-    requestAnimationFrame(tick);
   }
 
   function updateStatus(extra=''){
