@@ -71,8 +71,8 @@ assert.equal(assist.puppetalkAssistSegmentDistance({x:5,y:4},{x:0,y:0},{x:10,y:0
 assert.equal(assist.puppetalkAssistBodyRadius(null),18);
 assert.equal(assist.puppetalkAssistBodyRadius({bounds:{min:{x:0,y:0},max:{x:100,y:10}}},1),34);
 assert.equal(assist.puppetalkAssistBodyRadius({bounds:{min:{x:0,y:0},max:{x:10,y:10}}},1),12);
-assert.deepEqual(assist.puppetalkAssistBodies({bodies:[{id:1},null,{id:2}]}).map(b=>b.id),[1,2]);
-assert.deepEqual(assist.puppetalkAssistBodies({}),[]);
+assert.deepEqual(Array.from(assist.puppetalkAssistBodies({bodies:[{id:1},null,{id:2}]}),b=>b.id),[1,2]);
+assert.deepEqual(Array.from(assist.puppetalkAssistBodies({})),[]);
 
 // Use neutral projection scale/shift for exact assist-driver checks.
 depthState.scaleForDepth=()=>1;
