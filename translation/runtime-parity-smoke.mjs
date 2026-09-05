@@ -20,6 +20,7 @@ assert.match(actual,/PuppetalkPuppetDriver/,'Translated runtime is not connected
 assert.match(actual,/PuppetalkPuppetLifecycle/,'Translated runtime is not connected to extracted puppet lifecycle.');
 assert.match(actual,/PuppetalkStageLoop/,'Translated runtime is not connected to extracted stage loop.');
 assert.match(actual,/PuppetalkHostSession/,'Translated runtime is not connected to extracted host session.');
+assert.match(actual,/PuppetalkDartImpacts/,'Translated runtime is not connected to extracted dart impacts.');
 assert.match(actual,/PuppetalkPropContactPhysics/,'Translated runtime is not connected to extracted prop contact physics.');
 
 assert.doesNotMatch(actual,/function makePuppet\(slot\)/,'Embedded makePuppet survived rig-factory extraction.');
@@ -54,6 +55,7 @@ assert.doesNotMatch(actual,/function tick\(now\)/,'Embedded tick survived stage-
 assert.doesNotMatch(actual,/function updateStatus\(extra=''\)/,'Embedded updateStatus survived host-session extraction.');
 assert.doesNotMatch(actual,/function freeSlot\(\)/,'Embedded freeSlot survived host-session extraction.');
 assert.doesNotMatch(actual,/const peer = new Peer\(peerId\(room\)\);/,'Embedded host Peer construction survived host-session extraction.');
+assert.doesNotMatch(actual,/function installDartImpacts\(\)/,'Embedded installDartImpacts survived dart-impact extraction.');
 assert.doesNotMatch(actual,/function installPropContactPhysics\(\)/,'Embedded installPropContactPhysics survived prop-contact extraction.');
 
 assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
@@ -64,13 +66,14 @@ assert.match(actual,/const \{drivePuppet\} = puppetDriver;/,'Runtime callers are
 assert.match(actual,/const \{removePuppet\} = puppetLifecycle;/,'Runtime callers are not bound to the extracted puppet lifecycle.');
 assert.match(actual,/const \{drawStage,broadcastScene,tick\} = stageLoop;/,'Runtime callers are not bound to the extracted stage loop.');
 assert.match(actual,/const \{peer,updateStatus,freeSlot\} = hostSession;/,'Runtime is not bound to the extracted host session.');
+assert.match(actual,/const \{installDartImpacts\} = dartImpacts;/,'Runtime is not bound to the extracted dart impacts.');
 assert.match(actual,/const \{installPropContactPhysics\} = propContactPhysics;/,'Runtime is not bound to the extracted prop contact physics.');
 
-assert.ok(actual.includes("addEventListener('resize',resize,{passive:true});"),'Resize listener moved during prop-contact extraction.');
+assert.ok(actual.includes("addEventListener('resize',resize,{passive:true});"),'Resize listener moved during prop extraction.');
 assert.ok(actual.includes(`  resize();
   ensureTestProps();
   installDartImpacts();
   installPropContactPhysics();
-  requestAnimationFrame(tick);`),'V1 stage startup order changed during prop-contact extraction.');
+  requestAnimationFrame(tick);`),'V1 stage startup order changed during dart-impact extraction.');
 
-console.log('Translated runtime matches frozen V1 with character systems, stage loop, host session and prop contact physics extracted.');
+console.log('Translated runtime matches frozen V1 with character systems, stage loop, host session, dart impacts and prop contact physics extracted.');
