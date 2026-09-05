@@ -19,9 +19,9 @@ function insertBefore(text,label,marker,addition){
 }
 
 let build=read('translation/build-runtime.mjs');
-const creatorExtraction=`removeBetweenOnce(\n  'embedded character creator controller',`;
+const propCollisionSetup=`replaceOnce('prop collision setup point',`;
 const commandExtraction=`removeBetweenOnce(\n  'embedded controller command panel',\n  \`  document.querySelector('#poses').addEventListener('click',event=>{\`,\n  \`  itemInteraction.installButtons();\`\n);\n\nreplaceOnce(\n  'controller command panel setup point',\n  \`  itemInteraction.installButtons();\`,\n  \`  const commandPanel = window.PuppetalkControllerCommands?.create?.({\n    document,input,activePointers,transmit,connect,\n    getCentreTimer:()=>centreTimer,setCentreTimer:value=>{ centreTimer=value; },\n    setTimeoutFn:(callback,ms)=>setTimeout(callback,ms),\n    clearTimeoutFn:id=>clearTimeout(id)\n  });\n  if(!commandPanel) throw new Error('Puppetalk controller command panel failed to load.');\n  commandPanel.install();\n\n  itemInteraction.installButtons();\`\n);\n\n`;
-if(!build.includes("'embedded controller command panel'")) build=insertBefore(build,'command panel extraction',creatorExtraction,commandExtraction);
+if(!build.includes("'embedded controller command panel'")) build=insertBefore(build,'command panel extraction',propCollisionSetup,commandExtraction);
 write('translation/build-runtime.mjs',build);
 
 let parity=read('translation/runtime-parity-smoke.mjs');
