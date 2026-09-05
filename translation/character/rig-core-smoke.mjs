@@ -7,8 +7,9 @@ context.globalThis=context;
 vm.runInNewContext(fs.readFileSync('translation/character/rig-core.js','utf8'),context,{filename:'rig-core.js'});
 const core=context.window.PuppetalkCharacterRigCore;
 assert.ok(core,'Rig core did not install.');
+const plain=value=>JSON.parse(JSON.stringify(value));
 
-assert.deepEqual(JSON.parse(JSON.stringify(core.POSES)),{
+assert.deepEqual(plain(core.POSES),{
   stand:[.12,.05,-.12,-.05,.04,.02,-.04,-.02,0],
   point:[1.48,1.48,-.18,-.08,.02,0,-.03,0,-.05],
   cheer:[2.55,2.75,-2.55,-2.75,.08,-.04,-.08,.04,0],
@@ -27,11 +28,11 @@ const puppet={pose:'stand',poseVersion:0,torso:{position:{x:100,y:200}}};
 const rig=core.ensureRig(puppet);
 assert.equal(rig.lastPose,'stand');
 assert.equal(rig.lastPoseVersion,0);
-assert.deepEqual(JSON.parse(JSON.stringify(rig.pins)),{head:null,leftHand:null,rightHand:null,leftFoot:null,rightFoot:null});
+assert.deepEqual(plain(rig.pins),{head:null,leftHand:null,rightHand:null,leftFoot:null,rightFoot:null});
 assert.equal(core.ensureRig(puppet),rig,'ensureRig must reuse existing rig state.');
 rig.pins.head={x:1,y:2};
 core.resetPins(rig);
-assert.deepEqual(JSON.parse(JSON.stringify(rig.pins)),{head:null,leftHand:null,rightHand:null,leftFoot:null,rightFoot:null});
+assert.deepEqual(plain(rig.pins),{head:null,leftHand:null,rightHand:null,leftFoot:null,rightFoot:null});
 
 function v1AntiTangle(part,desired,age){
   if(!(part.includes('Hand')||part.includes('Foot'))) return desired;
@@ -48,7 +49,7 @@ function v1AntiTangle(part,desired,age){
 for(const part of ['torso','head','leftHand','rightHand','leftFoot','rightFoot']){
   for(const age of [0,70,190,400]){
     const desired={x:160,y:250};
-    assert.deepEqual(core.antiTangleTarget(puppet,part,desired,age),v1AntiTangle(part,desired,age),`antiTangleTarget drifted for ${part} at ${age}`);
+    assert.deepEqual(plain(core.antiTangleTarget(puppet,part,desired,age)),v1AntiTangle(part,desired,age),`antiTangleTarget drifted for ${part} at ${age}`);
   }
 }
 
