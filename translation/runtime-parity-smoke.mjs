@@ -8,6 +8,7 @@ const expected=fs.readFileSync(temp,'utf8');
 const actual=fs.readFileSync('translation/runtime/app.js','utf8');
 assert.equal(actual,expected,'Committed translated runtime drifted from deterministic extraction.');
 
+assert.match(actual,/PuppetalkLookModel/,'Translated runtime is not connected to extracted character look model.');
 assert.match(actual,/PuppetalkCharacterRigCore/,'Translated runtime is not connected to extracted rig core.');
 assert.match(actual,/PuppetalkGrabGeometry/,'Translated runtime is not connected to extracted grab geometry.');
 assert.match(actual,/PuppetalkDriveForces/,'Translated runtime is not connected to extracted drive forces.');
@@ -37,6 +38,9 @@ assert.match(actual,/PuppetalkDartImpacts/,'Translated runtime is not connected 
 assert.match(actual,/PuppetalkPropContactPhysics/,'Translated runtime is not connected to extracted prop contact physics.');
 assert.match(actual,/PuppetalkControllerThrowGesture/,'Translated runtime is not connected to extracted controller throw gesture.');
 
+assert.doesNotMatch(actual,/const LOOK_PALETTE = \[/,'Embedded LOOK_PALETTE survived look-model extraction.');
+assert.doesNotMatch(actual,/function defaultLook\(slot=0\)/,'Embedded defaultLook survived look-model extraction.');
+assert.doesNotMatch(actual,/function cleanLook\(value,slot=0\)/,'Embedded cleanLook survived look-model extraction.');
 assert.doesNotMatch(actual,/function makePuppet\(slot\)/,'Embedded makePuppet survived rig-factory extraction.');
 assert.doesNotMatch(actual,/function tagHiddenSegment\(body,slot,part,segment\)/,'Embedded tagHiddenSegment survived rig-factory extraction.');
 assert.doesNotMatch(actual,/const joint = \(a,pa,b,pb,stiff=/,'Embedded rig joint constructor survived rig-factory extraction.');
@@ -134,6 +138,7 @@ assert.doesNotMatch(actual,/function sampleThrowGesture\(gesture,x,y,now\)/,'Emb
 assert.doesNotMatch(actual,/function releaseVector\(gesture,x,y,now\)/,'Embedded releaseVector survived controller throw extraction.');
 assert.doesNotMatch(actual,/function finishThrow\(event\)/,'Embedded finishThrow survived controller throw extraction.');
 
+assert.match(actual,/const \{LOOK_PALETTE,LOOK_PARTS,defaultLook,cleanLook\} = window\.PuppetalkLookModel \|\| \{\};/,'Runtime is not bound to the extracted look model.');
 assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
 assert.match(actual,/const \{severJoint,repairSeveredJoints,handleJointRecovery,severSeam,repairBrokenSeams\} = recoverySystem;/,'Runtime callers are not bound to the extracted recovery system.');
 assert.match(actual,/const \{anatomy\} = sceneState;/,'Runtime callers are not bound to the extracted anatomy serializer.');

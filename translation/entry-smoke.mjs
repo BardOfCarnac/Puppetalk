@@ -11,6 +11,7 @@ const expectedRuntime=scripts.filter(src=>{
   const bare=src.replace(/\?.*$/,'');
   return !decoratorSet.has(bare) && bare!=='./boot.js';
 });
+expectedRuntime.push('./translation/character/look-model.js?v=1');
 expectedRuntime.push('./translation/character/rig-core.js?v=1');
 expectedRuntime.push('./translation/character/grab-geometry.js?v=1');
 expectedRuntime.push('./translation/character/drive-forces.js?v=1');
@@ -52,6 +53,7 @@ for(const decorator of appSourceDecorators){
 }
 assert.ok(!actualScripts.some(src=>src.replace(/\?.*$/,'')==='./boot.js'),'V1 source-rewriting boot.js survived in translation runtime.');
 assert.ok(!actualScripts.some(src=>src.includes('precomposed-fetch.js')),'Preboot fetch adapter survived after final source freeze.');
+assert.ok(actualScripts.includes('./translation/character/look-model.js?v=1'),'Extracted character look model is missing.');
 assert.ok(actualScripts.includes('./translation/character/rig-core.js?v=1'),'Extracted character rig core is missing.');
 assert.ok(actualScripts.includes('./translation/character/grab-geometry.js?v=1'),'Extracted grab geometry is missing.');
 assert.ok(actualScripts.includes('./translation/character/drive-forces.js?v=1'),'Extracted drive forces are missing.');

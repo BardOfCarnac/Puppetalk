@@ -20,6 +20,23 @@ function removeBetweenOnce(label,startMarker,endMarker){
   source=source.slice(0,start)+source.slice(end);
 }
 
+removeBetweenOnce(
+  'embedded look model',
+  `const LOOK_PALETTE = ['#cf6c63','#d0a950','#7089b9','#729d78','#a879b2','#67a7a8','#d79b75','#8a6d5b','#d9c3a7','#7e8794','#d65050','#5b8fd1'];`,
+  `const PUPPET_HEAD_STYLES = ['smooth','spikes','tallSpikes','burst','scallop','tufts','swept','fringe'];`
+);
+
+replaceOnce(
+  'look model setup point',
+  `const PUPPET_HEAD_STYLES = ['smooth','spikes','tallSpikes','burst','scallop','tufts','swept','fringe'];`,
+  `const {LOOK_PALETTE,LOOK_PARTS,defaultLook,cleanLook} = window.PuppetalkLookModel || {};
+if(!LOOK_PALETTE || !LOOK_PARTS || !defaultLook || !cleanLook){
+  throw new Error('Puppetalk look model failed to load.');
+}
+
+const PUPPET_HEAD_STYLES = ['smooth','spikes','tallSpikes','burst','scallop','tufts','swept','fringe'];`
+);
+
 replaceOnce('pose/grab constants',`const POSES = {
   stand:  [.12,.05,-.12,-.05,.04,.02,-.04,-.02,0],
   point:  [1.48,1.48,-.18,-.08,.02,0,-.03,0,-.05],
