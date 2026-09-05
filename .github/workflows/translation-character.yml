@@ -1,0 +1,27 @@
+name: Translation character contracts
+
+on:
+  push:
+    branches: [puppetalk-translation]
+  pull_request:
+
+jobs:
+  character-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --check translation/character/rig-core.js
+      - run: node translation/character/rig-core-smoke.mjs
+      - run: node --check translation/character/grab-geometry.js
+      - run: node translation/character/grab-geometry-smoke.mjs
+      - run: node --check translation/character/drive-forces.js
+      - run: node translation/character/drive-forces-smoke.mjs
+      - run: node --check translation/character/recovery-geometry.js
+      - run: node translation/character/recovery-geometry-smoke.mjs
+      - run: node --check translation/character/rig-factory.js
+      - run: node translation/character/rig-factory-smoke.mjs
+      - run: node --check translation/build-runtime.mjs
+      - run: node translation/runtime-parity-smoke.mjs
