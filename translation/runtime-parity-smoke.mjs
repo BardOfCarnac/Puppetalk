@@ -37,6 +37,7 @@ assert.match(actual,/PuppetalkSpecialItems/,'Translated runtime is not connected
 assert.match(actual,/PuppetalkDartImpacts/,'Translated runtime is not connected to extracted dart impacts.');
 assert.match(actual,/PuppetalkPropContactPhysics/,'Translated runtime is not connected to extracted prop contact physics.');
 assert.match(actual,/PuppetalkControllerThrowGesture/,'Translated runtime is not connected to extracted controller throw gesture.');
+assert.match(actual,/PuppetalkControllerAudio/,'Translated runtime is not connected to extracted controller audio system.');
 
 assert.doesNotMatch(actual,/const LOOK_PALETTE = \[/,'Embedded LOOK_PALETTE survived look-model extraction.');
 assert.doesNotMatch(actual,/function defaultLook\(slot=0\)/,'Embedded defaultLook survived look-model extraction.');
@@ -137,6 +138,11 @@ assert.doesNotMatch(actual,/const throwGestures = new Map\(\);/,'Embedded throwG
 assert.doesNotMatch(actual,/function sampleThrowGesture\(gesture,x,y,now\)/,'Embedded sampleThrowGesture survived controller throw extraction.');
 assert.doesNotMatch(actual,/function releaseVector\(gesture,x,y,now\)/,'Embedded releaseVector survived controller throw extraction.');
 assert.doesNotMatch(actual,/function finishThrow\(event\)/,'Embedded finishThrow survived controller throw extraction.');
+assert.doesNotMatch(actual,/let micStop = null;/,'Embedded micStop state survived controller-audio extraction.');
+assert.doesNotMatch(actual,/let manualTimer = null;/,'Embedded manualTimer state survived controller-audio extraction.');
+assert.doesNotMatch(actual,/async function enableMic\(\)/,'Embedded enableMic survived controller-audio extraction.');
+assert.doesNotMatch(actual,/function startManualTalk\(event\)/,'Embedded startManualTalk survived controller-audio extraction.');
+assert.doesNotMatch(actual,/function stopManualTalk\(\)/,'Embedded stopManualTalk survived controller-audio extraction.');
 
 assert.match(actual,/const \{LOOK_PALETTE,LOOK_PARTS,defaultLook,cleanLook\} = window\.PuppetalkLookModel \|\| \{\};/,'Runtime is not bound to the extracted look model.');
 assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
@@ -164,6 +170,8 @@ assert.match(actual,/const \{installDartImpacts\} = dartImpacts;/,'Runtime is no
 assert.match(actual,/const \{installPropContactPhysics\} = propContactPhysics;/,'Runtime is not bound to the extracted prop contact physics.');
 assert.match(actual,/const controllerThrowGesture = window\.PuppetalkControllerThrowGesture\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller throw gesture.');
 assert.match(actual,/controllerThrowGesture\.install\(\);/,'Extracted controller throw gesture is not installed.');
+assert.match(actual,/const controllerAudio = window\.PuppetalkControllerAudio\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller audio.');
+assert.match(actual,/controllerAudio\.install\(\);/,'Extracted controller audio is not installed.');
 
 assert.ok(actual.includes("addEventListener('resize',resize,{passive:true});"),'Resize listener moved during prop extraction.');
 assert.ok(actual.includes(`  resize();

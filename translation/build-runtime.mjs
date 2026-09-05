@@ -488,6 +488,38 @@ removeBetweenOnce(
 );
 
 replaceOnce(
+  'embedded controller audio state',
+  `  let micStop = null;
+  let manualTimer = null;
+`,
+  ``
+);
+
+removeBetweenOnce(
+  'embedded controller audio',
+  `  async function enableMic(){`,
+  `  addEventListener('resize',resizeCanvas,{passive:true});`
+);
+
+replaceOnce(
+  'controller audio setup point',
+  `  addEventListener('resize',resizeCanvas,{passive:true});`,
+  `  const controllerAudio = window.PuppetalkControllerAudio?.create?.({
+    micButton,level,talkButton,input,transmit,setStatus,clamp,
+    getUserMedia:constraints=>navigator.mediaDevices.getUserMedia(constraints),
+    createAudioContext:()=>new AudioContext(),
+    requestFrame:callback=>requestAnimationFrame(callback),
+    cancelFrame:id=>cancelAnimationFrame(id),
+    setTimer:(callback,ms)=>setInterval(callback,ms),
+    clearTimer:id=>clearInterval(id)
+  });
+  if(!controllerAudio) throw new Error('Puppetalk controller audio failed to load.');
+  controllerAudio.install();
+
+  addEventListener('resize',resizeCanvas,{passive:true});`
+);
+
+replaceOnce(
   'controller throw gesture setup point',
   `  document.querySelector('#poses').addEventListener('click',event=>{`,
   `  const controllerThrowGesture = window.PuppetalkControllerThrowGesture?.create?.({

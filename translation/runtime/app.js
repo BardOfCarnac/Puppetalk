@@ -628,8 +628,6 @@ function startController(room){
   let slot = null;
   let scene = [];
   let propScene = [];
-  let micStop = null;
-  let manualTimer = null;
   let centreTimer = null;
   let cw = 1;
   let ch = 1;
@@ -1030,84 +1028,17 @@ function startController(room){
   document.querySelector('#grip-left')?.addEventListener('click',()=>toggleGrip('left'));
   document.querySelector('#grip-right')?.addEventListener('click',()=>toggleGrip('right'));
 
-  async function enableMic(){
-    if(micStop){
-      micStop();
-      micStop = null;
-      micButton.textContent = 'Enable microphone';
-      input.mouth = 0;
-      level.style.width = '0%';
-      transmit(true);
-      return;
-    }
-    try{
-      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-      const audio = new AudioContext();
-      const source = audio.createMediaStreamSource(stream);
-      const analyser = audio.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = .45;
-      source.connect(analyser);
-      const data = new Uint8Array(analyser.fftSize);
-      let raf = 0;
-      let lastMouth = -1;
-      let lastUpdate = 0;
-      const sample = now=>{
-        analyser.getByteTimeDomainData(data);
-        let sum = 0;
-        for(const value of data){
-          const n = (value-128)/128;
-          sum += n*n;
-        }
-        const rms = Math.sqrt(sum/data.length);
-        level.style.width = `${clamp(rms*540,0,100)}%`;
-        let mouth = 0;
-        if(rms > .028) mouth = rms > .105 ? 2 : 1;
-        if(mouth !== lastMouth && now-lastUpdate > 45){
-          input.mouth = mouth;
-          lastMouth = mouth;
-          lastUpdate = now;
-          transmit(true);
-        }
-        raf = requestAnimationFrame(sample);
-      };
-      raf = requestAnimationFrame(sample);
-      micStop = ()=>{
-        cancelAnimationFrame(raf);
-        stream.getTracks().forEach(track=>track.stop());
-        audio.close();
-      };
-      micButton.textContent = 'Disable microphone';
-    }catch(err){
-      console.error(err);
-      setStatus('microphone unavailable','bad');
-    }
-  }
-  micButton.addEventListener('click',enableMic);
-
-  function startManualTalk(event){
-    event.preventDefault();
-    if(manualTimer) return;
-    let phase = 0;
-    const chatter = ()=>{
-      phase = (phase+1)%3;
-      input.mouth = phase === 0 ? 1 : phase === 1 ? 2 : 1;
-      transmit(true);
-    };
-    chatter();
-    manualTimer = setInterval(chatter,95);
-    talkButton.classList.add('active');
-  }
-  function stopManualTalk(){
-    if(manualTimer){ clearInterval(manualTimer); manualTimer = null; }
-    input.mouth = 0;
-    talkButton.classList.remove('active');
-    transmit(true);
-  }
-  talkButton.addEventListener('pointerdown',startManualTalk);
-  talkButton.addEventListener('pointerup',stopManualTalk);
-  talkButton.addEventListener('pointercancel',stopManualTalk);
-  talkButton.addEventListener('pointerleave',event=>{ if(event.buttons) stopManualTalk(); });
+  const controllerAudio = window.PuppetalkControllerAudio?.create?.({
+    micButton,level,talkButton,input,transmit,setStatus,clamp,
+    getUserMedia:constraints=>navigator.mediaDevices.getUserMedia(constraints),
+    createAudioContext:()=>new AudioContext(),
+    requestFrame:callback=>requestAnimationFrame(callback),
+    cancelFrame:id=>cancelAnimationFrame(id),
+    setTimer:(callback,ms)=>setInterval(callback,ms),
+    clearTimer:id=>clearInterval(id)
+  });
+  if(!controllerAudio) throw new Error('Puppetalk controller audio failed to load.');
+  controllerAudio.install();
 
   addEventListener('resize',resizeCanvas,{passive:true});
   resizeCanvas();
