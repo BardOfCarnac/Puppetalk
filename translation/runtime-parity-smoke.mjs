@@ -9,9 +9,13 @@ const actual=fs.readFileSync('translation/runtime/app.js','utf8');
 assert.equal(actual,expected,'Committed translated runtime drifted from deterministic extraction.');
 
 assert.match(actual,/PuppetalkCharacterRigCore/,'Translated runtime is not connected to extracted rig core.');
+assert.match(actual,/PuppetalkGrabGeometry/,'Translated runtime is not connected to extracted grab geometry.');
 assert.doesNotMatch(actual,/function ensureRig\(p\)/,'Embedded ensureRig survived character extraction.');
 assert.doesNotMatch(actual,/function antiTangleTarget\(p,part,desired,age\)/,'Embedded antiTangleTarget survived character extraction.');
 assert.doesNotMatch(actual,/function rootFollow\(part\)/,'Embedded rootFollow survived character extraction.');
+assert.doesNotMatch(actual,/function worldPoint\(body,local\)/,'Embedded worldPoint survived grab-geometry extraction.');
+assert.doesNotMatch(actual,/function grabBody\(p,part\)/,'Embedded grabBody survived grab-geometry extraction.');
+assert.doesNotMatch(actual,/function grabWorldPoint\(p,part\)/,'Embedded grabWorldPoint survived grab-geometry extraction.');
 assert.match(actual,/resetPins\(rig\);/,'Translated pose-change path is not using extracted pin reset.');
 
 for(const invariant of [
@@ -24,4 +28,4 @@ for(const invariant of [
   assert.ok(actual.includes(invariant),`Character force/servo invariant changed during extraction: ${invariant}`);
 }
 
-console.log('Translated character runtime deterministically matches the frozen V1 program plus rig-core extraction.');
+console.log('Translated character runtime matches frozen V1 plus rig-core and grab-geometry extraction.');

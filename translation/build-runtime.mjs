@@ -25,6 +25,38 @@ if(!POSES || !GRAB_PARTS || !ensureRig || !resetPins || !antiTangleTarget || !ro
   throw new Error('Puppetalk character rig core failed to load.');
 }`);
 
+replaceOnce('grab geometry factory point',`  const {Engine,Bodies,Body,Composite,Constraint,Vector} = Matter;`, `  const {Engine,Bodies,Body,Composite,Constraint,Vector} = Matter;
+  const grabGeometry = window.PuppetalkGrabGeometry?.create?.(Vector);
+  if(!grabGeometry) throw new Error('Puppetalk grab geometry failed to load.');
+  const {worldPoint,grabBody,grabWorldPoint} = grabGeometry;`);
+
+replaceOnce('embedded grab geometry',`  function worldPoint(body,local){
+    const r = Vector.rotate(local,body.angle);
+    return {x:body.position.x+r.x,y:body.position.y+r.y};
+  }
+
+  function grabBody(p,part){
+    if(part === 'head') return p.head;
+    if(part === 'leftHand') return p.faL2 || p.faL;
+    if(part === 'rightHand') return p.faR2 || p.faR;
+    if(part === 'leftFoot') return p.shL2 || p.shL;
+    if(part === 'rightFoot') return p.shR2 || p.shR;
+    return p.torso;
+  }
+
+  function grabWorldPoint(p,part){
+    if(part === 'pelvis') return worldPoint(p.torso,{x:0,y:34});
+    if(part === 'leftShoulder') return worldPoint(p.torso,{x:-24,y:-27});
+    if(part === 'rightShoulder') return worldPoint(p.torso,{x:24,y:-27});
+    if(part === 'leftHand') return worldPoint(p.faL2 || p.faL,{x:0,y:12});
+    if(part === 'rightHand') return worldPoint(p.faR2 || p.faR,{x:0,y:12});
+    if(part === 'leftFoot') return worldPoint(p.shL2 || p.shL,{x:0,y:13.5});
+    if(part === 'rightFoot') return worldPoint(p.shR2 || p.shR,{x:0,y:13.5});
+    return grabBody(p,part).position;
+  }
+
+`,``);
+
 replaceOnce('embedded rig helpers',`  function ensureRig(p){
     if(p._rig) return p._rig;
     p._rig = {
@@ -65,4 +97,4 @@ replaceOnce('pose pin reset',`      rig.pins = {head:null,leftHand:null,rightHan
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: character rig core extracted without changing force/servo code.`);
+console.log(`Built ${output}: rig core and grab geometry extracted without changing force/servo code.`);
