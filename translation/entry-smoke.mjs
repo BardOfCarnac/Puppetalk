@@ -17,6 +17,8 @@ expectedRuntime.push('./translation/character/drive-forces.js?v=1');
 expectedRuntime.push('./translation/character/recovery-geometry.js?v=1');
 expectedRuntime.push('./translation/character/rig-factory.js?v=1');
 expectedRuntime.push('./translation/character/recovery-system.js?v=1');
+expectedRuntime.push('./translation/character/scene-state.js?v=1');
+expectedRuntime.push('./translation/character/input-system.js?v=1');
 expectedRuntime.push('./translation/bootstrap.js?v=2');
 
 assert.match(html,/<title>Puppetalk<\/title>/,'Translation entry changed the product name.');
@@ -36,6 +38,8 @@ assert.ok(actualScripts.includes('./translation/character/drive-forces.js?v=1'),
 assert.ok(actualScripts.includes('./translation/character/recovery-geometry.js?v=1'),'Extracted recovery geometry is missing.');
 assert.ok(actualScripts.includes('./translation/character/rig-factory.js?v=1'),'Extracted rig factory is missing.');
 assert.ok(actualScripts.includes('./translation/character/recovery-system.js?v=1'),'Extracted recovery system is missing.');
+assert.ok(actualScripts.includes('./translation/character/scene-state.js?v=1'),'Extracted character scene state is missing.');
+assert.ok(actualScripts.includes('./translation/character/input-system.js?v=1'),'Extracted character input system is missing.');
 assert.ok(actualScripts.includes('./translation/bootstrap.js?v=2'),'Translated bootstrap is missing.');
 assert.ok(fs.existsSync('translation/generated/app-preboot.js'),'Frozen preboot source is missing.');
 assert.ok(fs.existsSync('translation/generated/app-final.js'),'Frozen final source is missing.');
@@ -45,4 +49,4 @@ const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
 assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
 assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
 
-console.log('Translation entry boots extracted rig construction, recovery system and helper modules while retaining frozen V1 as control.');
+console.log('Translation entry boots extracted rig, recovery, scene-state and input modules while retaining frozen V1 as control.');
