@@ -53,7 +53,7 @@ assert.ok(controller?.install,'Direct puppet interaction factory failed.');
 
 const spots=controller.grabSpots(puppet);
 assert.equal(spots.length,9);
-assert.deepEqual(spots.map(s=>[s.part,s.r]),[
+assert.deepEqual(JSON.parse(JSON.stringify(spots.map(s=>[s.part,s.r]))),[
   ['head',40],['leftShoulder',31],['rightShoulder',31],['leftHand',32],['rightHand',32],
   ['leftFoot',32],['rightFoot',32],['pelvis',42],['torso',50]
 ]);
@@ -84,7 +84,6 @@ assert.equal(hint.textContent,'Holding head');
 assert.equal(hint.classList.has('quiet'),false);
 assert.equal(transmitCalls.at(-1),true);
 
-// Occupied grab points cannot be picked twice.
 assert.notEqual(controller.pickGrab({clientX:510,clientY:120})?.part,'head');
 
 const move={pointerId:11,clientX:610,clientY:170,prevented:false,preventDefault(){this.prevented=true;}};
