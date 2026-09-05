@@ -1,16 +1,17 @@
 (function(global){
   'use strict';
 
-  function create({Vector,Body,performance,cancelPropContest,releasePropHolder}){
-    if(!Vector || !Body || !performance || typeof cancelPropContest !== 'function' || typeof releasePropHolder !== 'function') return null;
-
-    function localOffset(body,world){
+  function create({Vector,Body,performance,cancelPropContest,releasePropHolder,localOffset:providedLocalOffset,worldOffset:providedWorldOffset}){
+    const localOffset = providedLocalOffset || (Vector ? function(body,world){
       return Vector.rotate({x:world.x-body.position.x,y:world.y-body.position.y},-body.angle);
-    }
-    function worldOffset(body,local){
+    } : null);
+    const worldOffset = providedWorldOffset || (Vector ? function(body,local){
       const r = Vector.rotate(local,body.angle);
       return {x:body.position.x+r.x,y:body.position.y+r.y};
-    }
+    } : null);
+    if(!Body || !performance || typeof cancelPropContest !== 'function' || typeof releasePropHolder !== 'function' ||
+       typeof localOffset !== 'function' || typeof worldOffset !== 'function') return null;
+
     function attachPropToBody(prop,target){
       if(!prop || !target?.body || prop.attachedTo) return false;
       cancelPropContest(prop);
