@@ -27,6 +27,8 @@ jobs:
       - run: node translation/props/prop-state-smoke.mjs
       - run: node --check translation/props/prop-factory.js
       - run: node translation/props/prop-factory-smoke.mjs
+      - run: node --check translation/props/pump-balloon.js
+      - run: node translation/props/pump-balloon-smoke.mjs
       - run: node --check translation/props/prop-input.js
       - run: node translation/props/prop-input-smoke.mjs
       - run: node --check translation/props/special-items.js
