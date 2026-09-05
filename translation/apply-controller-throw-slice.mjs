@@ -33,7 +33,7 @@ const contactNegative="assert.doesNotMatch(actual,/function installPropContactPh
 const controllerNegatives="assert.doesNotMatch(actual,/const throwGestures = new Map\\(\\);/,'Embedded throwGestures state survived controller throw extraction.');\nassert.doesNotMatch(actual,/function sampleThrowGesture\\(gesture,x,y,now\\)/,'Embedded sampleThrowGesture survived controller throw extraction.');\nassert.doesNotMatch(actual,/function releaseVector\\(gesture,x,y,now\\)/,'Embedded releaseVector survived controller throw extraction.');\nassert.doesNotMatch(actual,/function finishThrow\\(event\\)/,'Embedded finishThrow survived controller throw extraction.');\n";
 if(!parity.includes('Embedded finishThrow survived controller throw extraction.')) parity=insertAfter(parity,'controller throw negative assertions',contactNegative,controllerNegatives);
 
-const contactBinding="assert.match(actual,/const \\{installPropContactPhysics\\} = propContactPhysics;/,'Runtime is not bound to extracted prop contact physics.');\n";
+const contactBinding="assert.match(actual,/const \\{installPropContactPhysics\\} = propContactPhysics;/,'Runtime is not bound to the extracted prop contact physics.');\n";
 const controllerBinding="assert.match(actual,/const controllerThrowGesture = window\\.PuppetalkControllerThrowGesture\\?\\.create\\?\\.\\(\\{/,'Runtime is not bound to extracted controller throw gesture.');\nassert.match(actual,/controllerThrowGesture\\.install\\(\\);/,'Extracted controller throw gesture is not installed.');\n";
 if(!parity.includes('Extracted controller throw gesture is not installed.')) parity=insertAfter(parity,'controller throw binding assertion',contactBinding,controllerBinding);
 write('translation/runtime-parity-smoke.mjs',parity);
