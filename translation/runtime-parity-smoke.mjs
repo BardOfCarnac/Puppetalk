@@ -23,6 +23,7 @@ assert.match(actual,/PuppetalkHostSession/,'Translated runtime is not connected 
 assert.match(actual,/PuppetalkPropGeometry/,'Translated runtime is not connected to extracted prop geometry.');
 assert.match(actual,/PuppetalkPropState/,'Translated runtime is not connected to extracted prop state.');
 assert.match(actual,/PuppetalkPropFactory/,'Translated runtime is not connected to extracted prop factory.');
+assert.match(actual,/PuppetalkPumpBalloon/,'Translated runtime is not connected to extracted pump balloon lifecycle.');
 assert.match(actual,/PuppetalkPropGripCore/,'Translated runtime is not connected to extracted prop grip core.');
 assert.match(actual,/PuppetalkPropAttachmentCore/,'Translated runtime is not connected to extracted prop attachment core.');
 assert.match(actual,/PuppetalkPropInput/,'Translated runtime is not connected to extracted prop input.');
@@ -76,6 +77,10 @@ assert.doesNotMatch(actual,/let nextPropId = 1;/,'Embedded prop ID counter survi
 assert.doesNotMatch(actual,/function makeProp\(type,x,y\)/,'Embedded makeProp survived prop-factory extraction.');
 assert.doesNotMatch(actual,/function ensureTestProps\(\)/,'Embedded ensureTestProps survived prop-factory extraction.');
 assert.doesNotMatch(actual,/function ensureLegacyTestProps\(\)/,'Embedded ensureLegacyTestProps survived prop-factory extraction.');
+assert.doesNotMatch(actual,/function pumpNozzleOffset\(scale\)/,'Embedded pumpNozzleOffset survived pump-balloon extraction.');
+assert.doesNotMatch(actual,/function ensurePumpBalloon\(pump\)/,'Embedded ensurePumpBalloon survived pump-balloon extraction.');
+assert.doesNotMatch(actual,/function inflatePumpBalloon\(pump\)/,'Embedded inflatePumpBalloon survived pump-balloon extraction.');
+assert.doesNotMatch(actual,/function releasePumpBalloon\(balloon\)/,'Embedded releasePumpBalloon survived pump-balloon extraction.');
 assert.doesNotMatch(actual,/function gripRecord\(slot,hand\)/,'Embedded gripRecord survived prop-grip extraction.');
 assert.doesNotMatch(actual,/function freePropHand\(slot,hand,propId=null\)/,'Embedded freePropHand survived prop-grip extraction.');
 assert.doesNotMatch(actual,/function clearPropGrip\(slot,hand\)/,'Embedded clearPropGrip survived prop-grip extraction.');
@@ -116,6 +121,7 @@ assert.match(actual,/const \{peer,updateStatus,freeSlot\} = hostSession;/,'Runti
 assert.match(actual,/const \{handBody,handPoint,propGripLocalPoint,validPropEffector,gripKey,ATTACHABLE_PARTS,puppetPartForBody,propForBody,closestPointOnBody,nearestBalloonTarget,localOffset,worldOffset\} = propGeometry;/,'Runtime is not bound to extracted prop geometry.');
 assert.match(actual,/const \{balloonAttachmentState,propState\} = propStateSystem;/,'Runtime is not bound to extracted prop state.');
 assert.match(actual,/const \{makeProp,ensureTestProps,ensureLegacyTestProps\} = propFactory;/,'Runtime is not bound to extracted prop factory.');
+assert.match(actual,/const \{pumpNozzleOffset,ensurePumpBalloon,inflatePumpBalloon,releasePumpBalloon\} = pumpBalloonSystem;/,'Runtime is not bound to extracted pump balloon lifecycle.');
 assert.match(actual,/const \{gripRecord,freePropHand,clearPropGrip,makePropGrip,cancelPropContest,promotePropContest,releasePropHolder,beginPropHold,beginPropContest\} = propGripCore;/,'Runtime is not bound to the extracted prop grip core.');
 assert.match(actual,/const \{attachPropToBody,detachPropAttachment,syncAttachedProp\} = propAttachmentCore;/,'Runtime is not bound to the extracted prop attachment core.');
 assert.match(actual,/const \{propHandIsClose,tapProp,releaseAllPropGrips,throwHeldProp,handlePropInput\} = propInputSystem;/,'Runtime is not bound to extracted prop input.');

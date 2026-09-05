@@ -100,6 +100,12 @@ replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();
   });
   if(!propAttachmentCore) throw new Error('Puppetalk prop attachment core failed to load.');
   const {attachPropToBody,detachPropAttachment,syncAttachedProp} = propAttachmentCore;
+  const pumpBalloonSystem = window.PuppetalkPumpBalloon?.create?.({
+    props,makeProp,worldOffset,Body,syncAttachedProp,detachPropAttachment,
+    now:()=>performance.now(),random:()=>Math.random()
+  });
+  if(!pumpBalloonSystem) throw new Error('Puppetalk pump balloon lifecycle failed to load.');
+  const {pumpNozzleOffset,ensurePumpBalloon,inflatePumpBalloon,releasePumpBalloon} = pumpBalloonSystem;
   const propInputSystem = window.PuppetalkPropInput?.create?.({
     props,conns,puppets,send,validPropEffector,handPoint,freePropHand,detachPropAttachment,beginPropHold,
     nearestBalloonTarget,tieBalloonToBody,cancelPropContest,promotePropContest,beginPropContest,
@@ -150,6 +156,12 @@ replaceOnce('embedded joint constructor',`  const joint = (a,pa,b,pb,stiff=.97) 
   });
 
 `,``);
+
+removeBetweenOnce(
+  'embedded pump balloon lifecycle',
+  `  function pumpNozzleOffset(scale){`,
+  `  const PUPPETALK_ACTION_DEPTH_TOLERANCE = .38;`
+);
 
 replaceOnce('embedded special item constants',`  const SPECIAL_ITEM_TYPES = ['frisbee','pump','ball','dart'];
   const SPECIAL_ITEM_BY_SLOT = ['frisbee','pump','ball','dart','frisbee','pump'];
