@@ -1,0 +1,39 @@
+name: Promote translated character creator controller
+
+on:
+  push:
+    branches: [puppetalk-translation]
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --check translation/controller/character-creator.js
+      - run: node translation/controller/character-creator-smoke.mjs
+      - run: node translation/apply-character-creator-slice.mjs
+      - run: node --check translation/build-runtime.mjs
+      - run: node --check translation/runtime-parity-smoke.mjs
+      - run: node translation/build-runtime.mjs
+      - run: node --check translation/runtime/app.js
+      - run: node translation/runtime-parity-smoke.mjs
+      - run: node translation/entry-smoke.mjs
+      - run: node translation/controller/character-creator-smoke.mjs
+      - name: Commit promoted character creator runtime
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add translation/build-runtime.mjs translation/runtime-parity-smoke.mjs translation/runtime/app.js translation/index.html translation/entry-smoke.mjs
+          if git diff --cached --quiet; then
+            echo 'Character creator runtime already current.'
+            exit 0
+          fi
+          git commit -m 'Promote character creator into translated runtime'
+          git push origin HEAD:${GITHUB_REF_NAME}
