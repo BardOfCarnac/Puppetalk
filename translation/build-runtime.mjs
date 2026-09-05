@@ -75,12 +75,26 @@ replaceOnce('character factory setup point',`  const puppets = new Map();
   if(!puppetDriver) throw new Error('Puppetalk puppet driver failed to load.');
   const {drivePuppet} = puppetDriver;`);
 
-replaceOnce('puppet lifecycle setup point',`  const specialItems = new Map();`, `  const specialItems = new Map();
+replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();`, `  const specialItems = new Map();
   const puppetLifecycle = window.PuppetalkPuppetLifecycle?.create?.({
     puppets,props,releaseAllPropGrips,detachPropAttachment,Composite,engine
   });
   if(!puppetLifecycle) throw new Error('Puppetalk puppet lifecycle failed to load.');
-  const {removePuppet} = puppetLifecycle;`);
+  const {removePuppet} = puppetLifecycle;
+  const stageLoop = window.PuppetalkStageLoop?.create?.({
+    getDimensions:()=>({W,H}),ctx,props,puppets,conns,
+    drawBackdrop,drawProp,propState,drawAnatomy,anatomy,send,
+    getLastSceneSent:()=>lastSceneSent,
+    setLastSceneSent:value=>{ lastSceneSent=value; },
+    getLast:()=>last,
+    setLast:value=>{ last=value; },
+    clamp,
+    drivePuppet,repairBrokenSeams,repairSeveredJoints,driveProps,
+    Engine,engine,driveDepthAssistedProps,driveLaserFrisbeeCuts,
+    requestFrame:callback=>requestAnimationFrame(callback)
+  });
+  if(!stageLoop) throw new Error('Puppetalk stage loop failed to load.');
+  const {drawStage,broadcastScene,tick} = stageLoop;`);
 
 replaceOnce('embedded joint constructor',`  const joint = (a,pa,b,pb,stiff=.97) => Constraint.create({
     bodyA:a,pointA:pa,bodyB:b,pointB:pb,length:1,stiffness:stiff,damping:.13
@@ -222,6 +236,12 @@ removeBetweenOnce(
 );
 
 removeBetweenOnce(
+  'embedded stage loop',
+  `  function drawStage(){`,
+  `  function updateStatus(extra=''){`
+);
+
+removeBetweenOnce(
   'embedded character input normalization',
   `  function applyInput(slot,msg){`,
   `  const peer = new Peer(peerId(room));`
@@ -230,4 +250,4 @@ removeBetweenOnce(
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: character rig, recovery, scene, input, puppet driver and lifecycle extracted with frozen V1 behaviour intact.`);
+console.log(`Built ${output}: character systems and stage loop extracted with frozen V1 behaviour intact.`);
