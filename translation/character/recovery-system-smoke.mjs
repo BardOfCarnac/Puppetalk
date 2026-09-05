@@ -7,6 +7,7 @@ context.globalThis=context;
 vm.runInNewContext(fs.readFileSync('translation/character/recovery-system.js','utf8'),context,{filename:'recovery-system.js'});
 const api=context.window.PuppetalkRecoverySystem;
 assert.ok(api?.create,'Recovery system did not install.');
+const plain=value=>JSON.parse(JSON.stringify(value));
 
 const addCalls=[];
 const removeCalls=[];
@@ -141,8 +142,12 @@ function fresh(){
   system.repairBrokenSeams(p);
   assert.equal(addCalls.length,0,'Wide seam must be pulled together, not re-added immediately.');
   assert.equal(forceCalls.length,2);
-  assert.deepEqual(forceCalls[0],{body:seamA.bodyA,point:{x:10,y:20},force:{x:dx*pull*ma,y:dy*pull*ma}});
-  assert.deepEqual(forceCalls[1],{body:seamA.bodyB,point:{x:50,y:70},force:{x:-dx*pull*mb,y:-dy*pull*mb}});
+  assert.equal(forceCalls[0].body,seamA.bodyA);
+  assert.deepEqual(plain(forceCalls[0].point),{x:10,y:20});
+  assert.deepEqual(plain(forceCalls[0].force),{x:dx*pull*ma,y:dy*pull*ma});
+  assert.equal(forceCalls[1].body,seamA.bodyB);
+  assert.deepEqual(plain(forceCalls[1].point),{x:50,y:70});
+  assert.deepEqual(plain(forceCalls[1].force),{x:-dx*pull*mb,y:-dy*pull*mb});
   forceCalls.length=0;
   assert.equal(seamA.bodyA.torque,.01+clamp(rel*.0025,-.012,.012));
   assert.equal(seamA.bodyB.torque,-.02-clamp(rel*.0025,-.012,.012));
