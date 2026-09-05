@@ -464,6 +464,26 @@ removeBetweenOnce(
   `  resize();`
 );
 
+removeBetweenOnce(
+  'embedded controller throw gesture',
+  `  const throwGestures = new Map();`,
+  `  document.querySelector('#poses').addEventListener('click',event=>{`
+);
+
+replaceOnce(
+  'controller throw gesture setup point',
+  `  document.querySelector('#poses').addEventListener('click',event=>{`,
+  `  const controllerThrowGesture = window.PuppetalkControllerThrowGesture?.create?.({
+    canvas,activePointers,heldProp,pointerToWorld,
+    getConn:()=>conn,getSlot:()=>slot,send,
+    now:()=>performance.now(),queueTask:callback=>queueMicrotask(callback)
+  });
+  if(!controllerThrowGesture) throw new Error('Puppetalk controller throw gesture failed to load.');
+  controllerThrowGesture.install();
+
+  document.querySelector('#poses').addEventListener('click',event=>{`
+);
+
 replaceOnce('prop collision setup point',
   `  resize();`,
   `  const dartImpacts = window.PuppetalkDartImpacts?.create?.({

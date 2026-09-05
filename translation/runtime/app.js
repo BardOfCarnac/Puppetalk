@@ -1003,62 +1003,13 @@ function startController(room){
   });
   renderCreator();
 
-  const throwGestures = new Map();
-  const THROW_SAMPLE_MS = 145;
-  const THROW_MIN_SPEED = .62;
-  function sampleThrowGesture(gesture,x,y,now){
-    gesture.samples.push({x,y,t:now});
-    const cutoff = now-THROW_SAMPLE_MS*1.8;
-    while(gesture.samples.length > 2 && gesture.samples[0].t < cutoff) gesture.samples.shift();
-    if(gesture.samples.length > 10) gesture.samples.splice(0,gesture.samples.length-10);
-  }
-  function releaseVector(gesture,x,y,now){
-    sampleThrowGesture(gesture,x,y,now);
-    const samples = gesture.samples;
-    let start = samples[0];
-    for(const s of samples){
-      if(now-s.t <= THROW_SAMPLE_MS) { start = s; break; }
-    }
-    const dt = Math.max(.035,(now-start.t)/1000);
-    return {vx:(x-start.x)/dt,vy:(y-start.y)/dt};
-  }
-
-  canvas.addEventListener('pointerdown',event=>{
-    queueMicrotask(()=>{
-      const grab = activePointers.get(event.pointerId);
-      if(!grab) return;
-      const hand = grab.part === 'leftHand' ? 'left'
-        : grab.part === 'rightHand' ? 'right'
-        : grab.part === 'leftFoot' ? 'leftFoot'
-        : grab.part === 'rightFoot' ? 'rightFoot'
-        : null;
-      if(!hand) return;
-      if(!heldProp(hand)) return;
-      const now = performance.now();
-      throwGestures.set(event.pointerId,{hand,samples:[{x:grab.x,y:grab.y,t:now}]});
-    });
+  const controllerThrowGesture = window.PuppetalkControllerThrowGesture?.create?.({
+    canvas,activePointers,heldProp,pointerToWorld,
+    getConn:()=>conn,getSlot:()=>slot,send,
+    now:()=>performance.now(),queueTask:callback=>queueMicrotask(callback)
   });
-
-  canvas.addEventListener('pointermove',event=>{
-    const gesture = throwGestures.get(event.pointerId);
-    if(!gesture) return;
-    const p = pointerToWorld(event);
-    sampleThrowGesture(gesture,p.x,p.y,performance.now());
-  });
-
-  function finishThrow(event){
-    const gesture = throwGestures.get(event.pointerId);
-    if(!gesture) return;
-    throwGestures.delete(event.pointerId);
-    if(!heldProp(gesture.hand) || !conn?.open || slot === null) return;
-    const p = pointerToWorld(event);
-    const v = releaseVector(gesture,p.x,p.y,performance.now());
-    const speed = Math.hypot(v.vx,v.vy);
-    if(speed < THROW_MIN_SPEED) return;
-    send(conn,{type:'prop',action:'throw',hand:gesture.hand,vx:v.vx,vy:v.vy});
-  }
-  canvas.addEventListener('pointerup',finishThrow);
-  canvas.addEventListener('pointercancel',event=>throwGestures.delete(event.pointerId));
+  if(!controllerThrowGesture) throw new Error('Puppetalk controller throw gesture failed to load.');
+  controllerThrowGesture.install();
 
   document.querySelector('#poses').addEventListener('click',event=>{
     const button = event.target.closest('button');

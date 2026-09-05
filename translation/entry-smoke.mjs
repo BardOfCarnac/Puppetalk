@@ -38,6 +38,7 @@ expectedRuntime.push('./translation/props/prop-input.js?v=1');
 expectedRuntime.push('./translation/props/special-items.js?v=1');
 expectedRuntime.push('./translation/props/dart-impacts.js?v=1');
 expectedRuntime.push('./translation/props/contact-physics.js?v=1');
+expectedRuntime.push('./translation/controller/throw-gesture.js?v=1');
 expectedRuntime.push('./translation/bootstrap.js?v=2');
 
 assert.match(html,/<title>Puppetalk<\/title>/,'Translation entry changed the product name.');
@@ -78,6 +79,7 @@ assert.ok(actualScripts.includes('./translation/props/prop-input.js?v=1'),'Extra
 assert.ok(actualScripts.includes('./translation/props/special-items.js?v=1'),'Extracted special item module is missing.');
 assert.ok(actualScripts.includes('./translation/props/dart-impacts.js?v=1'),'Extracted dart impacts are missing.');
 assert.ok(actualScripts.includes('./translation/props/contact-physics.js?v=1'),'Extracted prop contact physics is missing.');
+assert.ok(actualScripts.includes('./translation/controller/throw-gesture.js?v=1'),'Extracted controller throw gesture is missing.');
 assert.ok(actualScripts.includes('./translation/bootstrap.js?v=2'),'Translated bootstrap is missing.');
 assert.ok(fs.existsSync('translation/generated/app-preboot.js'),'Frozen preboot source is missing.');
 assert.ok(fs.existsSync('translation/generated/app-final.js'),'Frozen final source is missing.');

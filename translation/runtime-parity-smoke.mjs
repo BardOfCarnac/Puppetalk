@@ -35,6 +35,7 @@ assert.match(actual,/PuppetalkPropInput/,'Translated runtime is not connected to
 assert.match(actual,/PuppetalkSpecialItems/,'Translated runtime is not connected to extracted special items.');
 assert.match(actual,/PuppetalkDartImpacts/,'Translated runtime is not connected to extracted dart impacts.');
 assert.match(actual,/PuppetalkPropContactPhysics/,'Translated runtime is not connected to extracted prop contact physics.');
+assert.match(actual,/PuppetalkControllerThrowGesture/,'Translated runtime is not connected to extracted controller throw gesture.');
 
 assert.doesNotMatch(actual,/function makePuppet\(slot\)/,'Embedded makePuppet survived rig-factory extraction.');
 assert.doesNotMatch(actual,/function tagHiddenSegment\(body,slot,part,segment\)/,'Embedded tagHiddenSegment survived rig-factory extraction.');
@@ -128,6 +129,10 @@ assert.doesNotMatch(actual,/function bringOutSpecialItem\(slot,requested\)/,'Emb
 assert.doesNotMatch(actual,/function handleSpecialItemInput\(slot,msg\)/,'Embedded handleSpecialItemInput survived special-item extraction.');
 assert.doesNotMatch(actual,/function installDartImpacts\(\)/,'Embedded installDartImpacts survived dart-impact extraction.');
 assert.doesNotMatch(actual,/function installPropContactPhysics\(\)/,'Embedded installPropContactPhysics survived prop-contact extraction.');
+assert.doesNotMatch(actual,/const throwGestures = new Map\(\);/,'Embedded throwGestures state survived controller throw extraction.');
+assert.doesNotMatch(actual,/function sampleThrowGesture\(gesture,x,y,now\)/,'Embedded sampleThrowGesture survived controller throw extraction.');
+assert.doesNotMatch(actual,/function releaseVector\(gesture,x,y,now\)/,'Embedded releaseVector survived controller throw extraction.');
+assert.doesNotMatch(actual,/function finishThrow\(event\)/,'Embedded finishThrow survived controller throw extraction.');
 
 assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
 assert.match(actual,/const \{severJoint,repairSeveredJoints,handleJointRecovery,severSeam,repairBrokenSeams\} = recoverySystem;/,'Runtime callers are not bound to the extracted recovery system.');
@@ -152,6 +157,8 @@ assert.match(actual,/const \{propHandIsClose,tapProp,releaseAllPropGrips,throwHe
 assert.match(actual,/const \{specialItemLabel,specialItemType,specialItemStillOut,bringOutSpecialItem,handleSpecialItemInput\} = specialItemSystem;/,'Runtime is not bound to extracted special items.');
 assert.match(actual,/const \{installDartImpacts\} = dartImpacts;/,'Runtime is not bound to the extracted dart impacts.');
 assert.match(actual,/const \{installPropContactPhysics\} = propContactPhysics;/,'Runtime is not bound to the extracted prop contact physics.');
+assert.match(actual,/const controllerThrowGesture = window\.PuppetalkControllerThrowGesture\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller throw gesture.');
+assert.match(actual,/controllerThrowGesture\.install\(\);/,'Extracted controller throw gesture is not installed.');
 
 assert.ok(actual.includes("addEventListener('resize',resize,{passive:true});"),'Resize listener moved during prop extraction.');
 assert.ok(actual.includes(`  resize();
