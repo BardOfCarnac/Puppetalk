@@ -1,0 +1,34 @@
+name: Regenerate translated runtime
+
+on:
+  push:
+    branches: [puppetalk-translation]
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --check translation/props/contact-physics.js
+      - run: node translation/props/contact-physics-smoke.mjs
+      - run: node --check translation/build-runtime.mjs
+      - run: node translation/build-runtime.mjs
+      - run: node --check translation/runtime/app.js
+      - name: Commit translated runtime
+        run: |
+          if [ -z "$(git status --porcelain -- translation/runtime/app.js)" ]; then
+            echo 'Translated runtime already current.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add translation/runtime/app.js
+          git commit -m 'Regenerate translated prop contact runtime'
+          git push origin HEAD:${GITHUB_REF_NAME}
