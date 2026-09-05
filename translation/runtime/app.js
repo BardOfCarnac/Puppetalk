@@ -322,6 +322,11 @@ function startStage(room){
   const propGrips = new Map();
   let nextPropId = 1;
   const specialItems = new Map();
+  const puppetLifecycle = window.PuppetalkPuppetLifecycle?.create?.({
+    puppets,props,releaseAllPropGrips,detachPropAttachment,Composite,engine
+  });
+  if(!puppetLifecycle) throw new Error('Puppetalk puppet lifecycle failed to load.');
+  const {removePuppet} = puppetLifecycle;
   const SPECIAL_ITEM_TYPES = ['frisbee','pump','ball','dart'];
   const SPECIAL_ITEM_BY_SLOT = ['frisbee','pump','ball','dart','frisbee','pump'];
 
@@ -1183,15 +1188,6 @@ function startStage(room){
     if(msg?.type !== 'special-item' || msg.action !== 'bring-out') return;
     const result = bringOutSpecialItem(slot,msg.item);
     send(conns.get(slot),{type:'special-item-result',...result});
-  }
-
-  function removePuppet(slot){
-    const p = puppets.get(slot);
-    if(!p) return;
-    releaseAllPropGrips(slot);
-    props.forEach(prop=>{ if(prop.attachedTo?.slot === slot) detachPropAttachment(prop); });
-    [...p.bodies,...p.constraints].forEach(item=>Composite.remove(engine.world,item));
-    puppets.delete(slot);
   }
 
   function drawStage(){
