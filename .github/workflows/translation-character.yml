@@ -31,5 +31,7 @@ jobs:
       - run: node translation/character/input-system-smoke.mjs
       - run: node --check translation/character/puppet-driver.js
       - run: node translation/character/puppet-driver-smoke.mjs
+      - run: node --check translation/character/puppet-lifecycle.js
+      - run: node translation/character/puppet-lifecycle-smoke.mjs
       - run: node --check translation/build-runtime.mjs
       - run: node translation/runtime-parity-smoke.mjs
