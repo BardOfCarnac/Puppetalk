@@ -18,6 +18,8 @@ assert.match(actual,/PuppetalkCharacterSceneState/,'Translated runtime is not co
 assert.match(actual,/PuppetalkCharacterInputSystem/,'Translated runtime is not connected to extracted character input system.');
 assert.match(actual,/PuppetalkPuppetDriver/,'Translated runtime is not connected to extracted puppet driver.');
 assert.match(actual,/PuppetalkPuppetLifecycle/,'Translated runtime is not connected to extracted puppet lifecycle.');
+assert.match(actual,/PuppetalkStageLoop/,'Translated runtime is not connected to extracted stage loop.');
+
 assert.doesNotMatch(actual,/function makePuppet\(slot\)/,'Embedded makePuppet survived rig-factory extraction.');
 assert.doesNotMatch(actual,/function tagHiddenSegment\(body,slot,part,segment\)/,'Embedded tagHiddenSegment survived rig-factory extraction.');
 assert.doesNotMatch(actual,/const joint = \(a,pa,b,pb,stiff=/,'Embedded rig joint constructor survived rig-factory extraction.');
@@ -44,23 +46,26 @@ assert.doesNotMatch(actual,/function norm\(point\)/,'Embedded norm survived scen
 assert.doesNotMatch(actual,/function segmentState\(body\)/,'Embedded segmentState survived scene-state extraction.');
 assert.doesNotMatch(actual,/function anatomy\(p\)/,'Embedded anatomy survived scene-state extraction.');
 assert.doesNotMatch(actual,/function applyInput\(slot,msg\)/,'Embedded applyInput survived input-system extraction.');
+assert.doesNotMatch(actual,/function drawStage\(\)/,'Embedded drawStage survived stage-loop extraction.');
+assert.doesNotMatch(actual,/function broadcastScene\(now\)/,'Embedded broadcastScene survived stage-loop extraction.');
+assert.doesNotMatch(actual,/function tick\(now\)/,'Embedded tick survived stage-loop extraction.');
+
 assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
 assert.match(actual,/const \{severJoint,repairSeveredJoints,handleJointRecovery,severSeam,repairBrokenSeams\} = recoverySystem;/,'Runtime callers are not bound to the extracted recovery system.');
 assert.match(actual,/const \{anatomy\} = sceneState;/,'Runtime callers are not bound to the extracted anatomy serializer.');
 assert.match(actual,/const \{applyInput\} = inputSystem;/,'Runtime callers are not bound to the extracted input normalizer.');
 assert.match(actual,/const \{drivePuppet\} = puppetDriver;/,'Runtime callers are not bound to the extracted puppet driver.');
 assert.match(actual,/const \{removePuppet\} = puppetLifecycle;/,'Runtime callers are not bound to the extracted puppet lifecycle.');
+assert.match(actual,/const \{drawStage,broadcastScene,tick\} = stageLoop;/,'Runtime callers are not bound to the extracted stage loop.');
 
 for(const invariant of [
-  'puppets.forEach(p=>{ drivePuppet(p); repairBrokenSeams(p); repairSeveredJoints(p); });',
   "conn.on('data',msg=>handleJointRecovery(slot,msg));",
-  'puppets.forEach(p=>drawAnatomy(ctx,anatomy(p),W,H,false));',
-  "const scene = {type:'scene',puppets:[...puppets.values()].map(anatomy),props:[...props.values()].map(propState)};",
   "send(conn,{type:'scene',puppets:[...puppets.values()].map(anatomy),props:[...props.values()].map(propState)});",
   "conn.on('data',msg=>applyInput(slot,msg));",
-  'conns.delete(slot);\n      removePuppet(slot);\n      updateStatus();'
+  'conns.delete(slot);\n      removePuppet(slot);\n      updateStatus();',
+  'requestAnimationFrame(tick);'
 ]){
-  assert.ok(actual.includes(invariant),`Character/recovery call-site invariant changed during extraction: ${invariant}`);
+  assert.ok(actual.includes(invariant),`Character/stage call-site invariant changed during extraction: ${invariant}`);
 }
 
-console.log('Translated character runtime matches frozen V1 with rig, recovery, scene-state, input, puppet driver, lifecycle and helper seams extracted.');
+console.log('Translated runtime matches frozen V1 with character systems and stage loop extracted.');
