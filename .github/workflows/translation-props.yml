@@ -33,6 +33,8 @@ jobs:
       - run: node translation/props/balloon-pops-smoke.mjs
       - run: node --check translation/props/balloon-lift.js
       - run: node translation/props/balloon-lift-smoke.mjs
+      - run: node --check translation/props/prop-driver.js
+      - run: node translation/props/prop-driver-smoke.mjs
       - run: node --check translation/props/prop-input.js
       - run: node translation/props/prop-input-smoke.mjs
       - run: node --check translation/props/special-items.js
