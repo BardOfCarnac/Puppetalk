@@ -27,6 +27,7 @@ assert.match(actual,/PuppetalkPumpBalloon/,'Translated runtime is not connected 
 assert.match(actual,/PuppetalkBalloonPops/,'Translated runtime is not connected to extracted balloon pops.');
 assert.match(actual,/PuppetalkBalloonLift/,'Translated runtime is not connected to extracted balloon lift.');
 assert.match(actual,/PuppetalkPropDriver/,'Translated runtime is not connected to extracted prop driver.');
+assert.match(actual,/PuppetalkLaserFrisbee/,'Translated runtime is not connected to extracted laser frisbee.');
 assert.match(actual,/PuppetalkPropGripCore/,'Translated runtime is not connected to extracted prop grip core.');
 assert.match(actual,/PuppetalkPropAttachmentCore/,'Translated runtime is not connected to extracted prop attachment core.');
 assert.match(actual,/PuppetalkPropInput/,'Translated runtime is not connected to extracted prop input.');
@@ -92,6 +93,8 @@ assert.doesNotMatch(actual,/function tieBalloonToBody\(prop,target\)/,'Embedded 
 assert.doesNotMatch(actual,/function driveAttachedBalloon\(prop,now\)/,'Embedded driveAttachedBalloon survived balloon-lift extraction.');
 assert.doesNotMatch(actual,/function updatePropContest\(prop,now\)/,'Embedded updatePropContest survived prop-driver extraction.');
 assert.doesNotMatch(actual,/function driveProps\(\)/,'Embedded driveProps survived prop-driver extraction.');
+assert.doesNotMatch(actual,/function pointSegmentDistance\(point,a,b\)/,'Embedded pointSegmentDistance survived laser-frisbee extraction.');
+assert.doesNotMatch(actual,/function driveLaserFrisbeeCuts\(now\)/,'Embedded driveLaserFrisbeeCuts survived laser-frisbee extraction.');
 assert.doesNotMatch(actual,/function gripRecord\(slot,hand\)/,'Embedded gripRecord survived prop-grip extraction.');
 assert.doesNotMatch(actual,/function freePropHand\(slot,hand,propId=null\)/,'Embedded freePropHand survived prop-grip extraction.');
 assert.doesNotMatch(actual,/function clearPropGrip\(slot,hand\)/,'Embedded clearPropGrip survived prop-grip extraction.');
@@ -136,6 +139,7 @@ assert.match(actual,/const \{pumpNozzleOffset,ensurePumpBalloon,inflatePumpBallo
 assert.match(actual,/const \{distancePointToSegment,dartTouchesBalloon,popBalloon,driveDartBalloonPops\} = balloonPops;/,'Runtime is not bound to extracted balloon pops.');
 assert.match(actual,/const \{tieBalloonToBody,driveAttachedBalloon\} = balloonLift;/,'Runtime is not bound to extracted balloon lift.');
 assert.match(actual,/const \{updatePropContest,driveProps\} = propDriver;/,'Runtime is not bound to extracted prop driver.');
+assert.match(actual,/const \{pointSegmentDistance,driveLaserFrisbeeCuts\} = laserFrisbee;/,'Runtime is not bound to extracted laser frisbee.');
 assert.match(actual,/const \{gripRecord,freePropHand,clearPropGrip,makePropGrip,cancelPropContest,promotePropContest,releasePropHolder,beginPropHold,beginPropContest\} = propGripCore;/,'Runtime is not bound to the extracted prop grip core.');
 assert.match(actual,/const \{attachPropToBody,detachPropAttachment,syncAttachedProp\} = propAttachmentCore;/,'Runtime is not bound to the extracted prop attachment core.');
 assert.match(actual,/const \{propHandIsClose,tapProp,releaseAllPropGrips,throwHeldProp,handlePropInput\} = propInputSystem;/,'Runtime is not bound to extracted prop input.');

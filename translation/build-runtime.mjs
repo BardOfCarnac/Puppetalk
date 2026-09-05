@@ -118,6 +118,12 @@ replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();
   });
   if(!propDriver) throw new Error('Puppetalk prop driver failed to load.');
   const {updatePropContest,driveProps} = propDriver;
+  const laserFrisbee = window.PuppetalkLaserFrisbee?.create?.({
+    props,puppets,clamp,puppetalkAimProjectPropPoint,puppetalkAimProjectPoint,
+    jointCutPoint,seamCutPoint,severSeam,severJoint,Body
+  });
+  if(!laserFrisbee) throw new Error('Puppetalk laser frisbee failed to load.');
+  const {pointSegmentDistance,driveLaserFrisbeeCuts} = laserFrisbee;
   const pumpBalloonSystem = window.PuppetalkPumpBalloon?.create?.({
     props,makeProp,worldOffset,Body,syncAttachedProp,detachPropAttachment,
     now:()=>performance.now(),random:()=>Math.random()
@@ -186,6 +192,12 @@ replaceOnce('embedded joint constructor',`  const joint = (a,pa,b,pb,stiff=.97) 
   });
 
 `,``);
+
+removeBetweenOnce(
+  'embedded laser frisbee',
+  `  function pointSegmentDistance(point,a,b){`,
+  `  function pumpNozzleOffset(scale){`
+);
 
 removeBetweenOnce(
   'embedded pump balloon lifecycle',
