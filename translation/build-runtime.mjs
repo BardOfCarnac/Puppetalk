@@ -105,6 +105,12 @@ replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();
   });
   if(!propInputSystem) throw new Error('Puppetalk prop input failed to load.');
   const {propHandIsClose,tapProp,releaseAllPropGrips,throwHeldProp,handlePropInput} = propInputSystem;
+  const specialItemSystem = window.PuppetalkSpecialItems?.create?.({
+    specialItems,props,puppets,conns,send,makeProp,grabWorldPoint,clamp,
+    getDimensions:()=>({W,H})
+  });
+  if(!specialItemSystem) throw new Error('Puppetalk special items failed to load.');
+  const {specialItemLabel,specialItemType,specialItemStillOut,bringOutSpecialItem,handleSpecialItemInput} = specialItemSystem;
   const puppetLifecycle = window.PuppetalkPuppetLifecycle?.create?.({
     puppets,props,releaseAllPropGrips,detachPropAttachment,Composite,engine
   });
@@ -130,6 +136,16 @@ replaceOnce('embedded joint constructor',`  const joint = (a,pa,b,pb,stiff=.97) 
   });
 
 `,``);
+
+replaceOnce('embedded special item constants',`  const SPECIAL_ITEM_TYPES = ['frisbee','pump','ball','dart'];
+  const SPECIAL_ITEM_BY_SLOT = ['frisbee','pump','ball','dart','frisbee','pump'];
+`,``);
+
+removeBetweenOnce(
+  'embedded special item tail',
+  `  function specialItemType(slot,requested){`,
+  `  function tagHiddenSegment(body,slot,part,segment){`
+);
 
 removeBetweenOnce(
   'embedded rig construction',
@@ -333,6 +349,15 @@ removeBetweenOnce(
   `  function propHandIsClose(slot,hand,prop){`,
   `  function specialItemLabel(type){`
 );
+
+replaceOnce('embedded special item label',`  function specialItemLabel(type){
+    if(type === 'frisbee') return 'Laser frisbee';
+    if(type === 'pump') return 'Balloon pump';
+    if(type === 'ball') return 'Ball';
+    if(type === 'dart') return 'Sticky darts';
+    return 'Item';
+  }
+`,``);
 
 removeBetweenOnce(
   'embedded prop geometry',

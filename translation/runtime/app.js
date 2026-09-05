@@ -351,6 +351,12 @@ function startStage(room){
   });
   if(!propInputSystem) throw new Error('Puppetalk prop input failed to load.');
   const {propHandIsClose,tapProp,releaseAllPropGrips,throwHeldProp,handlePropInput} = propInputSystem;
+  const specialItemSystem = window.PuppetalkSpecialItems?.create?.({
+    specialItems,props,puppets,conns,send,makeProp,grabWorldPoint,clamp,
+    getDimensions:()=>({W,H})
+  });
+  if(!specialItemSystem) throw new Error('Puppetalk special items failed to load.');
+  const {specialItemLabel,specialItemType,specialItemStillOut,bringOutSpecialItem,handleSpecialItemInput} = specialItemSystem;
   const puppetLifecycle = window.PuppetalkPuppetLifecycle?.create?.({
     puppets,props,releaseAllPropGrips,detachPropAttachment,Composite,engine
   });
@@ -370,8 +376,6 @@ function startStage(room){
   });
   if(!stageLoop) throw new Error('Puppetalk stage loop failed to load.');
   const {drawStage,broadcastScene,tick} = stageLoop;
-  const SPECIAL_ITEM_TYPES = ['frisbee','pump','ball','dart'];
-  const SPECIAL_ITEM_BY_SLOT = ['frisbee','pump','ball','dart','frisbee','pump'];
 
   function resize(){
     W = Math.max(innerWidth,320);
@@ -822,48 +826,6 @@ function startStage(room){
       Body.applyForce(torso,torso.position,{x:0,y:-lift*(1-localShare)});
     }
   }
-  function specialItemLabel(type){
-    if(type === 'frisbee') return 'Laser frisbee';
-    if(type === 'pump') return 'Balloon pump';
-    if(type === 'ball') return 'Ball';
-    if(type === 'dart') return 'Sticky darts';
-    return 'Item';
-  }
-  function specialItemType(slot,requested){
-    if(SPECIAL_ITEM_TYPES.includes(requested)) return requested;
-    return SPECIAL_ITEM_BY_SLOT[Math.max(0,Number(slot)||0)%SPECIAL_ITEM_BY_SLOT.length] || 'ball';
-  }
-  function specialItemStillOut(slot){
-    const id = specialItems.get(slot);
-    return !!(id && props.has(id));
-  }
-  function bringOutSpecialItem(slot,requested){
-    const p = puppets.get(slot);
-    if(!p) return {ok:false,message:'Your puppet is not ready yet.'};
-    const type = specialItemType(slot,requested);
-    if(specialItemStillOut(slot)) return {ok:false,alreadyOut:true,type,message:specialItemLabel(type)+' is already out.'};
-
-    let x = p.torso.position.x + (slot%2 ? -72 : 72);
-    let y = p.torso.position.y - 8;
-    if(type === 'pump'){
-      x = clamp(x,52,W-52);
-      y = H-68;
-    }else{
-      const hand = grabWorldPoint(p,'rightHand');
-      x = clamp(hand.x + (slot%2 ? -34 : 34),30,W-30);
-      y = clamp(hand.y-8,46,H-54);
-    }
-    const prop = makeProp(type,x,y);
-    prop.specialOwner = slot;
-    specialItems.set(slot,prop.id);
-    return {ok:true,type,propId:prop.id,message:'Brought out '+specialItemLabel(type)+'.'};
-  }
-  function handleSpecialItemInput(slot,msg){
-    if(msg?.type !== 'special-item' || msg.action !== 'bring-out') return;
-    const result = bringOutSpecialItem(slot,msg.item);
-    send(conns.get(slot),{type:'special-item-result',...result});
-  }
-
   const hostSession = window.PuppetalkHostSession?.create?.({
     Peer,room,peerId,status,conns,puppets,props,NAMES,
     makePuppet,send,anatomy,propState,
