@@ -481,6 +481,52 @@ removeBetweenOnce(
   `  resize();`
 );
 
+replaceOnce(
+  'embedded controller active pointer state',
+  `  const activePointers = new Map();
+`,
+  ``
+);
+
+replaceOnce(
+  'embedded controller grab sync',
+  `  function syncGrabs(){ input.grabs = [...activePointers.values()].slice(0,2).map(g=>({part:g.part,x:g.x,y:g.y})); }
+`,
+  ``
+);
+
+replaceOnce(
+  'direct puppet interaction setup point',
+  `  input.look = savedLook();`,
+  `  input.look = savedLook();
+
+  const puppetInteraction = window.PuppetalkControllerPuppetry?.create?.({
+    canvas,ctx,hint,input,clamp,
+    getScene:()=>scene,getPropScene:()=>propScene,getSlot:()=>slot,getDimensions:()=>({cw,ch}),
+    drawBackdrop,seatProjection:puppetalkSeatProjection,drawProp,drawAnatomy,transmit,
+    cancelCentre:()=>{ if(centreTimer){ clearTimeout(centreTimer); centreTimer = null; } }
+  });
+  if(!puppetInteraction) throw new Error('Puppetalk direct puppet interaction failed to load.');
+  const {
+    activePointers,myPuppet,grabSpots,renderGrabHandles,renderPersonalScene,
+    pointerToWorld,pickGrab,describeActiveGrabs
+  } = puppetInteraction;`
+);
+
+removeBetweenOnce(
+  'embedded direct puppet interaction',
+  `  function myPuppet(){ return scene.find(p=>p.slot === slot); }`,
+  `  function propDisplayPoint(q){`
+);
+
+replaceOnce(
+  'direct puppet interaction install point',
+  `  function propDisplayPoint(q){`,
+  `  puppetInteraction.install();
+
+  function propDisplayPoint(q){`
+);
+
 removeBetweenOnce(
   'embedded controller special-item helpers',
   `  function controllerSpecialType(){`,
