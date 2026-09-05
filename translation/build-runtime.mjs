@@ -269,7 +269,25 @@ replaceOnce('host session setup point',
   addEventListener('resize',resize,{passive:true});`
 );
 
+removeBetweenOnce(
+  'embedded prop contact physics',
+  `  function installPropContactPhysics(){`,
+  `  resize();`
+);
+
+replaceOnce('prop contact physics setup point',
+  `  resize();`,
+  `  const propContactPhysics = window.PuppetalkPropContactPhysics?.create?.({
+    Matter,engine,propForBody,puppetPartForBody,puppets,handBody,
+    closestPointOnBody,tieBalloonToBody,performance,Vector,Body,clamp
+  });
+  if(!propContactPhysics) throw new Error('Puppetalk prop contact physics failed to load.');
+  const {installPropContactPhysics} = propContactPhysics;
+
+  resize();`
+);
+
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: character systems, stage loop and host session extracted with frozen V1 behaviour intact.`);
+console.log(`Built ${output}: character systems, stage loop, host session and prop contact physics extracted with frozen V1 behaviour intact.`);
