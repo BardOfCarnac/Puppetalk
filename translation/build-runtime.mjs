@@ -43,12 +43,7 @@ replaceOnce('character helper factory point',`  const {Engine,Bodies,Body,Compos
   const {servo,springPull} = driveForces;
   const recoveryGeometry = window.PuppetalkRecoveryGeometry?.create?.(Vector);
   if(!recoveryGeometry) throw new Error('Puppetalk recovery geometry failed to load.');
-  const {jointWorldPoint,jointGap,jointCutPoint,seamCutPoint} = recoveryGeometry;
-  const propAttachmentCore = window.PuppetalkPropAttachmentCore?.create?.({
-    Vector,Body,performance,cancelPropContest,releasePropHolder
-  });
-  if(!propAttachmentCore) throw new Error('Puppetalk prop attachment core failed to load.');
-  const {localOffset,worldOffset,attachPropToBody,detachPropAttachment,syncAttachedProp} = propAttachmentCore;`);
+  const {jointWorldPoint,jointGap,jointCutPoint,seamCutPoint} = recoveryGeometry;`);
 
 replaceOnce('character factory setup point',`  const puppets = new Map();
   const conns = new Map();`, `  const puppets = new Map();
@@ -81,6 +76,17 @@ replaceOnce('character factory setup point',`  const puppets = new Map();
   const {drivePuppet} = puppetDriver;`);
 
 replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();`, `  const specialItems = new Map();
+  const propGripCore = window.PuppetalkPropGripCore?.create?.({
+    propGrips,gripKey:(slot,hand)=>\`${slot}:\${hand}\`,
+    Composite,engine,puppets,handBody,propGripLocalPoint,Constraint
+  });
+  if(!propGripCore) throw new Error('Puppetalk prop grip core failed to load.');
+  const {gripRecord,freePropHand,clearPropGrip,makePropGrip,cancelPropContest,promotePropContest,releasePropHolder,beginPropHold,beginPropContest} = propGripCore;
+  const propAttachmentCore = window.PuppetalkPropAttachmentCore?.create?.({
+    Vector,Body,performance,cancelPropContest,releasePropHolder
+  });
+  if(!propAttachmentCore) throw new Error('Puppetalk prop attachment core failed to load.');
+  const {localOffset,worldOffset,attachPropToBody,detachPropAttachment,syncAttachedProp} = propAttachmentCore;
   const puppetLifecycle = window.PuppetalkPuppetLifecycle?.create?.({
     puppets,props,releaseAllPropGrips,detachPropAttachment,Composite,engine
   });
@@ -287,6 +293,12 @@ removeBetweenOnce(
 );
 
 removeBetweenOnce(
+  'embedded prop grip core',
+  `  function gripRecord(slot,hand){`,
+  `  function propHandIsClose(slot,hand,prop){`
+);
+
+removeBetweenOnce(
   'embedded prop contact physics',
   `  function installPropContactPhysics(){`,
   `  resize();`
@@ -312,4 +324,4 @@ replaceOnce('prop collision setup point',
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: character systems, stage loop, host session and prop attachment/contact systems extracted with frozen V1 behaviour intact.`);
+console.log(`Built ${output}: character systems, stage loop, host session and prop grip/attachment/contact systems extracted with frozen V1 behaviour intact.`);
