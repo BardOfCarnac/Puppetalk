@@ -1204,48 +1204,16 @@ function startStage(room){
     send(conns.get(slot),{type:'special-item-result',...result});
   }
 
-  function updateStatus(extra=''){
-    const n = conns.size;
-    status.textContent = `${n} puppeteer${n===1?'':'s'} connected${extra ? ' — '+extra : ''}`;
-  }
-  function freeSlot(){
-    for(let i=0;i<6;i++) if(!conns.has(i)) return i;
-    return -1;
-  }
-
-  const peer = new Peer(peerId(room));
-  peer.on('open',()=>status.textContent='stage live — waiting for puppeteers');
-  peer.on('connection',conn=>{
-    const slot = freeSlot();
-    if(slot < 0){
-      conn.on('open',()=>{send(conn,{type:'full'});setTimeout(()=>conn.close(),120);});
-      return;
-    }
-    conns.set(slot,conn);
-    makePuppet(slot);
-    conn.on('open',()=>{
-      send(conn,{type:'welcome',slot,name:NAMES[slot]});
-      send(conn,{type:'scene',puppets:[...puppets.values()].map(anatomy),props:[...props.values()].map(propState)});
-      updateStatus();
-    });
-    conn.on('data',msg=>applyInput(slot,msg));
-    conn.on('data',msg=>handlePropInput(slot,msg));
-    conn.on('data',msg=>handleSpecialItemInput(slot,msg));
-    conn.on('data',msg=>handleJointRecovery(slot,msg));
-    conn.on('data',msg=>{ if(msg?.type==='look'){ const p=makePuppet(slot); p.look=cleanLook(msg.look,slot); p.color=p.look.color; const chosen=cleanPlayerName(msg.name); if(chosen) p.name=chosen; } });
-    const goodbye = ()=>{
-      if(conns.get(slot) !== conn) return;
-      conns.delete(slot);
-      removePuppet(slot);
-      updateStatus();
-    };
-    conn.on('close',goodbye);
-    conn.on('error',goodbye);
+  const hostSession = window.PuppetalkHostSession?.create?.({
+    Peer,room,peerId,status,conns,puppets,props,NAMES,
+    makePuppet,send,anatomy,propState,
+    applyInput,handlePropInput,handleSpecialItemInput,handleJointRecovery,
+    cleanLook,cleanPlayerName,removePuppet,
+    setTimer:(callback,ms)=>setTimeout(callback,ms),
+    logError:error=>console.error(error)
   });
-  peer.on('error',err=>{
-    console.error(err);
-    status.textContent = err.type === 'unavailable-id' ? 'table already in use — start another' : `network error: ${err.type || 'unknown'}`;
-  });
+  if(!hostSession) throw new Error('Puppetalk host session failed to load.');
+  const {peer,updateStatus,freeSlot} = hostSession;
 
   addEventListener('resize',resize,{passive:true});
   function installPropContactPhysics(){
