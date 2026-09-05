@@ -23,9 +23,14 @@ const attachmentBinding=`  const {attachPropToBody,detachPropAttachment,syncAtta
 const liftSetup=`  const balloonLift = window.PuppetalkBalloonLift?.create?.({\n    props,puppets,cancelPropContest,releasePropHolder,localOffset,worldOffset,\n    Body,syncAttachedProp,clamp\n  });\n  if(!balloonLift) throw new Error('Puppetalk balloon lift failed to load.');\n  const {tieBalloonToBody,driveAttachedBalloon} = balloonLift;\n`;
 if(!build.includes('window.PuppetalkBalloonLift?.create?.')) build=insertAfter(build,'balloon lift setup',attachmentBinding,liftSetup);
 
+const oldGeometryExtraction=`removeBetweenOnce(\n  'embedded prop geometry',\n  \`  function handBody(p,hand){\`,\n  \`  function tieBalloonToBody(prop,target){\`\n);\n\n`;
+if(build.includes(oldGeometryExtraction)) build=replaceOnce(build,'old prop geometry extraction',oldGeometryExtraction,'');
+
 const attachmentStateExtraction=`removeBetweenOnce(\n  'embedded balloon attachment state',`;
 const liftExtraction=`removeBetweenOnce(\n  'embedded balloon lift',\n  \`  function tieBalloonToBody(prop,target){\`,\n  \`  function balloonAttachmentState(prop){\`\n);\n\n`;
-if(!build.includes("'embedded balloon lift'")) build=insertBefore(build,'balloon lift extraction',attachmentStateExtraction,liftExtraction);
+if(!build.includes("'embedded balloon lift'")){
+  build=insertBefore(build,'prop geometry and balloon lift extraction',attachmentStateExtraction,oldGeometryExtraction+liftExtraction);
+}
 write('translation/build-runtime.mjs',build);
 
 let parity=read('translation/runtime-parity-smoke.mjs');
