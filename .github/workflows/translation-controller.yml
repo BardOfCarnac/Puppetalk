@@ -17,6 +17,8 @@ jobs:
       - run: node translation/controller/throw-gesture-smoke.mjs
       - run: node --check translation/controller/audio-controls.js
       - run: node translation/controller/audio-controls-smoke.mjs
+      - run: node --check translation/controller/character-creator.js
+      - run: node translation/controller/character-creator-smoke.mjs
       - run: node --check translation/build-runtime.mjs
       - run: node --check translation/runtime-parity-smoke.mjs
       - run: node translation/runtime-parity-smoke.mjs
