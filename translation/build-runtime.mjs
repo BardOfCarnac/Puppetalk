@@ -247,7 +247,29 @@ removeBetweenOnce(
   `  const peer = new Peer(peerId(room));`
 );
 
+removeBetweenOnce(
+  'embedded host session',
+  `  function updateStatus(extra=''){`,
+  `  addEventListener('resize',resize,{passive:true});`
+);
+
+replaceOnce('host session setup point',
+  `  addEventListener('resize',resize,{passive:true});`,
+  `  const hostSession = window.PuppetalkHostSession?.create?.({
+    Peer,room,peerId,status,conns,puppets,props,NAMES,
+    makePuppet,send,anatomy,propState,
+    applyInput,handlePropInput,handleSpecialItemInput,handleJointRecovery,
+    cleanLook,cleanPlayerName,removePuppet,
+    setTimer:(callback,ms)=>setTimeout(callback,ms),
+    logError:error=>console.error(error)
+  });
+  if(!hostSession) throw new Error('Puppetalk host session failed to load.');
+  const {peer,updateStatus,freeSlot} = hostSession;
+
+  addEventListener('resize',resize,{passive:true});`
+);
+
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: character systems and stage loop extracted with frozen V1 behaviour intact.`);
+console.log(`Built ${output}: character systems, stage loop and host session extracted with frozen V1 behaviour intact.`);
