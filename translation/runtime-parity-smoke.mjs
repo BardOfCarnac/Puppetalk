@@ -20,6 +20,7 @@ assert.match(actual,/PuppetalkPuppetDriver/,'Translated runtime is not connected
 assert.match(actual,/PuppetalkPuppetLifecycle/,'Translated runtime is not connected to extracted puppet lifecycle.');
 assert.match(actual,/PuppetalkStageLoop/,'Translated runtime is not connected to extracted stage loop.');
 assert.match(actual,/PuppetalkHostSession/,'Translated runtime is not connected to extracted host session.');
+assert.match(actual,/PuppetalkPropGeometry/,'Translated runtime is not connected to extracted prop geometry.');
 assert.match(actual,/PuppetalkPropGripCore/,'Translated runtime is not connected to extracted prop grip core.');
 assert.match(actual,/PuppetalkPropAttachmentCore/,'Translated runtime is not connected to extracted prop attachment core.');
 assert.match(actual,/PuppetalkDartImpacts/,'Translated runtime is not connected to extracted dart impacts.');
@@ -57,6 +58,14 @@ assert.doesNotMatch(actual,/function tick\(now\)/,'Embedded tick survived stage-
 assert.doesNotMatch(actual,/function updateStatus\(extra=''\)/,'Embedded updateStatus survived host-session extraction.');
 assert.doesNotMatch(actual,/function freeSlot\(\)/,'Embedded freeSlot survived host-session extraction.');
 assert.doesNotMatch(actual,/const peer = new Peer\(peerId\(room\)\);/,'Embedded host Peer construction survived host-session extraction.');
+assert.doesNotMatch(actual,/function handBody\(p,hand\)/,'Embedded handBody survived prop-geometry extraction.');
+assert.doesNotMatch(actual,/function handPoint\(p,hand\)/,'Embedded handPoint survived prop-geometry extraction.');
+assert.doesNotMatch(actual,/function propGripLocalPoint\(hand\)/,'Embedded propGripLocalPoint survived prop-geometry extraction.');
+assert.doesNotMatch(actual,/function validPropEffector\(hand\)/,'Embedded validPropEffector survived prop-geometry extraction.');
+assert.doesNotMatch(actual,/function puppetPartForBody\(body\)/,'Embedded puppetPartForBody survived prop-geometry extraction.');
+assert.doesNotMatch(actual,/function propForBody\(body\)/,'Embedded propForBody survived prop-geometry extraction.');
+assert.doesNotMatch(actual,/function closestPointOnBody\(body,point\)/,'Embedded closestPointOnBody survived prop-geometry extraction.');
+assert.doesNotMatch(actual,/function nearestBalloonTarget\(prop,slot,hand\)/,'Embedded nearestBalloonTarget survived prop-geometry extraction.');
 assert.doesNotMatch(actual,/function gripRecord\(slot,hand\)/,'Embedded gripRecord survived prop-grip extraction.');
 assert.doesNotMatch(actual,/function freePropHand\(slot,hand,propId=null\)/,'Embedded freePropHand survived prop-grip extraction.');
 assert.doesNotMatch(actual,/function clearPropGrip\(slot,hand\)/,'Embedded clearPropGrip survived prop-grip extraction.');
@@ -82,8 +91,9 @@ assert.match(actual,/const \{drivePuppet\} = puppetDriver;/,'Runtime callers are
 assert.match(actual,/const \{removePuppet\} = puppetLifecycle;/,'Runtime callers are not bound to the extracted puppet lifecycle.');
 assert.match(actual,/const \{drawStage,broadcastScene,tick\} = stageLoop;/,'Runtime callers are not bound to the extracted stage loop.');
 assert.match(actual,/const \{peer,updateStatus,freeSlot\} = hostSession;/,'Runtime is not bound to the extracted host session.');
+assert.match(actual,/const \{handBody,handPoint,propGripLocalPoint,validPropEffector,gripKey,ATTACHABLE_PARTS,puppetPartForBody,propForBody,closestPointOnBody,nearestBalloonTarget,localOffset,worldOffset\} = propGeometry;/,'Runtime is not bound to extracted prop geometry.');
 assert.match(actual,/const \{gripRecord,freePropHand,clearPropGrip,makePropGrip,cancelPropContest,promotePropContest,releasePropHolder,beginPropHold,beginPropContest\} = propGripCore;/,'Runtime is not bound to the extracted prop grip core.');
-assert.match(actual,/const \{localOffset,worldOffset,attachPropToBody,detachPropAttachment,syncAttachedProp\} = propAttachmentCore;/,'Runtime is not bound to the extracted prop attachment core.');
+assert.match(actual,/const \{attachPropToBody,detachPropAttachment,syncAttachedProp\} = propAttachmentCore;/,'Runtime is not bound to the extracted prop attachment core.');
 assert.match(actual,/const \{installDartImpacts\} = dartImpacts;/,'Runtime is not bound to the extracted dart impacts.');
 assert.match(actual,/const \{installPropContactPhysics\} = propContactPhysics;/,'Runtime is not bound to the extracted prop contact physics.');
 

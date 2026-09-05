@@ -76,17 +76,20 @@ replaceOnce('character factory setup point',`  const puppets = new Map();
   const {drivePuppet} = puppetDriver;`);
 
 replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();`, `  const specialItems = new Map();
+  const propGeometry = window.PuppetalkPropGeometry?.create?.({puppets,props,grabWorldPoint,clamp,Vector});
+  if(!propGeometry) throw new Error('Puppetalk prop geometry failed to load.');
+  const {handBody,handPoint,propGripLocalPoint,validPropEffector,gripKey,ATTACHABLE_PARTS,puppetPartForBody,propForBody,closestPointOnBody,nearestBalloonTarget,localOffset,worldOffset} = propGeometry;
   const propGripCore = window.PuppetalkPropGripCore?.create?.({
-    propGrips,gripKey:(slot,hand)=>String(slot)+':'+hand,
+    propGrips,gripKey,
     Composite,engine,puppets,handBody,propGripLocalPoint,Constraint
   });
   if(!propGripCore) throw new Error('Puppetalk prop grip core failed to load.');
   const {gripRecord,freePropHand,clearPropGrip,makePropGrip,cancelPropContest,promotePropContest,releasePropHolder,beginPropHold,beginPropContest} = propGripCore;
   const propAttachmentCore = window.PuppetalkPropAttachmentCore?.create?.({
-    Vector,Body,performance,cancelPropContest,releasePropHolder
+    Body,performance,cancelPropContest,releasePropHolder,localOffset,worldOffset
   });
   if(!propAttachmentCore) throw new Error('Puppetalk prop attachment core failed to load.');
-  const {localOffset,worldOffset,attachPropToBody,detachPropAttachment,syncAttachedProp} = propAttachmentCore;
+  const {attachPropToBody,detachPropAttachment,syncAttachedProp} = propAttachmentCore;
   const puppetLifecycle = window.PuppetalkPuppetLifecycle?.create?.({
     puppets,props,releaseAllPropGrips,detachPropAttachment,Composite,engine
   });
@@ -296,6 +299,12 @@ removeBetweenOnce(
   'embedded prop grip core',
   `  function gripRecord(slot,hand){`,
   `  function propHandIsClose(slot,hand,prop){`
+);
+
+removeBetweenOnce(
+  'embedded prop geometry',
+  `  function handBody(p,hand){`,
+  `  function tieBalloonToBody(prop,target){`
 );
 
 removeBetweenOnce(

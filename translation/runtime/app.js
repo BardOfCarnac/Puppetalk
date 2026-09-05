@@ -322,17 +322,20 @@ function startStage(room){
   const propGrips = new Map();
   let nextPropId = 1;
   const specialItems = new Map();
+  const propGeometry = window.PuppetalkPropGeometry?.create?.({puppets,props,grabWorldPoint,clamp,Vector});
+  if(!propGeometry) throw new Error('Puppetalk prop geometry failed to load.');
+  const {handBody,handPoint,propGripLocalPoint,validPropEffector,gripKey,ATTACHABLE_PARTS,puppetPartForBody,propForBody,closestPointOnBody,nearestBalloonTarget,localOffset,worldOffset} = propGeometry;
   const propGripCore = window.PuppetalkPropGripCore?.create?.({
-    propGrips,gripKey:(slot,hand)=>String(slot)+':'+hand,
+    propGrips,gripKey,
     Composite,engine,puppets,handBody,propGripLocalPoint,Constraint
   });
   if(!propGripCore) throw new Error('Puppetalk prop grip core failed to load.');
   const {gripRecord,freePropHand,clearPropGrip,makePropGrip,cancelPropContest,promotePropContest,releasePropHolder,beginPropHold,beginPropContest} = propGripCore;
   const propAttachmentCore = window.PuppetalkPropAttachmentCore?.create?.({
-    Vector,Body,performance,cancelPropContest,releasePropHolder
+    Body,performance,cancelPropContest,releasePropHolder,localOffset,worldOffset
   });
   if(!propAttachmentCore) throw new Error('Puppetalk prop attachment core failed to load.');
-  const {localOffset,worldOffset,attachPropToBody,detachPropAttachment,syncAttachedProp} = propAttachmentCore;
+  const {attachPropToBody,detachPropAttachment,syncAttachedProp} = propAttachmentCore;
   const puppetLifecycle = window.PuppetalkPuppetLifecycle?.create?.({
     puppets,props,releaseAllPropGrips,detachPropAttachment,Composite,engine
   });
@@ -763,69 +766,6 @@ function startStage(room){
     };
   }
 
-  function handBody(p,hand){
-    if(hand === 'left') return p.faL2 || p.faL;
-    if(hand === 'right') return p.faR2 || p.faR;
-    if(hand === 'leftFoot') return p.shL2 || p.shL;
-    if(hand === 'rightFoot') return p.shR2 || p.shR;
-    return null;
-  }
-  function handPoint(p,hand){
-    if(hand === 'left') return grabWorldPoint(p,'leftHand');
-    if(hand === 'right') return grabWorldPoint(p,'rightHand');
-    if(hand === 'leftFoot') return grabWorldPoint(p,'leftFoot');
-    if(hand === 'rightFoot') return grabWorldPoint(p,'rightFoot');
-    return p?.torso?.position || {x:0,y:0};
-  }
-  function propGripLocalPoint(hand){
-    return hand === 'leftFoot' || hand === 'rightFoot' ? {x:0,y:13.5} : {x:0,y:12};
-  }
-  function validPropEffector(hand){
-    return hand === 'left' || hand === 'right' || hand === 'leftFoot' || hand === 'rightFoot';
-  }
-  const gripKey = (slot,hand)=>`${slot}:${hand}`;
-
-  const ATTACHABLE_PARTS = ['torso','head','uaL','faL','uaR','faR','thL','shL','thR','shR'];
-  function puppetPartForBody(body){
-    if(!body) return null;
-    if(Number.isInteger(body.plugin?.puppetalkSlot) && body.plugin?.puppetalkSegmentPart){
-      return {slot:body.plugin.puppetalkSlot,part:body.plugin.puppetalkSegmentPart,body};
-    }
-    for(const p of puppets.values()){
-      for(const part of ATTACHABLE_PARTS){
-        if(p[part] === body) return {slot:p.slot,part,body};
-      }
-    }
-    return null;
-  }
-  function propForBody(body){
-    for(const prop of props.values()) if(prop.body === body) return prop;
-    return null;
-  }
-  function closestPointOnBody(body,point){
-    if(!body?.bounds) return {x:body.position.x,y:body.position.y};
-    return {
-      x:clamp(point.x,body.bounds.min.x,body.bounds.max.x),
-      y:clamp(point.y,body.bounds.min.y,body.bounds.max.y)
-    };
-  }
-  function nearestBalloonTarget(prop,slot,hand){
-    const owner = puppets.get(slot);
-    const heldBody = owner ? handBody(owner,hand) : null;
-    let best = null;
-    for(const p of puppets.values()){
-      for(const part of ATTACHABLE_PARTS){
-        const body = p[part];
-        if(!body || body === heldBody) continue;
-        const hit = closestPointOnBody(body,prop.body.position);
-        const distance = Math.hypot(prop.body.position.x-hit.x,prop.body.position.y-hit.y);
-        if(distance <= 46 && (!best || distance < best.distance)){
-          best = {slot:p.slot,part,body,point:hit,distance};
-        }
-      }
-    }
-    return best;
-  }
   function tieBalloonToBody(prop,target){
     if(!prop || prop.type !== 'balloon' || !target?.body || prop.attachedTo) return false;
     cancelPropContest(prop);
