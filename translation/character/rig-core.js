@@ -1,18 +1,18 @@
 // Behaviour-preserving character rig constants/helpers translated from frozen V1.
-// Keep numeric values identical until the character parity suite explicitly allows change.
+// Keep numeric values and mutability identical until the character parity suite explicitly allows change.
 (() => {
-  const POSES = Object.freeze({
-    stand:  Object.freeze([.12,.05,-.12,-.05,.04,.02,-.04,-.02,0]),
-    point:  Object.freeze([1.48,1.48,-.18,-.08,.02,0,-.03,0,-.05]),
-    cheer:  Object.freeze([2.55,2.75,-2.55,-2.75,.08,-.04,-.08,.04,0]),
-    shrug:  Object.freeze([1.02,1.9,-1.02,-1.9,.03,0,-.03,0,0]),
-    crouch: Object.freeze([.25,.5,-.25,-.5,.38,-.55,-.38,.55,.13])
-  });
+  const POSES = {
+    stand:  [.12,.05,-.12,-.05,.04,.02,-.04,-.02,0],
+    point:  [1.48,1.48,-.18,-.08,.02,0,-.03,0,-.05],
+    cheer:  [2.55,2.75,-2.55,-2.75,.08,-.04,-.08,.04,0],
+    shrug:  [1.02,1.9,-1.02,-1.9,.03,0,-.03,0,0],
+    crouch: [.25,.5,-.25,-.5,.38,-.55,-.38,.55,.13]
+  };
 
-  const GRAB_PART_NAMES = Object.freeze([
+  const GRAB_PART_NAMES = [
     'torso','pelvis','leftShoulder','rightShoulder','head',
     'leftHand','rightHand','leftFoot','rightFoot'
-  ]);
+  ];
   const GRAB_PARTS = new Set(GRAB_PART_NAMES);
 
   function makePins(){
@@ -43,8 +43,7 @@
     if(part === 'rightHand') clear = {x:t.x+54,y:t.y+4};
     if(part === 'leftFoot') clear = {x:t.x-23,y:t.y+132};
     if(part === 'rightFoot') clear = {x:t.x+23,y:t.y+132};
-    const clamp01 = value => Math.max(0,Math.min(1,value));
-    const fade = 1-clamp01(age/190);
+    const fade = 1-Math.max(0,Math.min(1,age/190));
     const amount = .3*fade;
     return {x:desired.x+(clear.x-desired.x)*amount,y:desired.y+(clear.y-desired.y)*amount};
   }
@@ -58,7 +57,7 @@
     return .3;
   }
 
-  window.PuppetalkCharacterRigCore = Object.freeze({
+  window.PuppetalkCharacterRigCore = {
     POSES,
     GRAB_PART_NAMES,
     GRAB_PARTS,
@@ -66,5 +65,5 @@
     resetPins,
     antiTangleTarget,
     rootFollow
-  });
+  };
 })();
