@@ -35,7 +35,7 @@ assert.equal(assist.PUPPETALK_ACTION_DEPTH_X,.28);
 assert.equal(assist.puppetalkActionSeatAngle(0),0);
 assert.equal(assist.puppetalkActionSeatAngle(1),Math.PI);
 assert.equal(assist.puppetalkActionSeatAngle(2),Math.PI/3);
-assert.equal(assist.puppetalkActionHomeX(2),.43);
+assert.ok(Math.abs(assist.puppetalkActionHomeX(2)-.43)<1e-12);
 depths.set(2,.25);
 assert.equal(assist.puppetalkActionDepth(2),.25);
 assert.equal(assist.puppetalkActionDepth('2'),0);
