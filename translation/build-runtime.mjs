@@ -43,7 +43,12 @@ replaceOnce('character helper factory point',`  const {Engine,Bodies,Body,Compos
   const {servo,springPull} = driveForces;
   const recoveryGeometry = window.PuppetalkRecoveryGeometry?.create?.(Vector);
   if(!recoveryGeometry) throw new Error('Puppetalk recovery geometry failed to load.');
-  const {jointWorldPoint,jointGap,jointCutPoint,seamCutPoint} = recoveryGeometry;`);
+  const {jointWorldPoint,jointGap,jointCutPoint,seamCutPoint} = recoveryGeometry;
+  const propAttachmentCore = window.PuppetalkPropAttachmentCore?.create?.({
+    Vector,Body,performance,cancelPropContest,releasePropHolder
+  });
+  if(!propAttachmentCore) throw new Error('Puppetalk prop attachment core failed to load.');
+  const {localOffset,worldOffset,attachPropToBody,detachPropAttachment,syncAttachedProp} = propAttachmentCore;`);
 
 replaceOnce('character factory setup point',`  const puppets = new Map();
   const conns = new Map();`, `  const puppets = new Map();
@@ -270,6 +275,12 @@ replaceOnce('host session setup point',
 );
 
 removeBetweenOnce(
+  'embedded prop attachment core',
+  `  function localOffset(body,world){`,
+  `  function installDartImpacts(){`
+);
+
+removeBetweenOnce(
   'embedded dart impacts',
   `  function installDartImpacts(){`,
   `  function gripRecord(slot,hand){`
@@ -301,4 +312,4 @@ replaceOnce('prop collision setup point',
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: character systems, stage loop, host session, dart impacts and prop contact physics extracted with frozen V1 behaviour intact.`);
+console.log(`Built ${output}: character systems, stage loop, host session and prop attachment/contact systems extracted with frozen V1 behaviour intact.`);
