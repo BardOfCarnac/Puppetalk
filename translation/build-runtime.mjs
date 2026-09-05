@@ -75,6 +75,13 @@ replaceOnce('character factory setup point',`  const puppets = new Map();
   if(!puppetDriver) throw new Error('Puppetalk puppet driver failed to load.');
   const {drivePuppet} = puppetDriver;`);
 
+replaceOnce('puppet lifecycle setup point',`  const specialItems = new Map();`, `  const specialItems = new Map();
+  const puppetLifecycle = window.PuppetalkPuppetLifecycle?.create?.({
+    puppets,props,releaseAllPropGrips,detachPropAttachment,Composite,engine
+  });
+  if(!puppetLifecycle) throw new Error('Puppetalk puppet lifecycle failed to load.');
+  const {removePuppet} = puppetLifecycle;`);
+
 replaceOnce('embedded joint constructor',`  const joint = (a,pa,b,pb,stiff=.97) => Constraint.create({
     bodyA:a,pointA:pa,bodyB:b,pointB:pb,length:1,stiffness:stiff,damping:.13
   });
@@ -112,6 +119,17 @@ removeBetweenOnce(
   `  function severJoint(p,name){`,
   `  function removePuppet(slot){`
 );
+
+replaceOnce('embedded puppet lifecycle',`  function removePuppet(slot){
+    const p = puppets.get(slot);
+    if(!p) return;
+    releaseAllPropGrips(slot);
+    props.forEach(prop=>{ if(prop.attachedTo?.slot === slot) detachPropAttachment(prop); });
+    [...p.bodies,...p.constraints].forEach(item=>Composite.remove(engine.world,item));
+    puppets.delete(slot);
+  }
+
+`,``);
 
 replaceOnce('embedded servo',`  function servo(body,target,strength=.006){
     body.torque += clamp(angleDelta(target,body.angle)*strength-body.angularVelocity*strength*.72,-.028,.028);
@@ -212,4 +230,4 @@ removeBetweenOnce(
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: character rig, recovery, scene, input and puppet driver extracted with frozen V1 behaviour intact.`);
+console.log(`Built ${output}: character rig, recovery, scene, input, puppet driver and lifecycle extracted with frozen V1 behaviour intact.`);
