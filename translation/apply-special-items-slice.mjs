@@ -23,15 +23,19 @@ const inputBinding=`  const {propHandIsClose,tapProp,releaseAllPropGrips,throwHe
 const specialSetup=`  const specialItemSystem = window.PuppetalkSpecialItems?.create?.({\n    specialItems,props,puppets,conns,send,makeProp,grabWorldPoint,clamp,\n    getDimensions:()=>({W,H})\n  });\n  if(!specialItemSystem) throw new Error('Puppetalk special items failed to load.');\n  const {specialItemLabel,specialItemType,specialItemStillOut,bringOutSpecialItem,handleSpecialItemInput} = specialItemSystem;\n`;
 if(!build.includes('window.PuppetalkSpecialItems?.create?.')) build=insertAfter(build,'special item setup',inputBinding,specialSetup);
 
-const constantsExtraction=`replaceOnce('embedded special item constants',\`  const SPECIAL_ITEM_TYPES = ['frisbee','pump','ball','dart'];\n  const SPECIAL_ITEM_BY_SLOT = ['frisbee','pump','ball','dart','frisbee','pump'];\n\`,\`\`);\n\n`;
-if(!build.includes("'embedded special item constants'")){
-  build=insertBefore(build,'special item constants extraction',"removeBetweenOnce(\n  'embedded prop input',",constantsExtraction);
+const oldPropInputExtraction=`removeBetweenOnce(\n  'embedded prop input',\n  \`  function propHandIsClose(slot,hand,prop){\`,\n  \`  function specialItemLabel(type){\`\n);\n\n`;
+if(build.includes(oldPropInputExtraction)){
+  build=replaceOnce(build,'old prop input extraction',oldPropInputExtraction,'');
 }
 
-const propInputExtraction=`removeBetweenOnce(\n  'embedded prop input',\n  \`  function propHandIsClose(slot,hand,prop){\`,\n  \`  function specialItemLabel(type){\`\n);\n\n`;
-const specialExtraction=`removeBetweenOnce(\n  'embedded special items',\n  \`  function specialItemLabel(type){\`,\n  \`  function tagHiddenSegment(body,slot,part,segment){\`\n);\n\n`;
-if(!build.includes("'embedded special items'")){
-  build=insertAfter(build,'special item extraction operation',propInputExtraction,specialExtraction);
+const constantsExtraction=`replaceOnce('embedded special item constants',\`  const SPECIAL_ITEM_TYPES = ['frisbee','pump','ball','dart'];\n  const SPECIAL_ITEM_BY_SLOT = ['frisbee','pump','ball','dart','frisbee','pump'];\n\`,\`\`);\n\n`;
+const combinedExtraction=`removeBetweenOnce(\n  'embedded prop input and special items',\n  \`  function propHandIsClose(slot,hand,prop){\`,\n  \`  function tagHiddenSegment(body,slot,part,segment){\`\n);\n\n`;
+const rigMarker="removeBetweenOnce(\n  'embedded rig construction',";
+if(!build.includes("'embedded special item constants'")){
+  build=insertBefore(build,'special item constants extraction',rigMarker,constantsExtraction);
+}
+if(!build.includes("'embedded prop input and special items'")){
+  build=insertBefore(build,'combined prop/special extraction',rigMarker,combinedExtraction);
 }
 write('translation/build-runtime.mjs',build);
 
