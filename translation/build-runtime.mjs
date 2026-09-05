@@ -76,6 +76,11 @@ replaceOnce('character factory setup point',`  const puppets = new Map();
   const {drivePuppet} = puppetDriver;`);
 
 replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();`, `  const specialItems = new Map();
+  const propFactory = window.PuppetalkPropFactory?.create?.({
+    Bodies,Composite,engine,props,getDimensions:()=>({W,H})
+  });
+  if(!propFactory) throw new Error('Puppetalk prop factory failed to load.');
+  const {makeProp,ensureTestProps,ensureLegacyTestProps} = propFactory;
   const propGeometry = window.PuppetalkPropGeometry?.create?.({puppets,props,grabWorldPoint,clamp,Vector});
   if(!propGeometry) throw new Error('Puppetalk prop geometry failed to load.');
   const {handBody,handPoint,propGripLocalPoint,validPropEffector,gripKey,ATTACHABLE_PARTS,puppetPartForBody,propForBody,closestPointOnBody,nearestBalloonTarget,localOffset,worldOffset} = propGeometry;
@@ -130,6 +135,15 @@ replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();
   });
   if(!stageLoop) throw new Error('Puppetalk stage loop failed to load.');
   const {drawStage,broadcastScene,tick} = stageLoop;`);
+
+replaceOnce('embedded prop id counter',`  let nextPropId = 1;
+`,``);
+
+removeBetweenOnce(
+  'embedded prop factory',
+  `  function makeProp(type,x,y){`,
+  `  function updatePropContest(prop,now){`
+);
 
 replaceOnce('embedded joint constructor',`  const joint = (a,pa,b,pb,stiff=.97) => Constraint.create({
     bodyA:a,pointA:pa,bodyB:b,pointB:pb,length:1,stiffness:stiff,damping:.13
