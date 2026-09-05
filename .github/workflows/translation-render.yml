@@ -17,6 +17,7 @@ jobs:
       - run: node translation/render/scene-renderer-smoke.mjs
       - run: node --check translation/render/seat-projection.js
       - run: node translation/render/seat-projection-smoke.mjs
+      - run: node translation/render/legacy-line-face-dead-code-smoke.mjs
       - run: node --check translation/build-runtime.mjs
       - run: node --check translation/runtime-parity-smoke.mjs
       - run: node translation/runtime-parity-smoke.mjs
