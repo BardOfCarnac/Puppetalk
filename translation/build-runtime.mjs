@@ -270,14 +270,25 @@ replaceOnce('host session setup point',
 );
 
 removeBetweenOnce(
+  'embedded dart impacts',
+  `  function installDartImpacts(){`,
+  `  function gripRecord(slot,hand){`
+);
+
+removeBetweenOnce(
   'embedded prop contact physics',
   `  function installPropContactPhysics(){`,
   `  resize();`
 );
 
-replaceOnce('prop contact physics setup point',
+replaceOnce('prop collision setup point',
   `  resize();`,
-  `  const propContactPhysics = window.PuppetalkPropContactPhysics?.create?.({
+  `  const dartImpacts = window.PuppetalkDartImpacts?.create?.({
+    Matter,engine,propForBody,puppetPartForBody,attachPropToBody
+  });
+  if(!dartImpacts) throw new Error('Puppetalk dart impacts failed to load.');
+  const {installDartImpacts} = dartImpacts;
+  const propContactPhysics = window.PuppetalkPropContactPhysics?.create?.({
     Matter,engine,propForBody,puppetPartForBody,puppets,handBody,
     closestPointOnBody,tieBalloonToBody,performance,Vector,Body,clamp
   });
@@ -290,4 +301,4 @@ replaceOnce('prop contact physics setup point',
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: character systems, stage loop, host session and prop contact physics extracted with frozen V1 behaviour intact.`);
+console.log(`Built ${output}: character systems, stage loop, host session, dart impacts and prop contact physics extracted with frozen V1 behaviour intact.`);
