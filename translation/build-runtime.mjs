@@ -105,6 +105,12 @@ replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();
   });
   if(!propAttachmentCore) throw new Error('Puppetalk prop attachment core failed to load.');
   const {attachPropToBody,detachPropAttachment,syncAttachedProp} = propAttachmentCore;
+  const balloonLift = window.PuppetalkBalloonLift?.create?.({
+    props,puppets,cancelPropContest,releasePropHolder,localOffset,worldOffset,
+    Body,syncAttachedProp,clamp
+  });
+  if(!balloonLift) throw new Error('Puppetalk balloon lift failed to load.');
+  const {tieBalloonToBody,driveAttachedBalloon} = balloonLift;
   const pumpBalloonSystem = window.PuppetalkPumpBalloon?.create?.({
     props,makeProp,worldOffset,Body,syncAttachedProp,detachPropAttachment,
     now:()=>performance.now(),random:()=>Math.random()
@@ -358,6 +364,18 @@ removeBetweenOnce(
 );
 
 removeBetweenOnce(
+  'embedded prop geometry',
+  `  function handBody(p,hand){`,
+  `  function tieBalloonToBody(prop,target){`
+);
+
+removeBetweenOnce(
+  'embedded balloon lift',
+  `  function tieBalloonToBody(prop,target){`,
+  `  function balloonAttachmentState(prop){`
+);
+
+removeBetweenOnce(
   'embedded balloon attachment state',
   `  function balloonAttachmentState(prop){`,
   `  function localOffset(body,world){`
@@ -395,12 +413,6 @@ replaceOnce('embedded special item label',`  function specialItemLabel(type){
     return 'Item';
   }
 `,``);
-
-removeBetweenOnce(
-  'embedded prop geometry',
-  `  function handBody(p,hand){`,
-  `  function tieBalloonToBody(prop,target){`
-);
 
 removeBetweenOnce(
   'embedded prop contact physics',
