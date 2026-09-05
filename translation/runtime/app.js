@@ -258,6 +258,9 @@ function startStage(room){
   const grabGeometry = window.PuppetalkGrabGeometry?.create?.(Vector);
   if(!grabGeometry) throw new Error('Puppetalk grab geometry failed to load.');
   const {worldPoint,grabBody,grabWorldPoint} = grabGeometry;
+  const driveForces = window.PuppetalkDriveForces?.create?.({Body,clamp,angleDelta});
+  if(!driveForces) throw new Error('Puppetalk drive forces failed to load.');
+  const {servo,springPull} = driveForces;
   const engine = Engine.create({enableSleeping:false});
   engine.gravity.y = 1.05;
   engine.gravity.scale = .001;
@@ -1346,18 +1349,6 @@ function startStage(room){
     props.forEach(prop=>{ if(prop.attachedTo?.slot === slot) detachPropAttachment(prop); });
     [...p.bodies,...p.constraints].forEach(item=>Composite.remove(engine.world,item));
     puppets.delete(slot);
-  }
-
-  function servo(body,target,strength=.006){
-    body.torque += clamp(angleDelta(target,body.angle)*strength-body.angularVelocity*strength*.72,-.028,.028);
-  }
-
-  function springPull(body,point,target,stiffness,damping=.003){
-    const mass = Math.max(.2,body.mass || 1);
-    Body.applyForce(body,point,{
-      x:((target.x-point.x)*stiffness-body.velocity.x*damping)*mass,
-      y:((target.y-point.y)*stiffness-body.velocity.y*damping)*mass
-    });
   }
 
   function drivePuppet(p){
