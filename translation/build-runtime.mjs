@@ -66,7 +66,14 @@ replaceOnce('character factory setup point',`  const puppets = new Map();
   const {anatomy} = sceneState;
   const inputSystem = window.PuppetalkCharacterInputSystem?.create?.({makePuppet,GRAB_PARTS,POSES,clamp});
   if(!inputSystem) throw new Error('Puppetalk character input system failed to load.');
-  const {applyInput} = inputSystem;`);
+  const {applyInput} = inputSystem;
+  const puppetDriver = window.PuppetalkPuppetDriver?.create?.({
+    getDimensions:()=>({W,H}),now:()=>performance.now(),POSES,
+    ensureRig,resetPins,antiTangleTarget,rootFollow,
+    grabBody,grabWorldPoint,springPull,servo,clamp
+  });
+  if(!puppetDriver) throw new Error('Puppetalk puppet driver failed to load.');
+  const {drivePuppet} = puppetDriver;`);
 
 replaceOnce('embedded joint constructor',`  const joint = (a,pa,b,pb,stiff=.97) => Constraint.create({
     bodyA:a,pointA:pa,bodyB:b,pointB:pb,length:1,stiffness:stiff,damping:.13
@@ -184,7 +191,11 @@ replaceOnce('embedded rig helpers',`  function ensureRig(p){
 
 `,``);
 
-replaceOnce('pose pin reset',`      rig.pins = {head:null,leftHand:null,rightHand:null,leftFoot:null,rightFoot:null};`,`      resetPins(rig);`);
+removeBetweenOnce(
+  'embedded puppet driver',
+  `  function drivePuppet(p){`,
+  `  function norm(point){`
+);
 
 removeBetweenOnce(
   'embedded character scene serialization',
@@ -201,4 +212,4 @@ removeBetweenOnce(
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: rig construction, recovery, scene serialization, input normalization and character helper seams extracted with V1 behaviour intact.`);
+console.log(`Built ${output}: character rig, recovery, scene, input and puppet driver extracted with frozen V1 behaviour intact.`);
