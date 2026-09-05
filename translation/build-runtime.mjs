@@ -118,6 +118,13 @@ replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();
   });
   if(!propDriver) throw new Error('Puppetalk prop driver failed to load.');
   const {updatePropContest,driveProps} = propDriver;
+  const depthAssist = window.PuppetalkDepthAssist?.create?.({
+    props,puppets,clamp,Body,getDimensions:()=>({W,H}),
+    getDepthState:()=>window.PuppetalkDepthState,
+    getForegroundTuning:()=>window.PuppetalkForegroundTuning
+  });
+  if(!depthAssist) throw new Error('Puppetalk depth assist failed to load.');
+  const {puppetalkAimProjectPoint,puppetalkAimProjectPropPoint,driveDepthAssistedProps} = depthAssist;
   const laserFrisbee = window.PuppetalkLaserFrisbee?.create?.({
     props,puppets,clamp,puppetalkAimProjectPropPoint,puppetalkAimProjectPoint,
     jointCutPoint,seamCutPoint,severSeam,severJoint,Body
@@ -203,6 +210,12 @@ removeBetweenOnce(
   'embedded pump balloon lifecycle',
   `  function pumpNozzleOffset(scale){`,
   `  const PUPPETALK_ACTION_DEPTH_TOLERANCE = .38;`
+);
+
+removeBetweenOnce(
+  'embedded depth assist',
+  `  const PUPPETALK_ACTION_DEPTH_TOLERANCE = .38;`,
+  `  function driveProps(){`
 );
 
 replaceOnce('embedded special item constants',`  const SPECIAL_ITEM_TYPES = ['frisbee','pump','ball','dart'];
