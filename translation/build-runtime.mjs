@@ -77,7 +77,7 @@ replaceOnce('character factory setup point',`  const puppets = new Map();
 
 replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();`, `  const specialItems = new Map();
   const propGripCore = window.PuppetalkPropGripCore?.create?.({
-    propGrips,gripKey:(slot,hand)=>\`${slot}:\${hand}\`,
+    propGrips,gripKey:(slot,hand)=>String(slot)+':'+hand,
     Composite,engine,puppets,handBody,propGripLocalPoint,Constraint
   });
   if(!propGripCore) throw new Error('Puppetalk prop grip core failed to load.');
