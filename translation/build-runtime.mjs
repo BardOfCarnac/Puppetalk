@@ -25,10 +25,19 @@ if(!POSES || !GRAB_PARTS || !ensureRig || !resetPins || !antiTangleTarget || !ro
   throw new Error('Puppetalk character rig core failed to load.');
 }`);
 
-replaceOnce('grab geometry factory point',`  const {Engine,Bodies,Body,Composite,Constraint,Vector} = Matter;`, `  const {Engine,Bodies,Body,Composite,Constraint,Vector} = Matter;
+replaceOnce('character helper factory point',`  const {Engine,Bodies,Body,Composite,Constraint,Vector} = Matter;`, `  const {Engine,Bodies,Body,Composite,Constraint,Vector} = Matter;
   const grabGeometry = window.PuppetalkGrabGeometry?.create?.(Vector);
   if(!grabGeometry) throw new Error('Puppetalk grab geometry failed to load.');
-  const {worldPoint,grabBody,grabWorldPoint} = grabGeometry;`);
+  const {worldPoint,grabBody,grabWorldPoint} = grabGeometry;
+  const driveForces = window.PuppetalkDriveForces?.create?.({Body,clamp,angleDelta});
+  if(!driveForces) throw new Error('Puppetalk drive forces failed to load.');
+  const {servo,springPull} = driveForces;`);
+
+replaceOnce('embedded servo',`  function servo(body,target,strength=.006){
+    body.torque += clamp(angleDelta(target,body.angle)*strength-body.angularVelocity*strength*.72,-.028,.028);
+  }
+
+`,``);
 
 replaceOnce('embedded grab geometry',`  function worldPoint(body,local){
     const r = Vector.rotate(local,body.angle);
@@ -53,6 +62,16 @@ replaceOnce('embedded grab geometry',`  function worldPoint(body,local){
     if(part === 'leftFoot') return worldPoint(p.shL2 || p.shL,{x:0,y:13.5});
     if(part === 'rightFoot') return worldPoint(p.shR2 || p.shR,{x:0,y:13.5});
     return grabBody(p,part).position;
+  }
+
+`,``);
+
+replaceOnce('embedded spring pull',`  function springPull(body,point,target,stiffness,damping=.003){
+    const mass = Math.max(.2,body.mass || 1);
+    Body.applyForce(body,point,{
+      x:((target.x-point.x)*stiffness-body.velocity.x*damping)*mass,
+      y:((target.y-point.y)*stiffness-body.velocity.y*damping)*mass
+    });
   }
 
 `,``);
@@ -97,4 +116,4 @@ replaceOnce('pose pin reset',`      rig.pins = {head:null,leftHand:null,rightHan
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
-console.log(`Built ${output}: rig core and grab geometry extracted without changing force/servo code.`);
+console.log(`Built ${output}: rig core, grab geometry and drive forces extracted with V1 coefficients intact.`);

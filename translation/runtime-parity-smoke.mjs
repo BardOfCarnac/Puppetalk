@@ -10,12 +10,15 @@ assert.equal(actual,expected,'Committed translated runtime drifted from determin
 
 assert.match(actual,/PuppetalkCharacterRigCore/,'Translated runtime is not connected to extracted rig core.');
 assert.match(actual,/PuppetalkGrabGeometry/,'Translated runtime is not connected to extracted grab geometry.');
+assert.match(actual,/PuppetalkDriveForces/,'Translated runtime is not connected to extracted drive forces.');
 assert.doesNotMatch(actual,/function ensureRig\(p\)/,'Embedded ensureRig survived character extraction.');
 assert.doesNotMatch(actual,/function antiTangleTarget\(p,part,desired,age\)/,'Embedded antiTangleTarget survived character extraction.');
 assert.doesNotMatch(actual,/function rootFollow\(part\)/,'Embedded rootFollow survived character extraction.');
 assert.doesNotMatch(actual,/function worldPoint\(body,local\)/,'Embedded worldPoint survived grab-geometry extraction.');
 assert.doesNotMatch(actual,/function grabBody\(p,part\)/,'Embedded grabBody survived grab-geometry extraction.');
 assert.doesNotMatch(actual,/function grabWorldPoint\(p,part\)/,'Embedded grabWorldPoint survived grab-geometry extraction.');
+assert.doesNotMatch(actual,/function servo\(body,target,strength=/,'Embedded servo survived drive-force extraction.');
+assert.doesNotMatch(actual,/function springPull\(body,point,target,stiffness/,'Embedded springPull survived drive-force extraction.');
 assert.match(actual,/resetPins\(rig\);/,'Translated pose-change path is not using extracted pin reset.');
 
 for(const invariant of [
@@ -25,7 +28,7 @@ for(const invariant of [
   "servo(p.head,base*.2,.011*muscle);",
   'const strength = i < 4 ? (i%2 ? .0062 : .0072) : (i%2 ? .014 : .0155);'
 ]){
-  assert.ok(actual.includes(invariant),`Character force/servo invariant changed during extraction: ${invariant}`);
+  assert.ok(actual.includes(invariant),`Character driver call-site invariant changed during extraction: ${invariant}`);
 }
 
-console.log('Translated character runtime matches frozen V1 plus rig-core and grab-geometry extraction.');
+console.log('Translated character runtime matches frozen V1 plus rig, grab and force helper extraction.');
