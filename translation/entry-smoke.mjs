@@ -20,6 +20,7 @@ expectedRuntime.push('./translation/character/recovery-system.js?v=1');
 expectedRuntime.push('./translation/character/scene-state.js?v=1');
 expectedRuntime.push('./translation/character/input-system.js?v=1');
 expectedRuntime.push('./translation/character/puppet-driver.js?v=1');
+expectedRuntime.push('./translation/character/puppet-lifecycle.js?v=1');
 expectedRuntime.push('./translation/bootstrap.js?v=2');
 
 assert.match(html,/<title>Puppetalk<\/title>/,'Translation entry changed the product name.');
@@ -42,6 +43,7 @@ assert.ok(actualScripts.includes('./translation/character/recovery-system.js?v=1
 assert.ok(actualScripts.includes('./translation/character/scene-state.js?v=1'),'Extracted character scene state is missing.');
 assert.ok(actualScripts.includes('./translation/character/input-system.js?v=1'),'Extracted character input system is missing.');
 assert.ok(actualScripts.includes('./translation/character/puppet-driver.js?v=1'),'Extracted puppet driver is missing.');
+assert.ok(actualScripts.includes('./translation/character/puppet-lifecycle.js?v=1'),'Extracted puppet lifecycle is missing.');
 assert.ok(actualScripts.includes('./translation/bootstrap.js?v=2'),'Translated bootstrap is missing.');
 assert.ok(fs.existsSync('translation/generated/app-preboot.js'),'Frozen preboot source is missing.');
 assert.ok(fs.existsSync('translation/generated/app-final.js'),'Frozen final source is missing.');
@@ -51,4 +53,4 @@ const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
 assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
 assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
 
-console.log('Translation entry boots extracted rig, recovery, scene-state, input and puppet-driver modules while retaining frozen V1 as control.');
+console.log('Translation entry boots extracted rig, recovery, scene-state, input, puppet-driver and lifecycle modules while retaining frozen V1 as control.');
