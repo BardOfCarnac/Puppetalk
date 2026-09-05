@@ -1,5 +1,5 @@
 // Puppetalk translation bootstrap.
-// This preserves boot.js routing/session UI, but loads the frozen final program
+// This preserves boot.js routing/session UI, but loads the translated runtime
 // directly instead of rewriting source strings in the browser.
 const app = document.querySelector('#app');
 const params = new URLSearchParams(location.search);
@@ -125,7 +125,7 @@ function bootApp(){
   };
   window.addEventListener('error',onError,{once:true});
   const script=document.createElement('script');
-  script.src=new URL('./translation/generated/app-final.js',document.baseURI).href;
+  script.src=new URL('./translation/runtime/app.js',document.baseURI).href;
   script.onload=()=>{
     if(startupFailed)return;
     window.removeEventListener('error',onError);
