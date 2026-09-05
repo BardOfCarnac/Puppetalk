@@ -23,6 +23,7 @@ expectedRuntime.push('./translation/character/puppet-driver.js?v=1');
 expectedRuntime.push('./translation/character/puppet-lifecycle.js?v=1');
 expectedRuntime.push('./translation/stage/stage-loop.js?v=1');
 expectedRuntime.push('./translation/network/host-session.js?v=1');
+expectedRuntime.push('./translation/props/attachment-core.js?v=1');
 expectedRuntime.push('./translation/props/dart-impacts.js?v=1');
 expectedRuntime.push('./translation/props/contact-physics.js?v=1');
 expectedRuntime.push('./translation/bootstrap.js?v=2');
@@ -50,6 +51,7 @@ assert.ok(actualScripts.includes('./translation/character/puppet-driver.js?v=1')
 assert.ok(actualScripts.includes('./translation/character/puppet-lifecycle.js?v=1'),'Extracted puppet lifecycle is missing.');
 assert.ok(actualScripts.includes('./translation/stage/stage-loop.js?v=1'),'Extracted stage loop is missing.');
 assert.ok(actualScripts.includes('./translation/network/host-session.js?v=1'),'Extracted host session is missing.');
+assert.ok(actualScripts.includes('./translation/props/attachment-core.js?v=1'),'Extracted prop attachment core is missing.');
 assert.ok(actualScripts.includes('./translation/props/dart-impacts.js?v=1'),'Extracted dart impacts are missing.');
 assert.ok(actualScripts.includes('./translation/props/contact-physics.js?v=1'),'Extracted prop contact physics is missing.');
 assert.ok(actualScripts.includes('./translation/bootstrap.js?v=2'),'Translated bootstrap is missing.');
@@ -61,4 +63,4 @@ const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
 assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
 assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
 
-console.log('Translation entry boots extracted character, stage, host-session, dart-impact and prop-contact modules while retaining frozen V1 as control.');
+console.log('Translation entry boots extracted character, stage, host-session and prop modules while retaining frozen V1 as control.');
