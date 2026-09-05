@@ -23,9 +23,9 @@ const gripBinding=`  const {gripRecord,freePropHand,clearPropGrip,makePropGrip,c
 const popSetup=`  const balloonPops = window.PuppetalkBalloonPops?.create?.({\n    props,cancelPropContest,releasePropHolder,Composite,engine,Vector,clamp,Body\n  });\n  if(!balloonPops) throw new Error('Puppetalk balloon pops failed to load.');\n  const {distancePointToSegment,dartTouchesBalloon,popBalloon,driveDartBalloonPops} = balloonPops;\n`;
 if(!build.includes('window.PuppetalkBalloonPops?.create?.')) build=insertAfter(build,'balloon pop setup',gripBinding,popSetup);
 
-const factoryExtraction=`removeBetweenOnce(\n  'embedded prop factory',`;
+const jointExtraction=`replaceOnce('embedded joint constructor',`;
 const popExtraction=`removeBetweenOnce(\n  'embedded balloon pops',\n  \`  function distancePointToSegment(point,a,b){\`,\n  \`  function pointSegmentDistance(point,a,b){\`\n);\n\n`;
-if(!build.includes("'embedded balloon pops'")) build=insertAfter(build,'balloon pop extraction',factoryExtraction,popExtraction);
+if(!build.includes("'embedded balloon pops'")) build=insertBefore(build,'balloon pop extraction',jointExtraction,popExtraction);
 write('translation/build-runtime.mjs',build);
 
 let parity=read('translation/runtime-parity-smoke.mjs');
