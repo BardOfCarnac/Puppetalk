@@ -10,6 +10,7 @@ assert.equal(actual,expected,'Committed translated runtime drifted from determin
 
 assert.match(actual,/PuppetalkLookModel/,'Translated runtime is not connected to extracted character look model.');
 assert.match(actual,/PuppetalkSceneRenderer/,'Translated runtime is not connected to extracted shared scene renderer.');
+assert.match(actual,/PuppetalkSeatProjection/,'Translated runtime is not connected to extracted seat projection.');
 assert.match(actual,/PuppetalkCharacterRigCore/,'Translated runtime is not connected to extracted rig core.');
 assert.match(actual,/PuppetalkGrabGeometry/,'Translated runtime is not connected to extracted grab geometry.');
 assert.match(actual,/PuppetalkDriveForces/,'Translated runtime is not connected to extracted drive forces.');
@@ -181,11 +182,19 @@ assert.doesNotMatch(actual,/function puppetalkLiveHeadPath\(ctx,style,r\)/,'Embe
 assert.doesNotMatch(actual,/function drawAnatomy\(ctx,p,w,h,highlight=false,alpha=1\)/,'Embedded drawAnatomy survived scene-renderer extraction.');
 assert.doesNotMatch(actual,/function drawProp\(ctx,p,w,h\)/,'Embedded drawProp survived scene-renderer extraction.');
 assert.doesNotMatch(actual,/function roundRect\(ctx,x,y,w,h,r\)/,'Embedded roundRect survived scene-renderer extraction.');
+assert.doesNotMatch(actual,/const PUPPETALK_SEAT_ORDER = \[0,3,1,4,2,5\];/,'Embedded seat ordering survived seat-projection extraction.');
+assert.doesNotMatch(actual,/const puppetalkPropOwners = new Map\(\);/,'Embedded sticky prop-owner map survived seat-projection extraction.');
+assert.doesNotMatch(actual,/function puppetalkSeatAngle\(slot\)/,'Embedded seat angle helper survived seat-projection extraction.');
+assert.doesNotMatch(actual,/function puppetalkProjectPuppet\(p,viewerSlot\)/,'Embedded puppet seat projection survived extraction.');
+assert.doesNotMatch(actual,/function puppetalkProjectProp\(prop,metaBySlot,viewerSlot\)/,'Embedded prop seat projection survived extraction.');
+assert.doesNotMatch(actual,/function puppetalkSeatProjection\(puppets,props,viewerSlot\)/,'Embedded seat projection entry point survived extraction.');
 assert.match(actual,/const LINE_FACE_EYES = \{/,'Upper frozen line-face specimen moved during live-renderer extraction.');
 
 assert.match(actual,/const \{LOOK_PALETTE,LOOK_PARTS,defaultLook,cleanLook\} = window\.PuppetalkLookModel \|\| \{\};/,'Runtime is not bound to the extracted look model.');
 assert.match(actual,/const sceneRenderer = window\.PuppetalkSceneRenderer\?\.create\?\.\(\{/,'Runtime is not bound to extracted shared scene renderer.');
 assert.match(actual,/const \{drawBackdrop,drawAnatomy,drawProp,roundRect\} = sceneRenderer;/,'Runtime callers are not bound to extracted shared scene renderer.');
+assert.match(actual,/const seatProjection = window\.PuppetalkSeatProjection\?\.create\?\.\(\{/,'Runtime is not bound to extracted seat projection.');
+assert.match(actual,/const \{puppetalkSeatProjection\} = seatProjection;/,'Runtime callers are not bound to extracted seat projection.');
 assert.match(actual,/const \{makePuppet\} = rigFactory;/,'Runtime callers are not bound to the extracted makePuppet.');
 assert.match(actual,/const \{severJoint,repairSeveredJoints,handleJointRecovery,severSeam,repairBrokenSeams\} = recoverySystem;/,'Runtime callers are not bound to the extracted recovery system.');
 assert.match(actual,/const \{anatomy\} = sceneState;/,'Runtime callers are not bound to the extracted anatomy serializer.');

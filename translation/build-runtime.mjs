@@ -802,6 +802,25 @@ removeBetweenOnce(
   `})();`
 );
 
+removeBetweenOnce(
+  'embedded seat projection',
+  `const PUPPETALK_SEAT_ORDER = [0,3,1,4,2,5];`,
+  `function startController(room){`
+);
+
+replaceOnce(
+  'seat projection setup point',
+  `function startController(room){`,
+  `const seatProjection = window.PuppetalkSeatProjection?.create?.({
+  getDepthState:()=>window.PuppetalkDepthState,
+  getForegroundTuning:()=>window.PuppetalkForegroundTuning
+});
+if(!seatProjection) throw new Error('Puppetalk seat projection failed to load.');
+const {puppetalkSeatProjection} = seatProjection;
+
+function startController(room){`
+);
+
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
