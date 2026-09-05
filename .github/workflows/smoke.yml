@@ -19,6 +19,7 @@ jobs:
       - run: node --check boot.js
       - run: node --check translation/manifest.mjs
       - run: node translation/manifest-smoke.mjs
+      - run: node translation/entry-smoke.mjs
       - run: node --check lobby-routing.js
       - run: node --check profile-name-patch.js
       - run: node --check look-sync-patch.js
