@@ -28,6 +28,8 @@ jobs:
       - run: node --check translation/generated/app-final.js
       - run: node --check translation/character/rig-core.js
       - run: node translation/character/rig-core-smoke.mjs
+      - run: node --check translation/character/grab-geometry.js
+      - run: node translation/character/grab-geometry-smoke.mjs
       - run: node --check translation/build-runtime.mjs
       - run: node --check translation/runtime-parity-smoke.mjs
       - run: node translation/runtime-parity-smoke.mjs
