@@ -934,24 +934,6 @@ function startStage(room){
     Body.setPosition(prop.body,worldOffset(a.body,a.offset));
     Body.setAngle(prop.body,(a.body.angle||0)+a.angle);
   }
-  function installDartImpacts(){
-    Matter.Events.on(engine,'collisionStart',event=>{
-      for(const pair of event.pairs || []){
-        let prop = propForBody(pair.bodyA);
-        let other = pair.bodyB;
-        if(!prop){ prop = propForBody(pair.bodyB); other = pair.bodyA; }
-        if(!prop || prop.type !== 'dart' || prop.heldBy || prop.contest || prop.attachedTo) continue;
-        const target = puppetPartForBody(other);
-        if(!target) continue;
-        const rvx = (prop.body.velocity?.x||0)-(other.velocity?.x||0);
-        const rvy = (prop.body.velocity?.y||0)-(other.velocity?.y||0);
-        const relativeSpeed = Math.hypot(rvx,rvy);
-        if(relativeSpeed < 2.15) continue;
-        attachPropToBody(prop,target);
-      }
-    });
-  }
-
   function gripRecord(slot,hand){ return propGrips.get(gripKey(slot,hand)); }
   function freePropHand(slot,hand,propId=null){
     const held = gripRecord(slot,hand);
@@ -1216,6 +1198,11 @@ function startStage(room){
   const {peer,updateStatus,freeSlot} = hostSession;
 
   addEventListener('resize',resize,{passive:true});
+  const dartImpacts = window.PuppetalkDartImpacts?.create?.({
+    Matter,engine,propForBody,puppetPartForBody,attachPropToBody
+  });
+  if(!dartImpacts) throw new Error('Puppetalk dart impacts failed to load.');
+  const {installDartImpacts} = dartImpacts;
   const propContactPhysics = window.PuppetalkPropContactPhysics?.create?.({
     Matter,engine,propForBody,puppetPartForBody,puppets,handBody,
     closestPointOnBody,tieBalloonToBody,performance,Vector,Body,clamp
