@@ -28,9 +28,10 @@ if(!build.includes("'embedded special item constants'")){
   build=insertBefore(build,'special item constants extraction',"removeBetweenOnce(\n  'embedded prop input',",constantsExtraction);
 }
 
+const propInputExtraction=`removeBetweenOnce(\n  'embedded prop input',\n  \`  function propHandIsClose(slot,hand,prop){\`,\n  \`  function specialItemLabel(type){\`\n);\n\n`;
 const specialExtraction=`removeBetweenOnce(\n  'embedded special items',\n  \`  function specialItemLabel(type){\`,\n  \`  function tagHiddenSegment(body,slot,part,segment){\`\n);\n\n`;
 if(!build.includes("'embedded special items'")){
-  build=insertBefore(build,'special item extraction operation',"removeBetweenOnce(\n  'embedded rig construction',",specialExtraction);
+  build=insertAfter(build,'special item extraction operation',propInputExtraction,specialExtraction);
 }
 write('translation/build-runtime.mjs',build);
 
