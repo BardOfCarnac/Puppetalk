@@ -821,6 +821,12 @@ const {puppetalkSeatProjection} = seatProjection;
 function startController(room){`
 );
 
+removeBetweenOnce(
+  'dead legacy line-face renderer',
+  `const PUPPET_HEAD_STYLES = ['smooth','spikes','tallSpikes','burst','scallop','tufts','swept','fringe'];`,
+  `function savedLook(){`
+);
+
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');

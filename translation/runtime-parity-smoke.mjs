@@ -188,7 +188,17 @@ assert.doesNotMatch(actual,/function puppetalkSeatAngle\(slot\)/,'Embedded seat 
 assert.doesNotMatch(actual,/function puppetalkProjectPuppet\(p,viewerSlot\)/,'Embedded puppet seat projection survived extraction.');
 assert.doesNotMatch(actual,/function puppetalkProjectProp\(prop,metaBySlot,viewerSlot\)/,'Embedded prop seat projection survived extraction.');
 assert.doesNotMatch(actual,/function puppetalkSeatProjection\(puppets,props,viewerSlot\)/,'Embedded seat projection entry point survived extraction.');
-assert.match(actual,/const LINE_FACE_EYES = \{/,'Upper frozen line-face specimen moved during live-renderer extraction.');
+assert.doesNotMatch(actual,/const PUPPET_HEAD_STYLES =/,'Dead legacy head-style table survived pruning.');
+assert.doesNotMatch(actual,/const LINE_FACE_EYES =/,'Dead legacy line-face eye table survived pruning.');
+assert.doesNotMatch(actual,/const LINE_FACE_NOSES =/,'Dead legacy line-face nose table survived pruning.');
+assert.doesNotMatch(actual,/function legacyHeadStyle\(head,hair\)/,'Dead legacy head-style mapper survived pruning.');
+assert.doesNotMatch(actual,/function puppetHeadPath\(ctx,style,r\)/,'Dead legacy head path survived pruning.');
+assert.doesNotMatch(actual,/function drawLineFaceEyes\(ctx,name,hr\)/,'Dead legacy eye renderer survived pruning.');
+assert.doesNotMatch(actual,/function drawLineFaceNose\(ctx,name,hr\)/,'Dead legacy nose renderer survived pruning.');
+assert.doesNotMatch(actual,/const LINE_FACE_MOUTHS =/,'Dead legacy mouth table survived pruning.');
+assert.doesNotMatch(actual,/function lineFaceMouthSamples\(name\)/,'Dead legacy mouth sampler survived pruning.');
+assert.doesNotMatch(actual,/function drawLineFaceMouth\(ctx,name,state,hr\)/,'Dead legacy mouth renderer survived pruning.');
+assert.match(actual,/function savedLook\(\)/,'Legacy renderer prune crossed into live saved-look code.');
 
 assert.match(actual,/const \{LOOK_PALETTE,LOOK_PARTS,defaultLook,cleanLook\} = window\.PuppetalkLookModel \|\| \{\};/,'Runtime is not bound to the extracted look model.');
 assert.match(actual,/const sceneRenderer = window\.PuppetalkSceneRenderer\?\.create\?\.\(\{/,'Runtime is not bound to extracted shared scene renderer.');
