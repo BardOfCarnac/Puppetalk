@@ -24,6 +24,7 @@ assert.match(actual,/PuppetalkPropGeometry/,'Translated runtime is not connected
 assert.match(actual,/PuppetalkPropState/,'Translated runtime is not connected to extracted prop state.');
 assert.match(actual,/PuppetalkPropGripCore/,'Translated runtime is not connected to extracted prop grip core.');
 assert.match(actual,/PuppetalkPropAttachmentCore/,'Translated runtime is not connected to extracted prop attachment core.');
+assert.match(actual,/PuppetalkPropInput/,'Translated runtime is not connected to extracted prop input.');
 assert.match(actual,/PuppetalkDartImpacts/,'Translated runtime is not connected to extracted dart impacts.');
 assert.match(actual,/PuppetalkPropContactPhysics/,'Translated runtime is not connected to extracted prop contact physics.');
 
@@ -83,6 +84,11 @@ assert.doesNotMatch(actual,/function worldOffset\(body,local\)/,'Embedded worldO
 assert.doesNotMatch(actual,/function attachPropToBody\(prop,target\)/,'Embedded attachPropToBody survived prop-attachment extraction.');
 assert.doesNotMatch(actual,/function detachPropAttachment\(prop\)/,'Embedded detachPropAttachment survived prop-attachment extraction.');
 assert.doesNotMatch(actual,/function syncAttachedProp\(prop\)/,'Embedded syncAttachedProp survived prop-attachment extraction.');
+assert.doesNotMatch(actual,/function propHandIsClose\(slot,hand,prop\)/,'Embedded propHandIsClose survived prop-input extraction.');
+assert.doesNotMatch(actual,/function tapProp\(slot,msg\)/,'Embedded tapProp survived prop-input extraction.');
+assert.doesNotMatch(actual,/function releaseAllPropGrips\(slot\)/,'Embedded releaseAllPropGrips survived prop-input extraction.');
+assert.doesNotMatch(actual,/function throwHeldProp\(slot,msg\)/,'Embedded throwHeldProp survived prop-input extraction.');
+assert.doesNotMatch(actual,/function handlePropInput\(slot,msg\)/,'Embedded handlePropInput survived prop-input extraction.');
 assert.doesNotMatch(actual,/function installDartImpacts\(\)/,'Embedded installDartImpacts survived dart-impact extraction.');
 assert.doesNotMatch(actual,/function installPropContactPhysics\(\)/,'Embedded installPropContactPhysics survived prop-contact extraction.');
 
@@ -98,6 +104,7 @@ assert.match(actual,/const \{handBody,handPoint,propGripLocalPoint,validPropEffe
 assert.match(actual,/const \{balloonAttachmentState,propState\} = propStateSystem;/,'Runtime is not bound to extracted prop state.');
 assert.match(actual,/const \{gripRecord,freePropHand,clearPropGrip,makePropGrip,cancelPropContest,promotePropContest,releasePropHolder,beginPropHold,beginPropContest\} = propGripCore;/,'Runtime is not bound to the extracted prop grip core.');
 assert.match(actual,/const \{attachPropToBody,detachPropAttachment,syncAttachedProp\} = propAttachmentCore;/,'Runtime is not bound to the extracted prop attachment core.');
+assert.match(actual,/const \{propHandIsClose,tapProp,releaseAllPropGrips,throwHeldProp,handlePropInput\} = propInputSystem;/,'Runtime is not bound to extracted prop input.');
 assert.match(actual,/const \{installDartImpacts\} = dartImpacts;/,'Runtime is not bound to the extracted dart impacts.');
 assert.match(actual,/const \{installPropContactPhysics\} = propContactPhysics;/,'Runtime is not bound to the extracted prop contact physics.');
 

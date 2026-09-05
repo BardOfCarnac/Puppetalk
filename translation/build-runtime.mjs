@@ -95,6 +95,16 @@ replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();
   });
   if(!propAttachmentCore) throw new Error('Puppetalk prop attachment core failed to load.');
   const {attachPropToBody,detachPropAttachment,syncAttachedProp} = propAttachmentCore;
+  const propInputSystem = window.PuppetalkPropInput?.create?.({
+    props,conns,puppets,send,validPropEffector,handPoint,freePropHand,detachPropAttachment,beginPropHold,
+    nearestBalloonTarget,tieBalloonToBody,cancelPropContest,promotePropContest,beginPropContest,
+    releasePropHolder,gripRecord,handBody,clamp,Body,inflatePumpBalloon,releasePumpBalloon,
+    getDimensions:()=>({W,H}),now:()=>performance.now(),
+    getDepthForSlot:slot=>window.PuppetalkDepthState?.getDepthForSlot?.(slot) || 0,
+    projectPropPoint:puppetalkAimProjectPropPoint
+  });
+  if(!propInputSystem) throw new Error('Puppetalk prop input failed to load.');
+  const {propHandIsClose,tapProp,releaseAllPropGrips,throwHeldProp,handlePropInput} = propInputSystem;
   const puppetLifecycle = window.PuppetalkPuppetLifecycle?.create?.({
     puppets,props,releaseAllPropGrips,detachPropAttachment,Composite,engine
   });
@@ -316,6 +326,12 @@ removeBetweenOnce(
   'embedded prop grip core',
   `  function gripRecord(slot,hand){`,
   `  function propHandIsClose(slot,hand,prop){`
+);
+
+removeBetweenOnce(
+  'embedded prop input',
+  `  function propHandIsClose(slot,hand,prop){`,
+  `  function specialItemLabel(type){`
 );
 
 removeBetweenOnce(
