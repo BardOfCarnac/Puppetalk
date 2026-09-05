@@ -356,6 +356,13 @@ function startStage(room){
   });
   if(!balloonLift) throw new Error('Puppetalk balloon lift failed to load.');
   const {tieBalloonToBody,driveAttachedBalloon} = balloonLift;
+  const propDriver = window.PuppetalkPropDriver?.create?.({
+    props,propGrips,gripKey,cancelPropContest,promotePropContest,clamp,
+    Body,engine,driveAttachedBalloon,syncAttachedProp,driveDartBalloonPops,
+    now:()=>performance.now()
+  });
+  if(!propDriver) throw new Error('Puppetalk prop driver failed to load.');
+  const {updatePropContest,driveProps} = propDriver;
   const pumpBalloonSystem = window.PuppetalkPumpBalloon?.create?.({
     props,makeProp,worldOffset,Body,syncAttachedProp,detachPropAttachment,
     now:()=>performance.now(),random:()=>Math.random()
@@ -415,21 +422,6 @@ function startStage(room){
       Bodies.rectangle(W+30,H/2,60,H*2,{isStatic:true})
     ];
     Composite.add(engine.world,bounds);
-  }
-
-  function updatePropContest(prop,now){
-    const tug = prop.contest;
-    if(!tug || !prop.heldBy) return;
-    const holder = propGrips.get(gripKey(prop.heldBy.slot,prop.heldBy.hand));
-    if(!holder){ cancelPropContest(prop); return; }
-    const dt = Math.max(0,Math.min(.08,(now-tug.lastUpdateAt)/1000));
-    tug.lastUpdateAt = now;
-    if(now-tug.lastTapAt > 260) tug.score = Math.max(0,tug.score-dt*.12);
-    tug.score = clamp(tug.score,0,1.05);
-    holder.constraint.stiffness = .86-tug.score*.58;
-    tug.constraint.stiffness = .14+tug.score*.72;
-    if(tug.score >= 1){ promotePropContest(prop); return; }
-    if(tug.score <= 0 && now-tug.lastTapAt > 700) cancelPropContest(prop);
   }
 
   function pointSegmentDistance(point,a,b){
@@ -632,20 +624,6 @@ function startStage(room){
         }
       }
     }
-  }
-
-  function driveProps(){
-    const now = performance.now();
-    props.forEach(prop=>{
-      if(prop.type === 'balloon'){
-        const b = prop.body;
-        Body.applyForce(b,b.position,{x:0,y:-b.mass*engine.gravity.y*engine.gravity.scale*1.42});
-      }
-      updatePropContest(prop,now);
-      driveAttachedBalloon(prop,now);
-      syncAttachedProp(prop);
-    });
-    driveDartBalloonPops();
   }
 
   const hostSession = window.PuppetalkHostSession?.create?.({

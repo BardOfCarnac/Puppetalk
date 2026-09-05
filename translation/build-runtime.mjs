@@ -111,6 +111,13 @@ replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();
   });
   if(!balloonLift) throw new Error('Puppetalk balloon lift failed to load.');
   const {tieBalloonToBody,driveAttachedBalloon} = balloonLift;
+  const propDriver = window.PuppetalkPropDriver?.create?.({
+    props,propGrips,gripKey,cancelPropContest,promotePropContest,clamp,
+    Body,engine,driveAttachedBalloon,syncAttachedProp,driveDartBalloonPops,
+    now:()=>performance.now()
+  });
+  if(!propDriver) throw new Error('Puppetalk prop driver failed to load.');
+  const {updatePropContest,driveProps} = propDriver;
   const pumpBalloonSystem = window.PuppetalkPumpBalloon?.create?.({
     props,makeProp,worldOffset,Body,syncAttachedProp,detachPropAttachment,
     now:()=>performance.now(),random:()=>Math.random()
@@ -160,6 +167,12 @@ removeBetweenOnce(
   'embedded prop factory',
   `  function makeProp(type,x,y){`,
   `  function updatePropContest(prop,now){`
+);
+
+removeBetweenOnce(
+  'embedded prop contest driver',
+  `  function updatePropContest(prop,now){`,
+  `  function distancePointToSegment(point,a,b){`
 );
 
 removeBetweenOnce(
@@ -355,6 +368,12 @@ replaceOnce('host session setup point',
   const {peer,updateStatus,freeSlot} = hostSession;
 
   addEventListener('resize',resize,{passive:true});`
+);
+
+removeBetweenOnce(
+  'embedded generic prop driver',
+  `  function driveProps(){`,
+  `  function propState(prop){`
 );
 
 removeBetweenOnce(
