@@ -23,6 +23,8 @@ jobs:
       - run: node translation/controller/item-interactions-smoke.mjs
       - run: node --check translation/controller/puppet-interaction.js
       - run: node translation/controller/puppet-interaction-smoke.mjs
+      - run: node --check translation/controller/command-panel.js
+      - run: node translation/controller/command-panel-smoke.mjs
       - run: node --check translation/build-runtime.mjs
       - run: node --check translation/runtime-parity-smoke.mjs
       - run: node translation/runtime-parity-smoke.mjs
