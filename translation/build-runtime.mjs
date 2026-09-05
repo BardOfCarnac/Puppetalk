@@ -95,6 +95,11 @@ replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();
   });
   if(!propGripCore) throw new Error('Puppetalk prop grip core failed to load.');
   const {gripRecord,freePropHand,clearPropGrip,makePropGrip,cancelPropContest,promotePropContest,releasePropHolder,beginPropHold,beginPropContest} = propGripCore;
+  const balloonPops = window.PuppetalkBalloonPops?.create?.({
+    props,cancelPropContest,releasePropHolder,Composite,engine,Vector,clamp,Body
+  });
+  if(!balloonPops) throw new Error('Puppetalk balloon pops failed to load.');
+  const {distancePointToSegment,dartTouchesBalloon,popBalloon,driveDartBalloonPops} = balloonPops;
   const propAttachmentCore = window.PuppetalkPropAttachmentCore?.create?.({
     Body,performance,cancelPropContest,releasePropHolder,localOffset,worldOffset
   });
@@ -149,6 +154,12 @@ removeBetweenOnce(
   'embedded prop factory',
   `  function makeProp(type,x,y){`,
   `  function updatePropContest(prop,now){`
+);
+
+removeBetweenOnce(
+  'embedded balloon pops',
+  `  function distancePointToSegment(point,a,b){`,
+  `  function pointSegmentDistance(point,a,b){`
 );
 
 replaceOnce('embedded joint constructor',`  const joint = (a,pa,b,pb,stiff=.97) => Constraint.create({
