@@ -17,6 +17,8 @@ jobs:
       - run: node translation/props/contact-physics-smoke.mjs
       - run: node --check translation/props/dart-impacts.js
       - run: node translation/props/dart-impacts-smoke.mjs
+      - run: node --check translation/props/attachment-core.js
+      - run: node translation/props/attachment-core-smoke.mjs
       - run: node --check translation/build-runtime.mjs
       - run: node --check translation/runtime-parity-smoke.mjs
       - run: node translation/runtime-parity-smoke.mjs
