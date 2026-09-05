@@ -286,6 +286,14 @@ function startStage(room){
   });
   if(!recoverySystem) throw new Error('Puppetalk recovery system failed to load.');
   const {severJoint,repairSeveredJoints,handleJointRecovery,severSeam,repairBrokenSeams} = recoverySystem;
+  const sceneState = window.PuppetalkCharacterSceneState?.create?.({
+    getDimensions:()=>({W,H}),worldPoint,cleanLook
+  });
+  if(!sceneState) throw new Error('Puppetalk character scene state failed to load.');
+  const {anatomy} = sceneState;
+  const inputSystem = window.PuppetalkCharacterInputSystem?.create?.({makePuppet,GRAB_PARTS,POSES,clamp});
+  if(!inputSystem) throw new Error('Puppetalk character input system failed to load.');
+  const {applyInput} = inputSystem;
 
   // PUPPETALK_TOY_SYSTEM_V1
   // PUPPETALK_TOY_TAP_V1
@@ -1304,37 +1312,6 @@ function startStage(room){
     });
   }
 
-  function norm(point){ return {x:point.x/W,y:point.y/H}; }
-  function segmentState(body){ return {x:body.position.x/W,y:body.position.y/H,a:body.angle||0}; }
-  function anatomy(p){
-    const t = p.torso;
-    return {
-      slot:p.slot,name:p.name,color:p.color,mouth:p.mouth,rag:p.rag,severed:[...(p.severedJoints||[])],brokenSeams:[...(p.brokenSeams||[])],
-      segTorsoTop:segmentState(p.torsoTop),segTorsoBottom:segmentState(p.torsoBottom),
-      segHeadLower:segmentState(p.head),segHeadTop:segmentState(p.headTop),look:cleanLook(p.look,p.slot),
-      torso:{x:t.position.x/W,y:t.position.y/H,a:t.angle},
-      head:{x:(p.head.position.x+p.headTop.position.x)/(2*W),y:(p.head.position.y+p.headTop.position.y)/(2*H),a:((p.head.angle||0)+(p.headTop.angle||0))*.5},
-      sl:norm(worldPoint(t,{x:-24,y:-27})),sr:norm(worldPoint(t,{x:24,y:-27})),
-      el:norm(worldPoint(p.uaL2,{x:0,y:13})),er:norm(worldPoint(p.uaR2,{x:0,y:13})),
-      wl:norm(worldPoint(p.faL2,{x:0,y:12})),wr:norm(worldPoint(p.faR2,{x:0,y:12})),
-      hl:norm(worldPoint(t,{x:-14,y:38})),hr:norm(worldPoint(t,{x:14,y:38})),
-      kl:norm(worldPoint(p.thL2,{x:0,y:14.5})),kr:norm(worldPoint(p.thR2,{x:0,y:14.5})),
-      al:norm(worldPoint(p.shL2,{x:0,y:13.5})),ar:norm(worldPoint(p.shR2,{x:0,y:13.5})),
-      uaLt:norm(worldPoint(p.uaL,{x:0,y:-13})),faLt:norm(worldPoint(p.faL,{x:0,y:-12})),
-      uaRt:norm(worldPoint(p.uaR,{x:0,y:-13})),faRt:norm(worldPoint(p.faR,{x:0,y:-12})),
-      thLt:norm(worldPoint(p.thL,{x:0,y:-14.5})),shLt:norm(worldPoint(p.shL,{x:0,y:-13.5})),
-      thRt:norm(worldPoint(p.thR,{x:0,y:-14.5})),shRt:norm(worldPoint(p.shR,{x:0,y:-13.5})),
-      uaLmA:norm(worldPoint(p.uaL,{x:0,y:13})),uaLmB:norm(worldPoint(p.uaL2,{x:0,y:-13})),
-      faLmA:norm(worldPoint(p.faL,{x:0,y:12})),faLmB:norm(worldPoint(p.faL2,{x:0,y:-12})),
-      uaRmA:norm(worldPoint(p.uaR,{x:0,y:13})),uaRmB:norm(worldPoint(p.uaR2,{x:0,y:-13})),
-      faRmA:norm(worldPoint(p.faR,{x:0,y:12})),faRmB:norm(worldPoint(p.faR2,{x:0,y:-12})),
-      thLmA:norm(worldPoint(p.thL,{x:0,y:14.5})),thLmB:norm(worldPoint(p.thL2,{x:0,y:-14.5})),
-      shLmA:norm(worldPoint(p.shL,{x:0,y:13.5})),shLmB:norm(worldPoint(p.shL2,{x:0,y:-13.5})),
-      thRmA:norm(worldPoint(p.thR,{x:0,y:14.5})),thRmB:norm(worldPoint(p.thR2,{x:0,y:-14.5})),
-      shRmA:norm(worldPoint(p.shR,{x:0,y:13.5})),shRmB:norm(worldPoint(p.shR2,{x:0,y:-13.5}))
-    };
-  }
-
   function drawStage(){
     drawBackdrop(ctx,W,H);
     props.forEach(prop=>drawProp(ctx,propState(prop),W,H));
@@ -1368,31 +1345,6 @@ function startStage(room){
   function freeSlot(){
     for(let i=0;i<6;i++) if(!conns.has(i)) return i;
     return -1;
-  }
-
-  function applyInput(slot,msg){
-    if(msg?.type !== 'input') return;
-    const p = makePuppet(slot);
-    const input = msg.input || {};
-    let grabs = Array.isArray(input.grabs) ? input.grabs : [];
-    if(!grabs.length && input.grabbing && GRAB_PARTS.has(input.grabPart)){
-      grabs = [{part:input.grabPart,x:input.x,y:input.y}];
-    }
-    p.grabs = grabs.slice(0,2).filter(g=>GRAB_PARTS.has(g?.part)).map(g=>({
-      part:g.part,
-      x:clamp(Number.isFinite(g.x)?g.x:.5,.02,.98),
-      y:clamp(Number.isFinite(g.y)?g.y:.55,.06,.96)
-    }));
-    p.grabbing = p.grabs.length > 0;
-    if(p.grabbing){
-      p.grabPart = p.grabs[0].part;
-      p.grabTarget.x = p.grabs[0].x;
-      p.grabTarget.y = p.grabs[0].y;
-    }
-    if(POSES[input.pose]) p.pose = input.pose;
-    if(Number.isInteger(input.poseVersion)) p.poseVersion = input.poseVersion;
-    if(typeof input.rag === 'boolean') p.rag = input.rag;
-    if(Number.isInteger(input.mouth)) p.mouth = clamp(input.mouth,0,2);
   }
 
   const peer = new Peer(peerId(room));
