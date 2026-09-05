@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Puppetalk</title>
+</head>
+<body>
+<script>
+// Keep the frozen lobby itself authoritative. Loading it into this document means
+// its location-relative table URLs remain inside /translation/ without changing
+// a line of V1 lobby behaviour.
+fetch('../load.html',{cache:'no-store'})
+  .then(response=>{
+    if(!response.ok) throw new Error(`Could not load frozen Puppetalk lobby (${response.status})`);
+    return response.text();
+  })
+  .then(html=>{
+    document.open();
+    document.write(html);
+    document.close();
+  })
+  .catch(error=>{
+    console.error(error);
+    document.body.textContent='Puppetalk lobby could not start.';
+  });
+</script>
+</body>
+</html>
