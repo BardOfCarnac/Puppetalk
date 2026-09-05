@@ -79,6 +79,11 @@ replaceOnce('stage and lifecycle setup point',`  const specialItems = new Map();
   const propGeometry = window.PuppetalkPropGeometry?.create?.({puppets,props,grabWorldPoint,clamp,Vector});
   if(!propGeometry) throw new Error('Puppetalk prop geometry failed to load.');
   const {handBody,handPoint,propGripLocalPoint,validPropEffector,gripKey,ATTACHABLE_PARTS,puppetPartForBody,propForBody,closestPointOnBody,nearestBalloonTarget,localOffset,worldOffset} = propGeometry;
+  const propStateSystem = window.PuppetalkPropState?.create?.({
+    getDimensions:()=>({W,H}),worldOffset,clamp
+  });
+  if(!propStateSystem) throw new Error('Puppetalk prop state failed to load.');
+  const {balloonAttachmentState,propState} = propStateSystem;
   const propGripCore = window.PuppetalkPropGripCore?.create?.({
     propGrips,gripKey,
     Composite,engine,puppets,handBody,propGripLocalPoint,Constraint
@@ -281,6 +286,18 @@ replaceOnce('host session setup point',
   const {peer,updateStatus,freeSlot} = hostSession;
 
   addEventListener('resize',resize,{passive:true});`
+);
+
+removeBetweenOnce(
+  'embedded prop state serializer',
+  `  function propState(prop){`,
+  `  function handBody(p,hand){`
+);
+
+removeBetweenOnce(
+  'embedded balloon attachment state',
+  `  function balloonAttachmentState(prop){`,
+  `  function localOffset(body,world){`
 );
 
 removeBetweenOnce(

@@ -325,6 +325,11 @@ function startStage(room){
   const propGeometry = window.PuppetalkPropGeometry?.create?.({puppets,props,grabWorldPoint,clamp,Vector});
   if(!propGeometry) throw new Error('Puppetalk prop geometry failed to load.');
   const {handBody,handPoint,propGripLocalPoint,validPropEffector,gripKey,ATTACHABLE_PARTS,puppetPartForBody,propForBody,closestPointOnBody,nearestBalloonTarget,localOffset,worldOffset} = propGeometry;
+  const propStateSystem = window.PuppetalkPropState?.create?.({
+    getDimensions:()=>({W,H}),worldOffset,clamp
+  });
+  if(!propStateSystem) throw new Error('Puppetalk prop state failed to load.');
+  const {balloonAttachmentState,propState} = propStateSystem;
   const propGripCore = window.PuppetalkPropGripCore?.create?.({
     propGrips,gripKey,
     Composite,engine,puppets,handBody,propGripLocalPoint,Constraint
@@ -745,27 +750,6 @@ function startStage(room){
     driveDartBalloonPops();
   }
 
-  function propState(prop){
-    const b = prop.body;
-    return {
-      id:prop.id,
-      type:prop.type,
-      depth:Number.isFinite(prop._depth) ? prop._depth : undefined,
-      throwerSlot:Number.isInteger(prop._throwerSlot) ? prop._throwerSlot : undefined,
-      armed:prop.type === 'frisbee' ? !!prop._cutArmed : undefined,
-      inflation:prop.type === 'balloon' ? (prop._inflation||0) : undefined,
-      scale:prop.type === 'balloon' ? (prop._renderScale||1) : undefined,
-      pumpBalloon:prop.type === 'pump' ? (prop._balloonId||null) : undefined,
-      x:b.position.x/W,
-      y:b.position.y/H,
-      a:b.angle || 0,
-      heldBy:prop.heldBy ? {slot:prop.heldBy.slot,hand:prop.heldBy.hand} : null,
-      contestedBy:prop.contest ? {slot:prop.contest.slot,hand:prop.contest.hand} : null,
-      tug:prop.contest ? clamp(prop.contest.score,0,1) : 0,
-      attachedTo:balloonAttachmentState(prop)
-    };
-  }
-
   function tieBalloonToBody(prop,target){
     if(!prop || prop.type !== 'balloon' || !target?.body || prop.attachedTo) return false;
     cancelPropContest(prop);
@@ -827,17 +811,6 @@ function startStage(room){
     if(torso && torso !== a.body){
       Body.applyForce(torso,torso.position,{x:0,y:-lift*(1-localShare)});
     }
-  }
-  function balloonAttachmentState(prop){
-    const a = prop?.attachedTo;
-    if(!a) return null;
-    const anchor = a.body ? worldOffset(a.body,a.offset) : null;
-    return {
-      slot:a.slot,
-      part:a.part,
-      mode:a.mode || 'embedded',
-      anchor:anchor ? {x:anchor.x/W,y:anchor.y/H} : null
-    };
   }
   function propHandIsClose(slot,hand,prop){
     const p = puppets.get(slot);
