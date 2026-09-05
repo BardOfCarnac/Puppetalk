@@ -5,6 +5,9 @@ on:
     branches: [main, puppetalk-translation]
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -20,6 +23,8 @@ jobs:
       - run: node --check translation/manifest.mjs
       - run: node translation/manifest-smoke.mjs
       - run: node translation/entry-smoke.mjs
+      - run: node translation/build-preboot.mjs
+      - run: node --check translation/generated/app-preboot.js
       - run: node --check lobby-routing.js
       - run: node --check profile-name-patch.js
       - run: node --check look-sync-patch.js
@@ -104,3 +109,15 @@ jobs:
             cat /tmp/hollerday-host.html || true
             exit 1
           fi
+      - name: Commit translated preboot source
+        if: github.ref == 'refs/heads/puppetalk-translation'
+        run: |
+          if [ -z "$(git status --porcelain -- translation/generated/app-preboot.js)" ]; then
+            echo 'Generated preboot source already current.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add translation/generated/app-preboot.js
+          git commit -m 'Build translated preboot source'
+          git push origin HEAD:${GITHUB_REF_NAME}
