@@ -41,6 +41,18 @@
     }
     throw new Error(`${el.name} did not reach ${selector}`);
   }
+  async function waitText(el,selector,predicate,timeout=7500){
+    const started=performance.now();
+    while(performance.now()-started<timeout){
+      try{
+        const text=canonical(el.contentDocument?.querySelector(selector)?.textContent||'');
+        if(predicate(text)) return text;
+      }catch{}
+      await sleep(60);
+    }
+    const finalText=canonical(el.contentDocument?.querySelector(selector)?.textContent||'');
+    throw new Error(`${el.name} did not reach expected ${selector} state; final text: ${finalText}`);
+  }
   function surface(doc,replacements=[]){
     const root=doc.querySelector('#app');
     if(!root) return {missingApp:true};
@@ -80,10 +92,29 @@
     const active=doc.querySelector('#character-colors [data-color].active')?.dataset.color||'';
     return {stored,labels,active};
   }
+  async function liveSession(base,room,label){
+    const stage=frame(`${base}?mode=stage&room=${room}&lobby=done&embedded=1`,`${label} live stage`);
+    await waitFor(stage,'#stage-canvas');
+    await waitText(stage,'#stage-status',text=>text.includes('stage live'));
+    const controller=frame(`${base}?mode=controller&room=${room}&lobby=done`,`${label} live controller`);
+    await waitFor(controller,'.personal-controller');
+    const controllerStatus=await waitText(controller,'#controller-status',text=>text.startsWith('you are '));
+    const stageStatus=await waitText(stage,'#stage-status',text=>text.includes('1 puppeteer connected'));
+    const welcomeHint=canonical(controller.contentDocument.querySelector('#stage-hint')?.textContent||'');
+    const special=controller.contentDocument.querySelector('#special-item');
+    if(!special || special.disabled) throw new Error(`${label} live special-item control was not available after welcome.`);
+    const beforeButton=canonical(special.textContent);
+    special.click();
+    const propHint=await waitText(controller,'#stage-hint',text=>text.startsWith('Brought out '));
+    const afterButton=canonical(special.textContent);
+    const afterDisabled=!!special.disabled;
+    return {controllerStatus,stageStatus,welcomeHint,beforeButton,propHint,afterButton,afterDisabled};
+  }
 
   try{
     localStorage.removeItem('puppetalk-look');
     localStorage.removeItem('puppetalk-name');
+    localStorage.removeItem('puppetalk-special-item');
 
     const lobbyOld=frame('/?parity=1','original lobby');
     const lobbyNew=frame('/translation/?parity=1','translated lobby');
@@ -126,6 +157,10 @@
     await sleep(30);
     const newCycle=creatorState(ctrlNew,[['CTRL2','ROOM']]);
     same('Character head-style cycle',oldCycle,newCycle);
+
+    const oldLive=await liveSession('/','LIVE1','original');
+    const newLive=await liveSession('/translation/','LIVE2','translated');
+    same('Live stage/controller handshake and special-item round trip',oldLive,newLive);
 
     if(failures.length){
       result.dataset.status='fail';
