@@ -11,7 +11,7 @@
     const activePointers=new Map();
 
     function syncGrabs(){
-      input.grabs=[...activePointers.values()].slice(0,2).map(g=>({part:g.part,x:g.x,y:g.y}));
+      input.grabs=[...activePointers.values()].slice(0,2).map(g=>({part:g.part,x:g.x,y:g.y,screenY:g.screenY}));
     }
 
     function myPuppet(){
@@ -111,7 +111,10 @@
       cancelCentre();
       event.preventDefault();
       const p=pointerToWorld(event);
-      activePointers.set(event.pointerId,{part:grab.part,label:grab.label,x:p.x,y:p.y});
+      activePointers.set(event.pointerId,{
+        part:grab.part,label:grab.label,x:p.x,y:p.y,
+        screenY:Math.max(0,Math.min(1,event.clientY/Math.max(root.innerHeight,1)))
+      });
       syncGrabs();
       canvas.setPointerCapture(event.pointerId);
       hint.classList.remove('quiet');
@@ -127,6 +130,7 @@
       const p=pointerToWorld(event);
       grab.x=p.x;
       grab.y=p.y;
+      grab.screenY=Math.max(0,Math.min(1,event.clientY/Math.max(root.innerHeight,1)));
       syncGrabs();
       transmit();
     }
