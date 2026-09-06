@@ -1,0 +1,23 @@
+(()=>{
+  if(window.__PUPPETALK_PARITY_ENGINE_PROBE_BOOT__)return;
+  window.__PUPPETALK_PARITY_ENGINE_PROBE_BOOT__=true;
+  let matterValue;
+  Object.defineProperty(window,'Matter',{
+    configurable:true,
+    enumerable:true,
+    get(){return matterValue;},
+    set(value){
+      matterValue=value;
+      const raw=value?.Engine?.update;
+      if(typeof raw==='function'&&!raw.__puppetalkParityProbe){
+        const wrapped=function(engine,...args){
+          window.__PUPPETALK_PARITY_ENGINE__=engine;
+          return raw.call(this,engine,...args);
+        };
+        wrapped.__puppetalkParityProbe=true;
+        value.Engine.update=wrapped;
+      }
+      Object.defineProperty(window,'Matter',{configurable:true,enumerable:true,writable:true,value});
+    }
+  });
+})();
