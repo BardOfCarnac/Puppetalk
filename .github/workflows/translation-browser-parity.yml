@@ -1,0 +1,35 @@
+name: Translation browser parity
+
+on:
+  push:
+    branches: [puppetalk-translation]
+  pull_request:
+
+jobs:
+  browser-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Original vs translated browser parity
+        run: |
+          python3 -m http.server 8082 >/tmp/puppetalk-parity-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid || true' EXIT
+          sleep 1
+          google-chrome --headless --no-sandbox --disable-gpu --window-size=1280,1000 --virtual-time-budget=9000 --dump-dom http://127.0.0.1:8082/translation/browser-parity.html >/tmp/puppetalk-parity.html 2>/tmp/puppetalk-parity-chrome.log || true
+          if ! grep -q 'id="parity-result" data-status="pass"' /tmp/puppetalk-parity.html; then
+            echo 'Original vs translated Puppetalk browser parity failed.'
+            cat /tmp/puppetalk-parity-chrome.log || true
+            echo '--- PARITY DOM ---'
+            cat /tmp/puppetalk-parity.html || true
+            exit 1
+          fi
+          python3 - <<'PY'
+          import re
+          text=open('/tmp/puppetalk-parity.html',encoding='utf-8').read()
+          m=re.search(r'<pre id="parity-result" data-status="pass">(.*?)</pre>',text,re.S)
+          print(re.sub(r'<[^>]+>','',m.group(1)).strip() if m else 'PASS')
+          PY
