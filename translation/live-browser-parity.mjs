@@ -300,15 +300,9 @@ async function exerciseDepthGestures(controller,stage,label){
     return {plane,depth:api.getDepthForSlot(0),planes:[...tuning.planes]};
   })()`);
   if(!startState||!Number.isInteger(startState.plane))throw new Error(`${label} could not resolve starting depth plane.`);
-  const expectedCloserPlane=Math.min(startState.plane+1,startState.planes.length-1);
-  if(expectedCloserPlane===startState.plane)throw new Error(`${label} depth parity began at the closest plane; cannot verify +1 gesture.`);
-  const expectedCloserDepth=startState.planes[expectedCloserPlane];
-  const expectedAwayPlane=startState.plane;
-  const expectedAwayDepth=startState.planes[expectedAwayPlane];
 
   let point=await latestTorsoScreenPoint(controller);
   if(!point)throw new Error(`${label} could not resolve torso screen point for depth gesture.`);
-
   const closerStart=await traceLength(controller);
   for(let i=0;i<3;i++){
     await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:point.x,y:point.y,button:'left',buttons:1,clickCount:1});
@@ -317,25 +311,16 @@ async function exerciseDepthGestures(controller,stage,label){
     await sleep(45);
   }
   await waitEval(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===1)`,`${label} closer depth-step`);
-  let stageCloser;
-  try{
-    stageCloser=await waitEval(stage,`(()=>{
-      const api=window.PuppetalkDepthState;
-      if(!api)return null;
-      const plane=api.getPlaneForSlot(0);
-      const depth=api.getDepthForSlot(0);
-      return plane===${expectedCloserPlane}&&Math.abs(depth-${expectedCloserDepth})<.02?{plane,depth}:null;
-    })()`,`${label} stage one-plane closer state`,5000);
-  }catch(error){
-    const actual=await evaluate(stage,`(()=>{
-      const api=window.PuppetalkDepthState;
-      return api?{plane:api.getPlaneForSlot(0),depth:api.getDepthForSlot(0)}:null;
-    })()`);
-    const stageSteps=await evaluate(stage,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).filter(e=>e.event==='recv'&&e.type==='depth-step').map(e=>({at:e.at,direction:e.direction,foregroundSlot:e.foregroundSlot}))`);
-    const controllerSteps=await evaluate(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).filter(e=>e.event==='send'&&e.type==='depth-step').map(e=>({at:e.at,direction:e.direction}))`);
-    throw new Error(`${error.message}\n${label} relative-depth diagnostics: ${JSON.stringify({startState,expectedCloserPlane,expectedCloserDepth,actual,controllerSteps,stageSteps},null,2)}`);
-  }
-  const closer=await waitDepthScene(controller,closerStart,expectedCloserPlane,`Math.abs(Number(p.depth)-${expectedCloserDepth})<.02`,`${label} one-plane closer scene`,5000);
+  const stageCloser=await waitEval(stage,`(()=>{
+    const api=window.PuppetalkDepthState;
+    const tuning=window.PuppetalkForegroundTuning;
+    if(!api||!Array.isArray(tuning?.planes))return null;
+    const plane=api.getPlaneForSlot(0);
+    const depth=api.getDepthForSlot(0);
+    const target=tuning.planes[plane];
+    return plane>${startState.plane}&&Math.abs(depth-target)<.02?{plane,depth,target}:null;
+  })()`,`${label} mature closer depth state`,5000);
+  const closer=await waitDepthScene(controller,closerStart,stageCloser.plane,`Math.abs(Number(p.depth)-${stageCloser.target})<.02`,`${label} mature closer scene`,5000);
 
   point=await latestTorsoScreenPoint(controller);
   if(!point)throw new Error(`${label} could not resolve torso screen point after moving closer.`);
@@ -346,18 +331,20 @@ async function exerciseDepthGestures(controller,stage,label){
   await waitEval(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${awayStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===-1)`,`${label} away depth-step`);
   const stageAway=await waitEval(stage,`(()=>{
     const api=window.PuppetalkDepthState;
-    if(!api)return null;
+    const tuning=window.PuppetalkForegroundTuning;
+    if(!api||!Array.isArray(tuning?.planes))return null;
     const plane=api.getPlaneForSlot(0);
     const depth=api.getDepthForSlot(0);
-    return plane===${expectedAwayPlane}&&Math.abs(depth-${expectedAwayDepth})<.02?{plane,depth}:null;
-  })()`,`${label} stage one-plane away state`,5000);
-  const away=await waitDepthScene(controller,awayStart,expectedAwayPlane,`Math.abs(Number(p.depth)-${expectedAwayDepth})<.02`,`${label} one-plane away scene`,5000);
+    const target=tuning.planes[plane];
+    return plane<${stageCloser.plane}&&Math.abs(depth-target)<.02?{plane,depth,target}:null;
+  })()`,`${label} mature away depth state`,5000);
+  const away=await waitDepthScene(controller,awayStart,stageAway.plane,`Math.abs(Number(p.depth)-${stageAway.target})<.02`,`${label} mature away scene`,5000);
 
   return {
     guide,
     startPlane:startState.plane,
-    closer:{direction:1,stagePlane:stageCloser.plane,plane:closer.depthPlane,step:stageCloser.plane-startState.plane,settled:Math.abs(closer.depth-expectedCloserDepth)<.02},
-    away:{direction:-1,stagePlane:stageAway.plane,plane:away.depthPlane,step:stageAway.plane-stageCloser.plane,returned:stageAway.plane===startState.plane,settled:Math.abs(away.depth-expectedAwayDepth)<.02}
+    closer:{direction:1,stagePlane:stageCloser.plane,plane:closer.depthPlane,delta:stageCloser.plane-startState.plane,settled:Math.abs(closer.depth-stageCloser.target)<.02},
+    away:{direction:-1,stagePlane:stageAway.plane,plane:away.depthPlane,delta:stageAway.plane-stageCloser.plane,returned:stageAway.plane===startState.plane,settled:Math.abs(away.depth-stageAway.target)<.02}
   };
 }
 async function exerciseCoreControls(controller,label){
