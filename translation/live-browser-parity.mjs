@@ -145,16 +145,6 @@ const fakePeerSource=String.raw`(()=>{
 
 const stageWalkingProbeSource="(()=>{\n  if(window.__PUPPETALK_PARITY_ENGINE_PROBE_BOOT__)return;\n  window.__PUPPETALK_PARITY_ENGINE_PROBE_BOOT__=true;\n  let matterValue;\n  Object.defineProperty(window,'Matter',{\n    configurable:true,\n    enumerable:true,\n    get(){return matterValue;},\n    set(value){\n      matterValue=value;\n      const raw=value?.Engine?.update;\n      if(typeof raw==='function'&&!raw.__puppetalkParityProbe){\n        const wrapped=function(engine,...args){\n          window.__PUPPETALK_PARITY_ENGINE__=engine;\n          return raw.call(this,engine,...args);\n        };\n        wrapped.__puppetalkParityProbe=true;\n        value.Engine.update=wrapped;\n      }\n      Object.defineProperty(window,'Matter',{configurable:true,enumerable:true,writable:true,value});\n    }\n  });\n})();";
 
-const stageTickProbeSource=String.raw`(()=>{
-  if(window.__PUPPETALK_PARITY_STAGE_TICK_PROBE__)return;
-  window.__PUPPETALK_PARITY_STAGE_TICK_PROBE__=true;
-  const raw=requestAnimationFrame.bind(window);
-  window.requestAnimationFrame=function(callback){
-    if(typeof callback==='function'&&callback.name==='tick') window.__PUPPETALK_PARITY_STAGE_TICK__=callback;
-    return raw(callback);
-  };
-})();`;
-
 class Cdp{
   constructor(url){
     this.ws=new WebSocket(url);
@@ -192,10 +182,7 @@ async function target(url,{stageProbe=false}={}){
   await cdp.call('Page.enable');
   await cdp.call('Runtime.enable');
   await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:fakePeerSource});
-  if(stageProbe){
-    await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:stageWalkingProbeSource});
-    await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:stageTickProbeSource});
-  }
+  if(stageProbe)await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:stageWalkingProbeSource});
   await cdp.call('Page.navigate',{url});
   return cdp;
 }
@@ -308,7 +295,23 @@ async function waitDepthScene(cdp,start,plane,extra,label,timeout=3500){
 }
 
 async function installStageWalkingProbe(stage,label){
-  await waitEval(stage,`!!window.__PUPPETALK_PARITY_ENGINE__&&typeof window.__PUPPETALK_PARITY_STAGE_TICK__==='function'`,`${label} stage walking frame`,4000);
+  await waitEval(stage,`!!window.__PUPPETALK_PARITY_ENGINE__`,`${label} stage walking engine`,4000);
+  await evaluate(stage,`(()=>{
+    if(typeof window.__PUPPETALK_PARITY_STAGE_TICK__==='function')return true;
+    if(window.__PUPPETALK_PARITY_STAGE_TICK_CAPTURE__)return true;
+    window.__PUPPETALK_PARITY_STAGE_TICK_CAPTURE__=true;
+    const raw=window.requestAnimationFrame;
+    window.requestAnimationFrame=function(callback){
+      if(typeof callback==='function'&&callback.name==='tick'){
+        window.__PUPPETALK_PARITY_STAGE_TICK__=callback;
+        window.requestAnimationFrame=raw;
+      }
+      return raw.call(window,callback);
+    };
+    return true;
+  })()`);
+  await stage.call('Page.bringToFront');
+  await waitEval(stage,`typeof window.__PUPPETALK_PARITY_STAGE_TICK__==='function'`,`${label} stage walking frame`,4000);
 }
 async function advanceStageFrame(stage){
   return evaluate(stage,`(()=>{const tick=window.__PUPPETALK_PARITY_STAGE_TICK__;if(typeof tick!=='function')return false;tick(performance.now());return true;})()`);
