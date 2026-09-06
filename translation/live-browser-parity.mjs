@@ -317,13 +317,24 @@ async function exerciseDepthGestures(controller,stage,label){
     await sleep(45);
   }
   await waitEval(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===1)`,`${label} closer depth-step`);
-  const stageCloser=await waitEval(stage,`(()=>{
-    const api=window.PuppetalkDepthState;
-    if(!api)return null;
-    const plane=api.getPlaneForSlot(0);
-    const depth=api.getDepthForSlot(0);
-    return plane===${expectedCloserPlane}&&Math.abs(depth-${expectedCloserDepth})<.02?{plane,depth}:null;
-  })()`,`${label} stage one-plane closer state`,5000);
+  let stageCloser;
+  try{
+    stageCloser=await waitEval(stage,`(()=>{
+      const api=window.PuppetalkDepthState;
+      if(!api)return null;
+      const plane=api.getPlaneForSlot(0);
+      const depth=api.getDepthForSlot(0);
+      return plane===${expectedCloserPlane}&&Math.abs(depth-${expectedCloserDepth})<.02?{plane,depth}:null;
+    })()`,`${label} stage one-plane closer state`,5000);
+  }catch(error){
+    const actual=await evaluate(stage,`(()=>{
+      const api=window.PuppetalkDepthState;
+      return api?{plane:api.getPlaneForSlot(0),depth:api.getDepthForSlot(0)}:null;
+    })()`);
+    const stageSteps=await evaluate(stage,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).filter(e=>e.event==='recv'&&e.type==='depth-step').map(e=>({at:e.at,direction:e.direction,foregroundSlot:e.foregroundSlot}))`);
+    const controllerSteps=await evaluate(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).filter(e=>e.event==='send'&&e.type==='depth-step').map(e=>({at:e.at,direction:e.direction}))`);
+    throw new Error(`${error.message}\n${label} relative-depth diagnostics: ${JSON.stringify({startState,expectedCloserPlane,expectedCloserDepth,actual,controllerSteps,stageSteps},null,2)}`);
+  }
   const closer=await waitDepthScene(controller,closerStart,expectedCloserPlane,`Math.abs(Number(p.depth)-${expectedCloserDepth})<.02`,`${label} one-plane closer scene`,5000);
 
   point=await latestTorsoScreenPoint(controller);
