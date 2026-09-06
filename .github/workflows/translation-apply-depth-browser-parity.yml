@@ -1,0 +1,35 @@
+name: Apply corrected depth browser parity hit test
+
+on:
+  push:
+    branches: [puppetalk-translation]
+    paths:
+      - translation/apply-depth-browser-parity.mjs
+      - .github/workflows/translation-apply-depth-browser-parity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Apply corrected depth hit test
+        run: node translation/apply-depth-browser-parity.mjs
+      - name: Check parity script syntax
+        run: node --check translation/live-browser-parity.mjs
+      - name: Commit correction
+        run: |
+          if git diff --quiet -- translation/live-browser-parity.mjs; then
+            echo 'Depth hit-test correction produced no changes.'
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add translation/live-browser-parity.mjs
+          git commit -m 'Correct depth gesture browser hit test'
+          git push
