@@ -24,17 +24,24 @@ async function waitDebugger(){
 const fakePeerSource=String.raw`(()=>{
   const channelName='puppetalk-parity-peer-v1';
   let autoId=0;
+  const trace=window.__PUPPETALK_PARITY_TRACE__=[];
+  const note=(event,extra={})=>trace.push({event,...extra});
+  const msgInfo=data=>({type:data?.type||null,action:data?.action||null,propId:data?.propId||null,ok:data?.ok??null,message:data?.message||null});
   class Emitter{
     constructor(){this.handlers=new Map();}
     on(name,fn){const list=this.handlers.get(name)||[];list.push(fn);this.handlers.set(name,list);return this;}
-    emit(name,...args){for(const fn of [...(this.handlers.get(name)||[])]){try{fn(...args);}catch(err){setTimeout(()=>{throw err;});}}}
+    emit(name,...args){for(const fn of [...(this.handlers.get(name)||[])]){try{fn(...args);}catch(err){note('handler-error',{name,message:err?.message||String(err)});setTimeout(()=>{throw err;});}}}
   }
   class FakeConnection extends Emitter{
     constructor(peer,connId,remoteId){super();this.peer=remoteId;this.connId=connId;this.owner=peer;this.open=false;this.closed=false;}
-    _open(){if(this.closed||this.open)return;this.open=true;this.emit('open');}
-    send(data){if(!this.open||this.closed)return;this.owner.channel.postMessage({kind:'data',connId:this.connId,from:this.owner.id,data});}
-    close(){if(this.closed)return;this.closed=true;this.open=false;this.owner.channel.postMessage({kind:'close',connId:this.connId,from:this.owner.id});this.emit('close');}
-    _remoteClose(){if(this.closed)return;this.closed=true;this.open=false;this.emit('close');}
+    _open(){if(this.closed||this.open)return;this.open=true;note('conn-open',{owner:this.owner.id,remote:this.peer,connId:this.connId});this.emit('open');}
+    send(data){
+      if(!this.open||this.closed){note('send-blocked',{owner:this.owner.id,remote:this.peer,open:this.open,closed:this.closed,...msgInfo(data)});return;}
+      note('send',{owner:this.owner.id,remote:this.peer,connId:this.connId,...msgInfo(data)});
+      this.owner.channel.postMessage({kind:'data',connId:this.connId,from:this.owner.id,data});
+    }
+    close(){if(this.closed)return;this.closed=true;this.open=false;note('conn-close',{owner:this.owner.id,remote:this.peer});this.owner.channel.postMessage({kind:'close',connId:this.connId,from:this.owner.id});this.emit('close');}
+    _remoteClose(){if(this.closed)return;this.closed=true;this.open=false;note('conn-remote-close',{owner:this.owner.id,remote:this.peer});this.emit('close');}
   }
   class FakePeer extends Emitter{
     constructor(id){
@@ -44,18 +51,21 @@ const fakePeerSource=String.raw`(()=>{
       this.connections=new Map();
       this.channel=new BroadcastChannel(channelName);
       this.channel.onmessage=event=>this._message(event.data||{});
-      setTimeout(()=>{if(!this.destroyed)this.emit('open',this.id);},0);
+      note('peer-create',{id:this.id});
+      setTimeout(()=>{if(!this.destroyed){note('peer-open',{id:this.id});this.emit('open',this.id);}},0);
     }
     connect(targetId){
       const connId=this.id+'>'+targetId+'#'+Math.random().toString(36).slice(2);
       const conn=new FakeConnection(this,connId,targetId);
       this.connections.set(connId,conn);
+      note('connect-send',{sourceId:this.id,targetId,connId});
       this.channel.postMessage({kind:'connect',targetId,sourceId:this.id,connId});
       return conn;
     }
     _message(msg){
       if(this.destroyed||!msg)return;
       if(msg.kind==='connect'&&msg.targetId===this.id){
+        note('connect-recv',{id:this.id,sourceId:msg.sourceId,connId:msg.connId});
         if(this.connections.has(msg.connId))return;
         const conn=new FakeConnection(this,msg.connId,msg.sourceId);
         this.connections.set(msg.connId,conn);
@@ -68,20 +78,21 @@ const fakePeerSource=String.raw`(()=>{
         return;
       }
       if(msg.kind==='accept'&&msg.targetId===this.id){
+        note('accept-recv',{id:this.id,sourceId:msg.sourceId,connId:msg.connId});
         this.connections.get(msg.connId)?._open();
         return;
       }
       if(msg.kind==='data'&&msg.from!==this.id){
+        note('recv',{owner:this.id,from:msg.from,connId:msg.connId,...msgInfo(msg.data)});
         this.connections.get(msg.connId)?.emit('data',msg.data);
         return;
       }
-      if(msg.kind==='close'&&msg.from!==this.id){
-        this.connections.get(msg.connId)?._remoteClose();
-      }
+      if(msg.kind==='close'&&msg.from!==this.id)this.connections.get(msg.connId)?._remoteClose();
     }
     destroy(){
       if(this.destroyed)return;
       this.destroyed=true;
+      note('peer-destroy',{id:this.id});
       for(const conn of this.connections.values())conn._remoteClose();
       this.connections.clear();
       this.channel.close();
@@ -96,10 +107,15 @@ class Cdp{
     this.ws=new WebSocket(url);
     this.next=1;
     this.pending=new Map();
+    this.events=[];
     this.ready=new Promise((resolve,reject)=>{this.ws.onopen=resolve;this.ws.onerror=reject;});
     this.ws.onmessage=event=>{
       const msg=JSON.parse(event.data);
-      if(!msg.id)return;
+      if(!msg.id){
+        if(msg.method==='Runtime.exceptionThrown')this.events.push({type:'exception',text:msg.params?.exceptionDetails?.text||'',description:msg.params?.exceptionDetails?.exception?.description||''});
+        if(msg.method==='Runtime.consoleAPICalled')this.events.push({type:'console',level:msg.params?.type||'',args:(msg.params?.args||[]).map(a=>a.value??a.description??'')});
+        return;
+      }
       const p=this.pending.get(msg.id);
       if(!p)return;
       this.pending.delete(msg.id);
@@ -141,19 +157,15 @@ async function waitEval(cdp,expression,label,timeout=7000){
   }
   throw new Error(`${label} timed out; final value: ${JSON.stringify(value)}`);
 }
+async function transportTrace(cdp){return evaluate(cdp,`window.__PUPPETALK_PARITY_TRACE__||[]`);}
 async function controllerState(cdp){
-  return evaluate(cdp,`(()=>{
-    const special=document.querySelector('#special-item');
-    return {
-      controllerStatus:(document.querySelector('#controller-status')?.textContent||'').trim(),
-      hint:(document.querySelector('#stage-hint')?.textContent||'').trim(),
-      buttonText:(special?.textContent||'').trim(),
-      buttonDisabled:!!special?.disabled,
-      dotClass:document.querySelector('#dot')?.className||'',
-      youHidden:!!document.querySelector('#you-chip')?.hidden,
-      fakePeer:!!window.__PUPPETALK_PARITY_FAKE_PEER__
-    };
-  })()`);
+  return evaluate(cdp,`(()=>{const special=document.querySelector('#special-item');return {
+    controllerStatus:(document.querySelector('#controller-status')?.textContent||'').trim(),
+    hint:(document.querySelector('#stage-hint')?.textContent||'').trim(),
+    buttonText:(special?.textContent||'').trim(),buttonDisabled:!!special?.disabled,
+    dotClass:document.querySelector('#dot')?.className||'',youHidden:!!document.querySelector('#you-chip')?.hidden,
+    fakePeer:!!window.__PUPPETALK_PARITY_FAKE_PEER__
+  };})()`);
 }
 
 async function liveSession(prefix,room,label){
@@ -170,18 +182,20 @@ async function liveSession(prefix,room,label){
   const stageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
   const click=await evaluate(controller,`(()=>{const b=document.querySelector('#special-item');if(!b||b.disabled)return false;b.click();return true;})()`);
   if(!click)throw new Error(`${label} special-item click was not dispatched: ${JSON.stringify({stageStatus,before})}`);
-  await waitEval(controller,`(document.querySelector('#stage-hint')?.textContent||'').trim().startsWith('Brought out ')`,`${label} special-item result`);
-  const after=await controllerState(controller);
 
-  const state={
-    controllerStatus:before.controllerStatus,
-    stageStatus,
-    welcomeHint:before.hint,
-    beforeButton:before.buttonText,
-    propHint:after.hint,
-    afterButton:after.buttonText,
-    afterDisabled:after.buttonDisabled
-  };
+  try{
+    await waitEval(controller,`(document.querySelector('#stage-hint')?.textContent||'').trim().startsWith('Brought out ')`,`${label} special-item result`,3500);
+  }catch(error){
+    const diagnostic={
+      stageStatus:await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`),
+      controller:await controllerState(controller),
+      stageTrace:await transportTrace(stage),controllerTrace:await transportTrace(controller),
+      stageEvents:stage.events,controllerEvents:controller.events
+    };
+    throw new Error(`${error.message}\n${label} diagnostics: ${JSON.stringify(diagnostic,null,2)}`);
+  }
+  const after=await controllerState(controller);
+  const state={controllerStatus:before.controllerStatus,stageStatus,welcomeHint:before.hint,beforeButton:before.buttonText,propHint:after.hint,afterButton:after.buttonText,afterDisabled:after.buttonDisabled};
   controller.close();stage.close();
   return state;
 }
@@ -190,9 +204,7 @@ try{
   await waitDebugger();
   const original=await liveSession('/','LIVE1','original');
   const translated=await liveSession('/translation/','LIVE2','translated');
-  if(JSON.stringify(original)!==JSON.stringify(translated)){
-    throw new Error(`Live session parity mismatch.\nORIGINAL ${JSON.stringify(original,null,2)}\nTRANSLATED ${JSON.stringify(translated,null,2)}`);
-  }
+  if(JSON.stringify(original)!==JSON.stringify(translated))throw new Error(`Live session parity mismatch.\nORIGINAL ${JSON.stringify(original,null,2)}\nTRANSLATED ${JSON.stringify(translated,null,2)}`);
   console.log('PASS');
   console.log('Stage/controller handshake and special-item round trip: pass');
   console.log(JSON.stringify(original,null,2));
