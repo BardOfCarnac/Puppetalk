@@ -13,6 +13,7 @@ const chrome=spawn('google-chrome',[
 chrome.stderr.on('data',()=>{});
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const round=v=>Number(Number(v).toFixed(4));
 async function waitDebugger(){
   for(let i=0;i<120;i++){
     try{const r=await fetch(`http://127.0.0.1:${port}/json/version`);if(r.ok)return;}catch{}
@@ -26,7 +27,24 @@ const fakePeerSource=String.raw`(()=>{
   let autoId=0;
   const trace=window.__PUPPETALK_PARITY_TRACE__=[];
   const note=(event,extra={})=>trace.push({event,...extra});
-  const msgInfo=data=>({type:data?.type||null,action:data?.action||null,propId:data?.propId||null,ok:data?.ok??null,message:data?.message||null});
+  const msgInfo=data=>({
+    type:data?.type||null,
+    action:data?.action||null,
+    propId:data?.propId||null,
+    ok:data?.ok??null,
+    message:data?.message||null,
+    input:data?.type==='input'?{
+      pose:data.input?.pose||null,
+      poseVersion:Number.isInteger(data.input?.poseVersion)?data.input.poseVersion:null,
+      rag:!!data.input?.rag,
+      mouth:Number.isInteger(data.input?.mouth)?data.input.mouth:null,
+      grabs:Array.isArray(data.input?.grabs)?data.input.grabs.map(g=>({part:g?.part||null,x:Number(g?.x),y:Number(g?.y)})):[]
+    }:null,
+    scene:data?.type==='scene'?{
+      puppets:Array.isArray(data.puppets)?data.puppets.map(p=>({slot:p?.slot,torso:p?.torso?{x:Number(p.torso.x),y:Number(p.torso.y),a:Number(p.torso.a||0)}:null})):[],
+      propCount:Array.isArray(data.props)?data.props.length:0
+    }:null
+  });
   class Emitter{
     constructor(){this.handlers=new Map();}
     on(name,fn){const list=this.handlers.get(name)||[];list.push(fn);this.handlers.set(name,list);return this;}
@@ -156,6 +174,29 @@ async function waitEval(cdp,expression,label,timeout=7000){
   }
   throw new Error(`${label} timed out; final value: ${JSON.stringify(value)}`);
 }
+async function traceLength(cdp){return evaluate(cdp,`(window.__PUPPETALK_PARITY_TRACE__||[]).length`);}
+async function waitInput(cdp,start,predicate,label,timeout=3500){
+  const expression=`(()=>{
+    const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${start}).filter(e=>e.event==='send'&&e.type==='input'&&e.input);
+    const e=entries.find(e=>(${predicate}));
+    return e?e.input:null;
+  })()`;
+  return waitEval(cdp,expression,label,timeout);
+}
+function normalizeInput(input){
+  return {
+    pose:input.pose,poseVersion:input.poseVersion,rag:!!input.rag,mouth:input.mouth,
+    grabs:(input.grabs||[]).map(g=>({part:g.part,x:round(g.x),y:round(g.y)}))
+  };
+}
+async function commandUi(cdp){
+  return evaluate(cdp,`(()=>({
+    activePose:document.querySelector('#poses [data-pose].active')?.dataset.pose||'',
+    ragText:(document.querySelector('#poses [data-rag]')?.textContent||'').trim(),
+    ragActive:document.querySelector('#poses [data-rag]')?.classList.contains('active')||false,
+    hint:(document.querySelector('#stage-hint')?.textContent||'').trim()
+  }))()`);
+}
 async function controllerState(cdp){
   return evaluate(cdp,`(()=>{const special=document.querySelector('#special-item');return {
     controllerStatus:(document.querySelector('#controller-status')?.textContent||'').trim(),
@@ -163,6 +204,81 @@ async function controllerState(cdp){
     buttonText:(special?.textContent||'').trim(),buttonDisabled:!!special?.disabled,
     dotClass:document.querySelector('#dot')?.className||'',youHidden:!!document.querySelector('#you-chip')?.hidden
   };})()`);
+}
+async function click(cdp,selector){
+  const ok=await evaluate(cdp,`(()=>{const el=document.querySelector(${JSON.stringify(selector)});if(!el)return false;el.click();return true;})()`);
+  if(!ok)throw new Error(`Missing clickable control ${selector}`);
+}
+async function latestTorsoAndCanvas(cdp){
+  return evaluate(cdp,`(()=>{
+    const trace=window.__PUPPETALK_PARITY_TRACE__||[];
+    let torso=null;
+    for(let i=trace.length-1;i>=0&&!torso;i--){
+      const e=trace[i];
+      if(e.event!=='recv'||e.type!=='scene'||!e.scene)continue;
+      const p=e.scene.puppets?.find(p=>p.slot===0);
+      if(p?.torso)torso=p.torso;
+    }
+    const r=document.querySelector('#personal-canvas')?.getBoundingClientRect();
+    return torso&&r?{torso,rect:{left:r.left,top:r.top,width:r.width,height:r.height}}:null;
+  })()`);
+}
+
+async function exerciseCoreControls(controller,label){
+  const out={};
+
+  let start=await traceLength(controller);
+  await click(controller,'[data-pose="point"]');
+  out.point={
+    input:normalizeInput(await waitInput(controller,start,"e.input.pose==='point'&&e.input.poseVersion===1&&!e.input.rag",`${label} point input`)),
+    ui:await commandUi(controller)
+  };
+
+  start=await traceLength(controller);
+  await click(controller,'[data-pose="cheer"]');
+  out.cheer={
+    input:normalizeInput(await waitInput(controller,start,"e.input.pose==='cheer'&&e.input.poseVersion===2&&!e.input.rag",`${label} cheer input`)),
+    ui:await commandUi(controller)
+  };
+
+  start=await traceLength(controller);
+  await click(controller,'[data-rag]');
+  out.limp={
+    input:normalizeInput(await waitInput(controller,start,"e.input.rag===true",`${label} limp input`)),
+    ui:await commandUi(controller)
+  };
+
+  start=await traceLength(controller);
+  await click(controller,'[data-rag]');
+  out.recoverToggle={
+    input:normalizeInput(await waitInput(controller,start,"e.input.rag===false",`${label} recover toggle input`)),
+    ui:await commandUi(controller)
+  };
+
+  start=await traceLength(controller);
+  await click(controller,'#centre');
+  const centreDown=await waitInput(controller,start,"e.input.grabs?.length===1&&e.input.grabs[0]?.part==='torso'&&e.input.grabs[0]?.x===.5&&e.input.grabs[0]?.y===.55",`${label} centre grab`);
+  const centreUp=await waitInput(controller,start,"e.input.grabs?.length===0&&e.input.poseVersion===2",`${label} centre release`);
+  out.centre={down:normalizeInput(centreDown),up:normalizeInput(centreUp)};
+
+  await waitEval(controller,`(()=>{const t=window.__PUPPETALK_PARITY_TRACE__||[];return t.some(e=>e.event==='recv'&&e.type==='scene'&&e.scene?.puppets?.some(p=>p.slot===0&&p.torso));})()`,`${label} scene torso for pointer grab`);
+  const geometry=await latestTorsoAndCanvas(controller);
+  if(!geometry)throw new Error(`${label} could not resolve torso/canvas geometry.`);
+  const sx=geometry.rect.left+geometry.torso.x*geometry.rect.width;
+  const sy=geometry.rect.top+geometry.torso.y*geometry.rect.height;
+  const tx=geometry.rect.left+Math.min(.95,geometry.torso.x+.08)*geometry.rect.width;
+  const ty=geometry.rect.top+Math.max(.1,geometry.torso.y-.05)*geometry.rect.height;
+
+  start=await traceLength(controller);
+  await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:sx,y:sy,button:'left',buttons:1,clickCount:1});
+  const grabDown=await waitInput(controller,start,"e.input.grabs?.length===1&&e.input.grabs[0]?.part==='torso'",`${label} torso pointer down`);
+  await controller.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:tx,y:ty,button:'left',buttons:1});
+  const grabMove=await waitInput(controller,start,"e.input.grabs?.length===1&&e.input.grabs[0]?.part==='torso'&&(Math.abs(e.input.grabs[0].x-.5)>.02||Math.abs(e.input.grabs[0].y-.55)>.02)",`${label} torso pointer move`);
+  await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:tx,y:ty,button:'left',buttons:0,clickCount:1});
+  const grabUp=await waitInput(controller,start,"e.input.grabs?.length===0",`${label} torso pointer release`);
+  out.pointerGrab={down:normalizeInput(grabDown),move:normalizeInput(grabMove),up:normalizeInput(grabUp)};
+
+  return out;
 }
 
 async function liveSession(prefix,room,label){
@@ -177,14 +293,15 @@ async function liveSession(prefix,room,label){
 
   const before=await controllerState(controller);
   const stageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
-  const click=await evaluate(controller,`(()=>{const b=document.querySelector('#special-item');if(!b||b.disabled)return false;b.click();return true;})()`);
-  if(!click)throw new Error(`${label} special-item click was not dispatched.`);
+  const controls=await exerciseCoreControls(controller,label);
 
-  await waitEval(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).some(e=>e.event==='recv'&&e.message==='Brought out Laser frisbee.')`,`${label} frozen special-item transport reply`);
+  const specialStart=await traceLength(controller);
+  await click(controller,'#special-item');
+  await waitEval(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${specialStart}).some(e=>e.event==='recv'&&e.message==='Brought out Laser frisbee.')`,`${label} frozen special-item transport reply`);
   await sleep(120);
   const after=await controllerState(controller);
   const reply=await evaluate(controller,`(()=>{
-    const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).filter(e=>e.event==='recv'&&e.message==='Brought out Laser frisbee.');
+    const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${specialStart}).filter(e=>e.event==='recv'&&e.message==='Brought out Laser frisbee.');
     const e=entries[entries.length-1];
     return e?{type:e.type,propId:e.propId,ok:e.ok,message:e.message}:null;
   })()`);
@@ -200,6 +317,7 @@ async function liveSession(prefix,room,label){
     controllerStatus:before.controllerStatus,
     stageStatus,
     welcomeHint:before.hint,
+    controls,
     beforeButton:before.buttonText,
     reply,
     afterHint:after.hint,
@@ -221,7 +339,7 @@ try{
     throw new Error(`Frozen V1 special-item reply shape changed unexpectedly: ${JSON.stringify(original.reply)}`);
   }
   console.log('PASS');
-  console.log('Stage/controller handshake and frozen special-item transport behavior: pass');
+  console.log('Stage/controller handshake, pose/ragdoll controls, centre pulse, direct torso drag and frozen special-item behavior: pass');
   console.log(JSON.stringify(original,null,2));
 }finally{
   const exited=new Promise(resolve=>chrome.once('exit',resolve));
