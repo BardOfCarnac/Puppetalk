@@ -417,12 +417,14 @@ async function exerciseWalking(controller,stage,label){
   }
 
   let torsoDx=-Infinity,leftTravel=0,rightTravel=0,leftLift=0,rightLift=0;
+  const startLeftRelY=Number(startScene.al.y)-Number(startScene.torso.y);
+  const startRightRelY=Number(startScene.ar.y)-Number(startScene.torso.y);
   for(const p of samples){
     torsoDx=Math.max(torsoDx,Number(p.torso.x)-Number(startScene.torso.x));
     leftTravel=Math.max(leftTravel,Math.abs(Number(p.al.x)-Number(startScene.al.x)));
     rightTravel=Math.max(rightTravel,Math.abs(Number(p.ar.x)-Number(startScene.ar.x)));
-    leftLift=Math.max(leftLift,Number(startScene.al.y)-Number(p.al.y));
-    rightLift=Math.max(rightLift,Number(startScene.ar.y)-Number(p.ar.y));
+    leftLift=Math.max(leftLift,startLeftRelY-(Number(p.al.y)-Number(p.torso.y)));
+    rightLift=Math.max(rightLift,startRightRelY-(Number(p.ar.y)-Number(p.torso.y)));
   }
   const dragDx=(moveGrab?.x||0)-(downGrab?.x||0);
   return {
@@ -595,7 +597,10 @@ async function liveSession(prefix,room,label){
 function comparable(state){
   const copy=structuredClone(state);
   const walking=copy.walking;
-  if(walking?.input) walking.input.dx=Number(Number(walking.input.dx).toFixed(2));
+  if(walking?.input){
+    const dx=Number(walking.input.dx);
+    walking.input.dx=dx>=.15?'right-substantial':dx<=-.15?'left-substantial':'small';
+  }
   if(walking) delete walking.sample;
   const gesture=copy.controls?.pointerGrab;
   if(gesture?.move){
