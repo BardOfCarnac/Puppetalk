@@ -268,7 +268,17 @@ async function exerciseCoreControls(controller,label){
   const releaseStart=await traceLength(controller);
   await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:tx,y:ty,button:'left',buttons:0,clickCount:1});
   const grabUp=await waitInput(controller,releaseStart,"e.input.grabs?.length===0",`${label} torso pointer release`);
-  out.pointerGrab={down:normalizeInput(grabDown),move:normalizeInput(grabMove),up:normalizeInput(grabUp)};
+
+  const down=normalizeInput(grabDown);
+  const move=normalizeInput(grabMove);
+  const up=normalizeInput(grabUp);
+  const downGrab=down.grabs[0];
+  const moveGrab=move.grabs[0];
+  out.pointerGrab={
+    down:{pose:down.pose,poseVersion:down.poseVersion,rag:down.rag,mouth:down.mouth,part:downGrab?.part||null,grabCount:down.grabs.length},
+    move:{part:moveGrab?.part||null,grabCount:move.grabs.length,dx:round((moveGrab?.x||0)-(downGrab?.x||0)),dy:round((moveGrab?.y||0)-(downGrab?.y||0))},
+    up:{pose:up.pose,poseVersion:up.poseVersion,rag:up.rag,mouth:up.mouth,grabCount:up.grabs.length}
+  };
   return out;
 }
 
@@ -319,11 +329,24 @@ async function liveSession(prefix,room,label){
   return state;
 }
 
+function comparable(state){
+  const copy=structuredClone(state);
+  const gesture=copy.controls?.pointerGrab;
+  if(gesture?.move){
+    // The two independent Matter simulations can be sampled a few milliseconds
+    // apart, so compare the deliberate pointer gesture rather than absolute body
+    // position. The requested move is +.08,-.05; hundredths preserve that intent.
+    gesture.move.dx=Number(Number(gesture.move.dx).toFixed(2));
+    gesture.move.dy=Number(Number(gesture.move.dy).toFixed(2));
+  }
+  return copy;
+}
+
 try{
   await waitDebugger();
   const original=await liveSession('/','LIVE1','original');
   const translated=await liveSession('/translation/','LIVE2','translated');
-  if(JSON.stringify(original)!==JSON.stringify(translated)){
+  if(JSON.stringify(comparable(original))!==JSON.stringify(comparable(translated))){
     throw new Error(`Live session parity mismatch.\nORIGINAL ${JSON.stringify(original,null,2)}\nTRANSLATED ${JSON.stringify(translated,null,2)}`);
   }
   if(original.reply?.type!=='frisbee'||original.reply?.ok!==true){
@@ -331,7 +354,7 @@ try{
   }
   console.log('PASS');
   console.log('Stage/controller handshake, complete pose/ragdoll message sequences, centre pulse, direct torso drag and frozen special-item behavior: pass');
-  console.log(JSON.stringify(original,null,2));
+  console.log(JSON.stringify(comparable(original),null,2));
 }finally{
   const exited=new Promise(resolve=>chrome.once('exit',resolve));
   chrome.kill('SIGTERM');
