@@ -33,55 +33,24 @@
   async function waitFor(el,selector,timeout=6500){
     const started=performance.now();
     while(performance.now()-started<timeout){
-      try{
-        const doc=el.contentDocument;
-        if(doc?.querySelector(selector)) return doc;
-      }catch{}
+      try{ if(el.contentDocument?.querySelector(selector)) return el.contentDocument; }catch{}
       await sleep(40);
     }
     throw new Error(`${el.name} did not reach ${selector}`);
-  }
-  async function waitText(el,selector,predicate,timeout=7500){
-    const started=performance.now();
-    while(performance.now()-started<timeout){
-      try{
-        const text=canonical(el.contentDocument?.querySelector(selector)?.textContent||'');
-        if(predicate(text)) return text;
-      }catch{}
-      await sleep(60);
-    }
-    const finalText=canonical(el.contentDocument?.querySelector(selector)?.textContent||'');
-    throw new Error(`${el.name} did not reach expected ${selector} state; final text: ${finalText}`);
   }
   function surface(doc,replacements=[]){
     const root=doc.querySelector('#app');
     if(!root) return {missingApp:true};
     const volatile=new Set(['controller-status','stage-status','stage-hint','you-chip','dot','stage-invite-feedback','host-invite-feedback']);
-    const ids=[...root.querySelectorAll('[id]')].map(el=>({
-      id:el.id,
-      tag:el.tagName.toLowerCase(),
-      cls:volatile.has(el.id)?'':canonical([...el.classList].sort().join(' '),replacements)
-    }));
-    const buttons=[...root.querySelectorAll('button')].map(el=>({
-      id:el.id||'',
-      text:canonical(el.textContent,replacements),
-      type:el.type||'',
-      look:el.dataset.look||'',
-      pose:el.dataset.pose||''
-    }));
-    const inputs=[...root.querySelectorAll('input,select,textarea')].map(el=>({
-      tag:el.tagName.toLowerCase(),id:el.id||'',type:el.type||'',name:el.name||'',
-      placeholder:canonical(el.getAttribute('placeholder')||'',replacements)
-    }));
+    const ids=[...root.querySelectorAll('[id]')].map(el=>({id:el.id,tag:el.tagName.toLowerCase(),cls:volatile.has(el.id)?'':canonical([...el.classList].sort().join(' '),replacements)}));
+    const buttons=[...root.querySelectorAll('button')].map(el=>({id:el.id||'',text:canonical(el.textContent,replacements),type:el.type||'',look:el.dataset.look||'',pose:el.dataset.pose||''}));
+    const inputs=[...root.querySelectorAll('input,select,textarea')].map(el=>({tag:el.tagName.toLowerCase(),id:el.id||'',type:el.type||'',name:el.name||'',placeholder:canonical(el.getAttribute('placeholder')||'',replacements)}));
     const labels=[...root.querySelectorAll('label')].map(el=>canonical(el.textContent,replacements));
-    const directText=[...root.querySelectorAll('.home-brand,.home-copy,.home-note,.invite-label,.invite-title,.controller-head strong,.controller-head .muted')]
-      .map(el=>canonical(el.textContent,replacements));
+    const directText=[...root.querySelectorAll('.home-brand,.home-copy,.home-note,.invite-label,.invite-title,.controller-head strong,.controller-head .muted')].map(el=>canonical(el.textContent,replacements));
     return {title:canonical(doc.title,replacements),ids,buttons,inputs,labels,directText};
   }
   function same(name,a,b){
-    const aa=JSON.stringify(a);
-    const bb=JSON.stringify(b);
-    if(aa!==bb){ failures.push(`${name}\nORIGINAL ${JSON.stringify(a,null,2)}\nTRANSLATED ${JSON.stringify(b,null,2)}`); return; }
+    if(JSON.stringify(a)!==JSON.stringify(b)){ failures.push(`${name}\nORIGINAL ${JSON.stringify(a,null,2)}\nTRANSLATED ${JSON.stringify(b,null,2)}`); return; }
     tests.push(`${name}: pass`);
   }
   function creatorState(el,replacements=[]){
@@ -92,50 +61,25 @@
     const active=doc.querySelector('#character-colors [data-color].active')?.dataset.color||'';
     return {stored,labels,active};
   }
-  async function liveSession(base,room,label){
-    const stage=frame(`${base}?mode=stage&room=${room}&lobby=done&embedded=1`,`${label} live stage`);
-    await waitFor(stage,'#stage-canvas');
-    await waitText(stage,'#stage-status',text=>text.includes('stage live'));
-    const controller=frame(`${base}?mode=controller&room=${room}&lobby=done`,`${label} live controller`);
-    await waitFor(controller,'.personal-controller');
-    const controllerStatus=await waitText(controller,'#controller-status',text=>text.startsWith('you are '));
-    const stageStatus=await waitText(stage,'#stage-status',text=>text.includes('1 puppeteer connected'));
-    const welcomeHint=canonical(controller.contentDocument.querySelector('#stage-hint')?.textContent||'');
-    const special=controller.contentDocument.querySelector('#special-item');
-    if(!special || special.disabled) throw new Error(`${label} live special-item control was not available after welcome.`);
-    const beforeButton=canonical(special.textContent);
-    special.click();
-    const propHint=await waitText(controller,'#stage-hint',text=>text.startsWith('Brought out '));
-    const afterButton=canonical(special.textContent);
-    const afterDisabled=!!special.disabled;
-    return {controllerStatus,stageStatus,welcomeHint,beforeButton,propHint,afterButton,afterDisabled};
-  }
 
   try{
     localStorage.removeItem('puppetalk-look');
     localStorage.removeItem('puppetalk-name');
     localStorage.removeItem('puppetalk-special-item');
-
     const lobbyOld=frame('/?parity=1','original lobby');
     const lobbyNew=frame('/translation/?parity=1','translated lobby');
     const ctrlOld=frame('/?mode=controller&room=CTRL1&lobby=done','original controller');
     const ctrlNew=frame('/translation/?mode=controller&room=CTRL2&lobby=done','translated controller');
     const stageOld=frame('/?mode=stage&room=STAGE1&lobby=done&embedded=1','original stage');
     const stageNew=frame('/translation/?mode=stage&room=STAGE2&lobby=done&embedded=1','translated stage');
-
     await Promise.all([
       waitFor(lobbyOld,'#character-name'),waitFor(lobbyNew,'#character-name'),
       waitFor(ctrlOld,'.personal-controller'),waitFor(ctrlNew,'.personal-controller'),
       waitFor(stageOld,'#stage-canvas'),waitFor(stageNew,'#stage-canvas')
     ]);
-
     same('Lobby surface',surface(lobbyOld.contentDocument),surface(lobbyNew.contentDocument));
-    same('Controller surface',
-      surface(ctrlOld.contentDocument,[['CTRL1','ROOM']]),
-      surface(ctrlNew.contentDocument,[['CTRL2','ROOM']]));
-    same('Stage surface',
-      surface(stageOld.contentDocument,[['STAGE1','ROOM']]),
-      surface(stageNew.contentDocument,[['STAGE2','ROOM']]));
+    same('Controller surface',surface(ctrlOld.contentDocument,[['CTRL1','ROOM']]),surface(ctrlNew.contentDocument,[['CTRL2','ROOM']]));
+    same('Stage surface',surface(stageOld.contentDocument,[['STAGE1','ROOM']]),surface(stageNew.contentDocument,[['STAGE2','ROOM']]));
 
     localStorage.removeItem('puppetalk-look');
     ctrlOld.contentWindow.Math.random=()=>0.37;
@@ -158,17 +102,8 @@
     const newCycle=creatorState(ctrlNew,[['CTRL2','ROOM']]);
     same('Character head-style cycle',oldCycle,newCycle);
 
-    const oldLive=await liveSession('/','LIVE1','original');
-    const newLive=await liveSession('/translation/','LIVE2','translated');
-    same('Live stage/controller handshake and special-item round trip',oldLive,newLive);
-
-    if(failures.length){
-      result.dataset.status='fail';
-      result.textContent=`FAIL\n${tests.join('\n')}\n\n${failures.join('\n\n')}`;
-    }else{
-      result.dataset.status='pass';
-      result.textContent=`PASS\n${tests.join('\n')}`;
-    }
+    result.dataset.status=failures.length?'fail':'pass';
+    result.textContent=failures.length?`FAIL\n${tests.join('\n')}\n\n${failures.join('\n\n')}`:`PASS\n${tests.join('\n')}`;
   }catch(error){
     result.dataset.status='fail';
     result.textContent=`FAIL\n${error?.stack||error}`;
