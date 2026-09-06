@@ -280,7 +280,7 @@ async function waitDepthScene(cdp,start,plane,extra,label,timeout=3500){
   })()`,label,timeout);
 }
 
-async function exerciseDepthGestures(controller,label){
+async function exerciseDepthGestures(controller,stage,label){
   await waitEval(controller,`(document.querySelector('.depth-gesture-guide')?.textContent||'').includes('3 quick taps')`,`${label} depth gesture guide`);
   const guide=await evaluate(controller,`(document.querySelector('.depth-gesture-guide')?.textContent||'').trim()`);
   let point=await latestTorsoScreenPoint(controller);
@@ -304,7 +304,23 @@ async function exerciseDepthGestures(controller,label){
     })()`);
     throw new Error(`${error.message}\n${label} depth tap diagnostics: ${JSON.stringify({point,diagnostic},null,2)}`);
   }
-  const closer=await waitDepthScene(controller,closerStart,5,`Number(p.depth)>.005&&Number(p.visualScale)>1`,`${label} closer depth plane`);
+  const stageCloser=await waitEval(stage,`(()=>{
+    const api=window.PuppetalkDepthState;
+    if(!api)return null;
+    const plane=api.getPlaneForSlot(0);
+    const depth=api.getDepthForSlot(0);
+    return plane===5&&depth>.005?{plane,depth}:null;
+  })()`,`${label} stage closer depth state`);
+  let closer;
+  try{
+    closer=await waitDepthScene(controller,closerStart,5,`Number(p.depth)>.005&&Number(p.visualScale)>1`,`${label} closer depth plane`);
+  }catch(error){
+    const recentScenes=await evaluate(controller,`(()=>{
+      const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).filter(e=>e.event==='recv'&&e.type==='scene'&&e.scene);
+      return entries.slice(-8).map(e=>({at:e.at,puppet:e.scene.puppets?.find(p=>p.slot===0)||null}));
+    })()`);
+    throw new Error(`${error.message}\n${label} closer scene diagnostics: ${JSON.stringify({stageCloser,recentScenes},null,2)}`);
+  }
 
   point=await latestTorsoScreenPoint(controller);
   if(!point)throw new Error(`${label} could not resolve torso screen point after moving closer.`);
@@ -313,12 +329,19 @@ async function exerciseDepthGestures(controller,label){
   await sleep(300);
   await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:point.x,y:point.y,button:'left',buttons:0,clickCount:1});
   await waitEval(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${awayStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===-1)`,`${label} away depth-step`);
+  const stageAway=await waitEval(stage,`(()=>{
+    const api=window.PuppetalkDepthState;
+    if(!api)return null;
+    const plane=api.getPlaneForSlot(0);
+    const depth=api.getDepthForSlot(0);
+    return plane===4&&Math.abs(depth)<.02?{plane,depth}:null;
+  })()`,`${label} stage neutral depth state`,5000);
   const away=await waitDepthScene(controller,awayStart,4,`Math.abs(Number(p.depth))<.02&&Math.abs(Number(p.visualScale)-1)<.04`,`${label} neutral depth plane return`,5000);
 
   return {
     guide,
-    closer:{direction:1,plane:closer.depthPlane,depthPositive:closer.depth>0,scaleAboveOne:closer.visualScale>1},
-    away:{direction:-1,plane:away.depthPlane,nearNeutral:Math.abs(away.depth)<.02,scaleNearOne:Math.abs(away.visualScale-1)<.04}
+    closer:{direction:1,stagePlane:stageCloser.plane,plane:closer.depthPlane,depthPositive:closer.depth>0,scaleAboveOne:closer.visualScale>1},
+    away:{direction:-1,stagePlane:stageAway.plane,plane:away.depthPlane,nearNeutral:Math.abs(away.depth)<.02,scaleNearOne:Math.abs(away.visualScale-1)<.04}
   };
 }
 
@@ -382,7 +405,7 @@ async function liveSession(prefix,room,label){
   const before=await controllerState(controller);
   const stageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
   const controls=await exerciseCoreControls(controller,label);
-  const depth=await exerciseDepthGestures(controller,label);
+  const depth=await exerciseDepthGestures(controller,stage,label);
 
   const specialStart=await traceLength(controller);
   await click(controller,'#special-item');
