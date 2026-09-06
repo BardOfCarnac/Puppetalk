@@ -314,7 +314,15 @@ async function installStageWalkingProbe(stage,label){
   await waitEval(stage,`typeof window.__PUPPETALK_PARITY_STAGE_TICK__==='function'`,`${label} stage walking frame`,4000);
 }
 async function advanceStageFrame(stage){
-  return evaluate(stage,`(()=>{const tick=window.__PUPPETALK_PARITY_STAGE_TICK__;if(typeof tick!=='function')return false;tick(performance.now());return true;})()`);
+  return evaluate(stage,`(()=>{
+    const tick=window.__PUPPETALK_PARITY_STAGE_TICK__;
+    if(typeof tick!=='function')return false;
+    const raw=window.requestAnimationFrame;
+    window.requestAnimationFrame=()=>0;
+    try{tick(performance.now());}
+    finally{window.requestAnimationFrame=raw;}
+    return true;
+  })()`);
 }
 async function stageWalkingState(stage){
   return evaluate(stage,`(()=>{
