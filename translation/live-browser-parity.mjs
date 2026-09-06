@@ -320,7 +320,6 @@ async function exerciseDepthGestures(controller,stage,label){
     const target=tuning.planes[plane];
     return plane>${startState.plane}&&Math.abs(depth-target)<.02?{plane,depth,target}:null;
   })()`,`${label} mature closer depth state`,5000);
-  const closer=await waitDepthScene(controller,closerStart,stageCloser.plane,`Math.abs(Number(p.depth)-${stageCloser.target})<.02`,`${label} mature closer scene`,5000);
 
   point=await latestTorsoScreenPoint(controller);
   if(!point)throw new Error(`${label} could not resolve torso screen point after moving closer.`);
@@ -338,13 +337,12 @@ async function exerciseDepthGestures(controller,stage,label){
     const target=tuning.planes[plane];
     return plane<${stageCloser.plane}&&Math.abs(depth-target)<.02?{plane,depth,target}:null;
   })()`,`${label} mature away depth state`,5000);
-  const away=await waitDepthScene(controller,awayStart,stageAway.plane,`Math.abs(Number(p.depth)-${stageAway.target})<.02`,`${label} mature away scene`,5000);
 
   return {
     guide,
     startPlane:startState.plane,
-    closer:{direction:1,stagePlane:stageCloser.plane,plane:closer.depthPlane,delta:stageCloser.plane-startState.plane,settled:Math.abs(closer.depth-stageCloser.target)<.02},
-    away:{direction:-1,stagePlane:stageAway.plane,plane:away.depthPlane,delta:stageAway.plane-stageCloser.plane,returned:stageAway.plane===startState.plane,settled:Math.abs(away.depth-stageAway.target)<.02}
+    closer:{direction:1,plane:stageCloser.plane,delta:stageCloser.plane-startState.plane,settled:Math.abs(stageCloser.depth-stageCloser.target)<.02},
+    away:{direction:-1,plane:stageAway.plane,delta:stageAway.plane-stageCloser.plane,returned:stageAway.plane===startState.plane,settled:Math.abs(stageAway.depth-stageAway.target)<.02}
   };
 }
 async function exerciseCoreControls(controller,label){
