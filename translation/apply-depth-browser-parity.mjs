@@ -11,28 +11,18 @@ function replaceOnce(from,to,label){
 }
 
 replaceOnce(
-`  const note=(event,extra={})=>trace.push({event,...extra});`,
-`  const note=(event,extra={})=>trace.push({at:performance.now(),event,...extra});`,
-'fake transport timestamps'
-);
-
-replaceOnce(
-`  await waitEval(controller,\`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(\${closerStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===1)\`,\`\${label} closer depth-step\`);
-  const closer=await waitDepthScene(controller,closerStart,5,\`Number(p.depth)>.005&&Number(p.visualScale)>1\`,\`\${label} closer depth plane\`);`,
-`  try{
-    await waitEval(controller,\`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(\${closerStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===1)\`,\`\${label} closer depth-step\`);
-  }catch(error){
-    const diagnostic=await evaluate(controller,\`(()=>{
-      const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(\${closerStart});
-      return entries.filter(e=>
-        e.event==='send'&&(e.type==='input'||e.type==='depth-step')
-      ).map(e=>({at:e.at,type:e.type,direction:e.direction,input:e.input}));
-    })()\`);
-    throw new Error(\`\${error.message}\\n\${label} depth tap diagnostics: \${JSON.stringify({point,diagnostic},null,2)}\`);
-  }
-  const closer=await waitDepthScene(controller,closerStart,5,\`Number(p.depth)>.005&&Number(p.visualScale)>1\`,\`\${label} closer depth plane\`);`,
-'closer depth diagnostics'
+`    const stageH=r.width*(360/320);
+    const offsetY=r.height*.79-stageH*.90;
+    return {
+      x:r.left+torso.x*r.width,
+      y:r.top+offsetY+torso.y*stageH
+    };`,
+`    return {
+      x:r.left+torso.x*r.width,
+      y:r.top+torso.y*r.height
+    };`,
+'depth torso hit coordinates'
 );
 
 fs.writeFileSync(path,source);
-console.log('Instrumented depth parity with transport timing and input diagnostics.');
+console.log('Depth parity now uses the same proven canvas hit coordinates as direct torso dragging.');
