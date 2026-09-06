@@ -145,6 +145,16 @@ const fakePeerSource=String.raw`(()=>{
 
 const stageWalkingProbeSource="(()=>{\n  if(window.__PUPPETALK_PARITY_ENGINE_PROBE_BOOT__)return;\n  window.__PUPPETALK_PARITY_ENGINE_PROBE_BOOT__=true;\n  let matterValue;\n  Object.defineProperty(window,'Matter',{\n    configurable:true,\n    enumerable:true,\n    get(){return matterValue;},\n    set(value){\n      matterValue=value;\n      const raw=value?.Engine?.update;\n      if(typeof raw==='function'&&!raw.__puppetalkParityProbe){\n        const wrapped=function(engine,...args){\n          window.__PUPPETALK_PARITY_ENGINE__=engine;\n          return raw.call(this,engine,...args);\n        };\n        wrapped.__puppetalkParityProbe=true;\n        value.Engine.update=wrapped;\n      }\n      Object.defineProperty(window,'Matter',{configurable:true,enumerable:true,writable:true,value});\n    }\n  });\n})();";
 
+const stageTickProbeSource=String.raw`(()=>{
+  if(window.__PUPPETALK_PARITY_STAGE_TICK_PROBE__)return;
+  window.__PUPPETALK_PARITY_STAGE_TICK_PROBE__=true;
+  const raw=requestAnimationFrame.bind(window);
+  window.requestAnimationFrame=function(callback){
+    if(typeof callback==='function'&&callback.name==='tick') window.__PUPPETALK_PARITY_STAGE_TICK__=callback;
+    return raw(callback);
+  };
+})();`;
+
 class Cdp{
   constructor(url){
     this.ws=new WebSocket(url);
@@ -182,7 +192,10 @@ async function target(url,{stageProbe=false}={}){
   await cdp.call('Page.enable');
   await cdp.call('Runtime.enable');
   await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:fakePeerSource});
-  if(stageProbe)await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:stageWalkingProbeSource});
+  if(stageProbe){
+    await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:stageWalkingProbeSource});
+    await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:stageTickProbeSource});
+  }
   await cdp.call('Page.navigate',{url});
   return cdp;
 }
@@ -295,7 +308,10 @@ async function waitDepthScene(cdp,start,plane,extra,label,timeout=3500){
 }
 
 async function installStageWalkingProbe(stage,label){
-  await waitEval(stage,`!!window.__PUPPETALK_PARITY_ENGINE__`,`${label} stage walking engine`,4000);
+  await waitEval(stage,`!!window.__PUPPETALK_PARITY_ENGINE__&&typeof window.__PUPPETALK_PARITY_STAGE_TICK__==='function'`,`${label} stage walking frame`,4000);
+}
+async function advanceStageFrame(stage){
+  return evaluate(stage,`(()=>{const tick=window.__PUPPETALK_PARITY_STAGE_TICK__;if(typeof tick!=='function')return false;tick(performance.now());return true;})()`);
 }
 async function stageWalkingState(stage){
   return evaluate(stage,`(()=>{
@@ -346,8 +362,11 @@ async function exerciseWalking(controller,stage,label){
   const traceStart=await traceLength(controller);
   const samples=[startScene];
 
+  const stageDownStart=await traceLength(stage);
   await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:sx,y:sy,button:'left',buttons:1,clickCount:1});
   const down=await waitInput(controller,traceStart,"e.input.grabs?.some(g=>g.part==='torso')",`${label} walking torso press`);
+  await waitEval(stage,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${stageDownStart}).some(e=>e.event==='recv'&&e.type==='input'&&e.input?.grabs?.some(g=>g.part==='torso'))`,`${label} walking torso press at stage`);
+  await advanceStageFrame(stage);
   const downGrab=(down.grabs||[]).find(g=>g.part==='torso');
 
   let moveGrab=null;
@@ -355,23 +374,33 @@ async function exerciseWalking(controller,stage,label){
     const t=i/9;
     const x=sx+(targetX-sx)*t;
     const moveStart=await traceLength(controller);
+    const stageMoveStart=await traceLength(stage);
     await controller.call('Input.dispatchMouseEvent',{type:'mouseMoved',x,y:sy,button:'left',buttons:1});
     const moved=await waitInput(controller,moveStart,"e.input.grabs?.some(g=>g.part==='torso')",`${label} walking torso move ${i}`);
+    await waitEval(stage,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${stageMoveStart}).some(e=>e.event==='recv'&&e.type==='input'&&e.input?.grabs?.some(g=>g.part==='torso'))`,`${label} walking torso move ${i} at stage`);
     moveGrab=(moved.grabs||[]).find(g=>g.part==='torso');
+    await advanceStageFrame(stage);
     await sleep(65);
+    await advanceStageFrame(stage);
     const sample=await stageWalkingState(stage);
     if(sample)samples.push(sample);
   }
   for(let i=0;i<9;i++){
+    await advanceStageFrame(stage);
     await sleep(60);
+    await advanceStageFrame(stage);
     const sample=await stageWalkingState(stage);
     if(sample)samples.push(sample);
   }
   const releaseStart=await traceLength(controller);
+  const stageReleaseStart=await traceLength(stage);
   await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:targetX,y:sy,button:'left',buttons:0,clickCount:1});
   await waitInput(controller,releaseStart,"e.input.grabs?.length===0",`${label} walking torso release`);
+  await waitEval(stage,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${stageReleaseStart}).some(e=>e.event==='recv'&&e.type==='input'&&e.input?.grabs?.length===0)`,`${label} walking torso release at stage`);
   for(let i=0;i<5;i++){
+    await advanceStageFrame(stage);
     await sleep(60);
+    await advanceStageFrame(stage);
     const sample=await stageWalkingState(stage);
     if(sample)samples.push(sample);
   }
