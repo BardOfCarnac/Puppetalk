@@ -259,11 +259,9 @@ async function latestTorsoScreenPoint(cdp){
     }
     const r=document.querySelector('#personal-canvas')?.getBoundingClientRect();
     if(!torso||!r)return null;
-    const stageH=r.width*(360/320);
-    const offsetY=r.height*.79-stageH*.90;
     return {
       x:r.left+torso.x*r.width,
-      y:r.top+offsetY+torso.y*stageH
+      y:r.top+torso.y*r.height
     };
   })()`);
 }
