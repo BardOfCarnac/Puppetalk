@@ -1,0 +1,35 @@
+name: Apply stable walking parity
+
+on:
+  push:
+    branches: [puppetalk-translation]
+    paths:
+      - translation/apply-stable-walking-parity.mjs
+      - .github/workflows/translation-apply-stable-walking-parity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Stabilize walking browser parity
+        run: node translation/apply-stable-walking-parity.mjs
+      - name: Check parity script syntax
+        run: node --check translation/live-browser-parity.mjs
+      - name: Commit stable walking parity
+        run: |
+          if git diff --quiet -- translation/live-browser-parity.mjs; then
+            echo 'Stable walking parity patch produced no changes.'
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add translation/live-browser-parity.mjs
+          git commit -m 'Stabilize body-drag walking browser parity'
+          git push
