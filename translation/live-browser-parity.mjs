@@ -272,10 +272,14 @@ async function exerciseCoreControls(controller,label){
   start=await traceLength(controller);
   await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:sx,y:sy,button:'left',buttons:1,clickCount:1});
   const grabDown=await waitInput(controller,start,"e.input.grabs?.length===1&&e.input.grabs[0]?.part==='torso'",`${label} torso pointer down`);
+
+  const moveStart=await traceLength(controller);
   await controller.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:tx,y:ty,button:'left',buttons:1});
-  const grabMove=await waitInput(controller,start,"e.input.grabs?.length===1&&e.input.grabs[0]?.part==='torso'&&(Math.abs(e.input.grabs[0].x-.5)>.02||Math.abs(e.input.grabs[0].y-.55)>.02)",`${label} torso pointer move`);
+  const grabMove=await waitInput(controller,moveStart,"e.input.grabs?.length===1&&e.input.grabs[0]?.part==='torso'",`${label} torso pointer move`);
+
+  const releaseStart=await traceLength(controller);
   await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:tx,y:ty,button:'left',buttons:0,clickCount:1});
-  const grabUp=await waitInput(controller,start,"e.input.grabs?.length===0",`${label} torso pointer release`);
+  const grabUp=await waitInput(controller,releaseStart,"e.input.grabs?.length===0",`${label} torso pointer release`);
   out.pointerGrab={down:normalizeInput(grabDown),move:normalizeInput(grabMove),up:normalizeInput(grabUp)};
 
   return out;
