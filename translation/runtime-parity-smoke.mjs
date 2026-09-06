@@ -23,6 +23,7 @@ assert.match(actual,/PuppetalkCharacterInputSystem/,'Translated runtime is not c
 assert.match(actual,/PuppetalkPuppetDriver/,'Translated runtime is not connected to extracted puppet driver.');
 assert.match(actual,/PuppetalkPuppetLifecycle/,'Translated runtime is not connected to extracted puppet lifecycle.');
 assert.match(actual,/PuppetalkStageLoop/,'Translated runtime is not connected to extracted stage loop.');
+assert.match(actual,/PuppetalkStageLifecycle/,'Translated runtime is not connected to extracted stage lifecycle.');
 assert.match(actual,/PuppetalkHostSession/,'Translated runtime is not connected to extracted host session.');
 assert.match(actual,/PuppetalkPropGeometry/,'Translated runtime is not connected to extracted prop geometry.');
 assert.match(actual,/PuppetalkPropState/,'Translated runtime is not connected to extracted prop state.');
@@ -79,6 +80,8 @@ assert.doesNotMatch(actual,/function applyInput\(slot,msg\)/,'Embedded applyInpu
 assert.doesNotMatch(actual,/function drawStage\(\)/,'Embedded drawStage survived stage-loop extraction.');
 assert.doesNotMatch(actual,/function broadcastScene\(now\)/,'Embedded broadcastScene survived stage-loop extraction.');
 assert.doesNotMatch(actual,/function tick\(now\)/,'Embedded tick survived stage-loop extraction.');
+assert.doesNotMatch(actual,/function resize\(\)/,'Embedded stage resize survived stage-lifecycle extraction.');
+assert.doesNotMatch(actual,/addEventListener\('resize',resize,\{passive:true\}\)/,'Embedded stage resize listener survived stage-lifecycle extraction.');
 assert.doesNotMatch(actual,/function updateStatus\(extra=''\)/,'Embedded updateStatus survived host-session extraction.');
 assert.doesNotMatch(actual,/function freeSlot\(\)/,'Embedded freeSlot survived host-session extraction.');
 assert.doesNotMatch(actual,/const peer = new Peer\(peerId\(room\)\);/,'Embedded host Peer construction survived host-session extraction.');
@@ -259,11 +262,9 @@ assert.match(actual,/const controllerSession = window\.PuppetalkControllerSessio
 assert.match(actual,/const \{setStatus,transmit,connect,getConn,getSlot,getScene,getPropScene\} = controllerSession;/,'Controller session accessors are not bound.');
 assert.match(actual,/controllerSession\.setHooks\(\{updateSpecialItemButton,updateGripButtons,renderPersonalScene\}\);/,'Controller session UI hooks are not installed.');
 
-assert.ok(actual.includes("addEventListener('resize',resize,{passive:true});"),'Resize listener moved during prop extraction.');
-assert.ok(actual.includes(`  resize();
-  ensureTestProps();
-  installDartImpacts();
-  installPropContactPhysics();
-  requestAnimationFrame(tick);`),'V1 stage startup order changed during prop extraction.');
+
+
+assert.match(actual,/const stageLifecycle = window\.PuppetalkStageLifecycle\?\.create\?\.\(\{/,'Runtime is not bound to extracted stage lifecycle.');
+assert.match(actual,/stageLifecycle\.start\(\);/,'Extracted stage lifecycle is not started.');
 
 console.log('Translated runtime matches frozen V1 with character systems, stage loop, host session and prop grip/attachment/contact systems extracted.');

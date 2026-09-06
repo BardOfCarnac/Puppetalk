@@ -782,6 +782,39 @@ replaceOnce('prop collision setup point',
 );
 
 replaceOnce(
+  'embedded stage lifecycle resize listener',
+  `  addEventListener('resize',resize,{passive:true});
+`,
+  ``
+);
+
+removeBetweenOnce(
+  'embedded stage lifecycle resize',
+  `  function resize(){`,
+  `  const hostSession = window.PuppetalkHostSession?.create?.({`
+);
+
+replaceOnce(
+  'stage lifecycle startup',
+  `  resize();
+  ensureTestProps();
+  installDartImpacts();
+  installPropContactPhysics();
+  requestAnimationFrame(tick);`,
+  `  const stageLifecycle = window.PuppetalkStageLifecycle?.create?.({
+    canvas,ctx,Bodies,Composite,engine,
+    getBounds:()=>bounds,setBounds:value=>{ bounds=value; },
+    setDimensions:(width,height)=>{ W=width; H=height; },
+    ensureTestProps,installDartImpacts,installPropContactPhysics,tick,
+    getViewport:()=>({width:innerWidth,height:innerHeight,dpr:devicePixelRatio || 1}),
+    addEventListenerFn:(type,handler,opts)=>addEventListener(type,handler,opts),
+    requestFrame:callback=>requestAnimationFrame(callback)
+  });
+  if(!stageLifecycle) throw new Error('Puppetalk stage lifecycle failed to load.');
+  stageLifecycle.start();`
+);
+
+replaceOnce(
   'scene renderer setup point',
   `if(mode === 'controller') startController(room);`,
   `const sceneRenderer = window.PuppetalkSceneRenderer?.create?.({

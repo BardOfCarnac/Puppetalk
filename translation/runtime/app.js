@@ -249,25 +249,6 @@ function startStage(room){
   if(!stageLoop) throw new Error('Puppetalk stage loop failed to load.');
   const {drawStage,broadcastScene,tick} = stageLoop;
 
-  function resize(){
-    W = Math.max(innerWidth,320);
-    H = Math.max(innerHeight,360);
-    const dpr = Math.min(devicePixelRatio || 1,2);
-    canvas.width = Math.round(W*dpr);
-    canvas.height = Math.round(H*dpr);
-    canvas.style.width = `${W}px`;
-    canvas.style.height = `${H}px`;
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    bounds.forEach(body=>Composite.remove(engine.world,body));
-    bounds = [
-      Bodies.rectangle(W/2,H+10,W+160,80,{isStatic:true,friction:.9}),
-      Bodies.rectangle(W/2,-22,W+160,44,{isStatic:true,friction:.65}),
-      Bodies.rectangle(-30,H/2,60,H*2,{isStatic:true}),
-      Bodies.rectangle(W+30,H/2,60,H*2,{isStatic:true})
-    ];
-    Composite.add(engine.world,bounds);
-  }
-
   const hostSession = window.PuppetalkHostSession?.create?.({
     Peer,room,peerId,status,conns,puppets,props,NAMES,
     makePuppet,send,anatomy,propState,
@@ -279,7 +260,6 @@ function startStage(room){
   if(!hostSession) throw new Error('Puppetalk host session failed to load.');
   const {peer,updateStatus,freeSlot} = hostSession;
 
-  addEventListener('resize',resize,{passive:true});
   const dartImpacts = window.PuppetalkDartImpacts?.create?.({
     Matter,engine,propForBody,puppetPartForBody,attachPropToBody
   });
@@ -292,11 +272,17 @@ function startStage(room){
   if(!propContactPhysics) throw new Error('Puppetalk prop contact physics failed to load.');
   const {installPropContactPhysics} = propContactPhysics;
 
-  resize();
-  ensureTestProps();
-  installDartImpacts();
-  installPropContactPhysics();
-  requestAnimationFrame(tick);
+  const stageLifecycle = window.PuppetalkStageLifecycle?.create?.({
+    canvas,ctx,Bodies,Composite,engine,
+    getBounds:()=>bounds,setBounds:value=>{ bounds=value; },
+    setDimensions:(width,height)=>{ W=width; H=height; },
+    ensureTestProps,installDartImpacts,installPropContactPhysics,tick,
+    getViewport:()=>({width:innerWidth,height:innerHeight,dpr:devicePixelRatio || 1}),
+    addEventListenerFn:(type,handler,opts)=>addEventListener(type,handler,opts),
+    requestFrame:callback=>requestAnimationFrame(callback)
+  });
+  if(!stageLifecycle) throw new Error('Puppetalk stage lifecycle failed to load.');
+  stageLifecycle.start();
 }
 
 function startController(room){
