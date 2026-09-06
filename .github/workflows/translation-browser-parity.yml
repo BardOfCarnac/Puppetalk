@@ -13,15 +13,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Original vs translated browser parity
+      - name: Start parity server
         run: |
           python3 -m http.server 8082 >/tmp/puppetalk-parity-http.log 2>&1 &
-          server_pid=$!
-          trap 'kill $server_pid || true' EXIT
+          echo $! >/tmp/puppetalk-parity-server.pid
           sleep 1
-          google-chrome --headless --no-sandbox --disable-gpu --window-size=1280,1000 --virtual-time-budget=20000 --dump-dom http://127.0.0.1:8082/translation/browser-parity.html >/tmp/puppetalk-parity.html 2>/tmp/puppetalk-parity-chrome.log || true
+      - name: Deterministic original vs translated browser parity
+        run: |
+          google-chrome --headless --no-sandbox --disable-gpu --window-size=1280,1000 --virtual-time-budget=9000 --dump-dom http://127.0.0.1:8082/translation/browser-parity.html >/tmp/puppetalk-parity.html 2>/tmp/puppetalk-parity-chrome.log || true
           if ! grep -q 'id="parity-result" data-status="pass"' /tmp/puppetalk-parity.html; then
-            echo 'Original vs translated Puppetalk browser parity failed.'
+            echo 'Deterministic original vs translated Puppetalk browser parity failed.'
             cat /tmp/puppetalk-parity-chrome.log || true
             echo '--- PARITY DOM ---'
             cat /tmp/puppetalk-parity.html || true
@@ -33,3 +34,10 @@ jobs:
           m=re.search(r'<pre id="parity-result" data-status="pass">(.*?)</pre>',text,re.S)
           print(re.sub(r'<[^>]+>','',m.group(1)).strip() if m else 'PASS')
           PY
+      - name: Live stage/controller parity
+        env:
+          PUPPETALK_PARITY_BASE: http://127.0.0.1:8082
+        run: node translation/live-browser-parity.mjs
+      - name: Stop parity server
+        if: always()
+        run: kill $(cat /tmp/puppetalk-parity-server.pid) || true
