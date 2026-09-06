@@ -70,14 +70,18 @@ async function waitEval(cdp,expression,label,timeout=12000){
   }
   throw new Error(`${label} timed out; final value: ${JSON.stringify(value)}`);
 }
-async function snapshot(cdp){
-  return evaluate(cdp,`(()=>({
-    controllerStatus:(document.querySelector('#controller-status')?.textContent||'').trim(),
-    stageStatus:null,
-    welcomeHint:(document.querySelector('#stage-hint')?.textContent||'').trim(),
-    beforeButton:(document.querySelector('#special-item')?.textContent||'').trim(),
-    afterButton:'',afterDisabled:false,propHint:''
-  }))()`);
+async function controllerState(cdp){
+  return evaluate(cdp,`(()=>{
+    const special=document.querySelector('#special-item');
+    return {
+      controllerStatus:(document.querySelector('#controller-status')?.textContent||'').trim(),
+      hint:(document.querySelector('#stage-hint')?.textContent||'').trim(),
+      buttonText:(special?.textContent||'').trim(),
+      buttonDisabled:!!special?.disabled,
+      dotClass:document.querySelector('#dot')?.className||'',
+      youHidden:!!document.querySelector('#you-chip')?.hidden
+    };
+  })()`);
 }
 
 async function liveSession(prefix,room,label){
@@ -86,13 +90,42 @@ async function liveSession(prefix,room,label){
   const controller=await target(`${base}${prefix}?mode=controller&room=${room}&lobby=done`);
   await waitEval(controller,`(document.querySelector('#controller-status')?.textContent||'').trim().startsWith('you are ')`,`${label} controller welcome`);
   await waitEval(stage,`document.querySelector('#stage-status')?.textContent.includes('1 puppeteer connected')`,`${label} host connection count`);
-  const state=await snapshot(controller);
-  state.stageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
-  await evaluate(controller,`(()=>{const b=document.querySelector('#special-item');if(!b||b.disabled)return false;b.click();return true;})()`);
-  await waitEval(controller,`(document.querySelector('#stage-hint')?.textContent||'').trim().startsWith('Brought out ')`,`${label} special-item result`);
-  state.propHint=await evaluate(controller,`(document.querySelector('#stage-hint')?.textContent||'').trim()`);
-  state.afterButton=await evaluate(controller,`(document.querySelector('#special-item')?.textContent||'').trim()`);
-  state.afterDisabled=await evaluate(controller,`!!document.querySelector('#special-item')?.disabled`);
+  await waitEval(controller,`(()=>{const b=document.querySelector('#special-item');return !!b && !b.disabled && b.textContent.trim().startsWith('Bring out ');})()`,`${label} special-item ready`);
+
+  const before=await controllerState(controller);
+  const stageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
+  const click=await evaluate(controller,`(()=>{
+    const b=document.querySelector('#special-item');
+    if(!b)return {clicked:false,reason:'missing'};
+    if(b.disabled)return {clicked:false,reason:'disabled',text:b.textContent.trim()};
+    b.click();
+    return {clicked:true,text:b.textContent.trim()};
+  })()`);
+  console.log(`${label} before special-item click:`,JSON.stringify({stageStatus,before,click}));
+  if(!click?.clicked) throw new Error(`${label} special-item click was not dispatched: ${JSON.stringify({stageStatus,before,click})}`);
+
+  const started=Date.now();
+  let after=await controllerState(controller);
+  while(Date.now()-started<12000){
+    after=await controllerState(controller);
+    if(after.hint.startsWith('Brought out ') || after.buttonDisabled || after.controllerStatus.includes('reconnecting') || after.controllerStatus.includes('network error')) break;
+    await sleep(120);
+  }
+  console.log(`${label} after special-item click:`,JSON.stringify(after));
+  if(!after.hint.startsWith('Brought out ')){
+    const laterStageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
+    throw new Error(`${label} special-item acknowledgement missing: ${JSON.stringify({stageStatus:laterStageStatus,before,click,after})}`);
+  }
+
+  const state={
+    controllerStatus:before.controllerStatus,
+    stageStatus,
+    welcomeHint:before.hint,
+    beforeButton:before.buttonText,
+    propHint:after.hint,
+    afterButton:after.buttonText,
+    afterDisabled:after.buttonDisabled
+  };
   controller.close();stage.close();
   return state;
 }
