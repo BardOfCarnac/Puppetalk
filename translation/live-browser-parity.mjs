@@ -113,7 +113,6 @@ class Cdp{
       const msg=JSON.parse(event.data);
       if(!msg.id){
         if(msg.method==='Runtime.exceptionThrown')this.events.push({type:'exception',text:msg.params?.exceptionDetails?.text||'',description:msg.params?.exceptionDetails?.exception?.description||''});
-        if(msg.method==='Runtime.consoleAPICalled')this.events.push({type:'console',level:msg.params?.type||'',args:(msg.params?.args||[]).map(a=>a.value??a.description??'')});
         return;
       }
       const p=this.pending.get(msg.id);
@@ -157,14 +156,12 @@ async function waitEval(cdp,expression,label,timeout=7000){
   }
   throw new Error(`${label} timed out; final value: ${JSON.stringify(value)}`);
 }
-async function transportTrace(cdp){return evaluate(cdp,`window.__PUPPETALK_PARITY_TRACE__||[]`);}
 async function controllerState(cdp){
   return evaluate(cdp,`(()=>{const special=document.querySelector('#special-item');return {
     controllerStatus:(document.querySelector('#controller-status')?.textContent||'').trim(),
     hint:(document.querySelector('#stage-hint')?.textContent||'').trim(),
     buttonText:(special?.textContent||'').trim(),buttonDisabled:!!special?.disabled,
-    dotClass:document.querySelector('#dot')?.className||'',youHidden:!!document.querySelector('#you-chip')?.hidden,
-    fakePeer:!!window.__PUPPETALK_PARITY_FAKE_PEER__
+    dotClass:document.querySelector('#dot')?.className||'',youHidden:!!document.querySelector('#you-chip')?.hidden
   };})()`);
 }
 
@@ -181,21 +178,34 @@ async function liveSession(prefix,room,label){
   const before=await controllerState(controller);
   const stageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
   const click=await evaluate(controller,`(()=>{const b=document.querySelector('#special-item');if(!b||b.disabled)return false;b.click();return true;})()`);
-  if(!click)throw new Error(`${label} special-item click was not dispatched: ${JSON.stringify({stageStatus,before})}`);
+  if(!click)throw new Error(`${label} special-item click was not dispatched.`);
 
-  try{
-    await waitEval(controller,`(document.querySelector('#stage-hint')?.textContent||'').trim().startsWith('Brought out ')`,`${label} special-item result`,3500);
-  }catch(error){
-    const diagnostic={
-      stageStatus:await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`),
-      controller:await controllerState(controller),
-      stageTrace:await transportTrace(stage),controllerTrace:await transportTrace(controller),
-      stageEvents:stage.events,controllerEvents:controller.events
-    };
-    throw new Error(`${error.message}\n${label} diagnostics: ${JSON.stringify(diagnostic,null,2)}`);
-  }
+  await waitEval(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).some(e=>e.event==='recv'&&e.message==='Brought out Laser frisbee.')`,`${label} frozen special-item transport reply`);
+  await sleep(120);
   const after=await controllerState(controller);
-  const state={controllerStatus:before.controllerStatus,stageStatus,welcomeHint:before.hint,beforeButton:before.buttonText,propHint:after.hint,afterButton:after.buttonText,afterDisabled:after.buttonDisabled};
+  const reply=await evaluate(controller,`(()=>{
+    const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).filter(e=>e.event==='recv'&&e.message==='Brought out Laser frisbee.');
+    const e=entries[entries.length-1];
+    return e?{type:e.type,propId:e.propId,ok:e.ok,message:e.message}:null;
+  })()`);
+  if(stage.events.some(e=>e.type==='exception')||controller.events.some(e=>e.type==='exception')){
+    throw new Error(`${label} browser exception during session: ${JSON.stringify({stage:stage.events,controller:controller.events})}`);
+  }
+
+  // Frozen V1 accidentally lets result.type ('frisbee') overwrite the intended
+  // 'special-item-result' envelope type. The controller therefore ignores the
+  // acknowledgement. Parity requires the translation to reproduce that behavior
+  // until we intentionally fix it after the translation is complete.
+  const state={
+    controllerStatus:before.controllerStatus,
+    stageStatus,
+    welcomeHint:before.hint,
+    beforeButton:before.buttonText,
+    reply,
+    afterHint:after.hint,
+    afterButton:after.buttonText,
+    afterDisabled:after.buttonDisabled
+  };
   controller.close();stage.close();
   return state;
 }
@@ -204,9 +214,14 @@ try{
   await waitDebugger();
   const original=await liveSession('/','LIVE1','original');
   const translated=await liveSession('/translation/','LIVE2','translated');
-  if(JSON.stringify(original)!==JSON.stringify(translated))throw new Error(`Live session parity mismatch.\nORIGINAL ${JSON.stringify(original,null,2)}\nTRANSLATED ${JSON.stringify(translated,null,2)}`);
+  if(JSON.stringify(original)!==JSON.stringify(translated)){
+    throw new Error(`Live session parity mismatch.\nORIGINAL ${JSON.stringify(original,null,2)}\nTRANSLATED ${JSON.stringify(translated,null,2)}`);
+  }
+  if(original.reply?.type!=='frisbee'||original.reply?.ok!==true){
+    throw new Error(`Frozen V1 special-item reply shape changed unexpectedly: ${JSON.stringify(original.reply)}`);
+  }
   console.log('PASS');
-  console.log('Stage/controller handshake and special-item round trip: pass');
+  console.log('Stage/controller handshake and frozen special-item transport behavior: pass');
   console.log(JSON.stringify(original,null,2));
 }finally{
   const exited=new Promise(resolve=>chrome.once('exit',resolve));
