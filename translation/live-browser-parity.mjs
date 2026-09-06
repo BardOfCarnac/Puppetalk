@@ -291,37 +291,73 @@ async function waitDepthScene(cdp,start,plane,extra,label,timeout=3500){
   })()`,label,timeout);
 }
 
-async function latestWalkingScene(cdp){
-  return evaluate(cdp,`(()=>{
-    const trace=window.__PUPPETALK_PARITY_TRACE__||[];
-    for(let i=trace.length-1;i>=0;i--){
-      const e=trace[i];
-      if(e.event!=='recv'||e.type!=='scene'||!e.scene)continue;
-      const p=e.scene.puppets?.find(p=>p.slot===0);
-      if(p?.torso&&p?.al&&p?.ar)return {torso:p.torso,al:p.al,ar:p.ar};
-    }
-    return null;
+async function installStageWalkingProbe(stage,label){
+  await evaluate(stage,
+    `(()=>{
+      if(window.__PUPPETALK_PARITY_ENGINE_PROBE__)return true;
+      const M=window.Matter;
+      if(!M?.Engine?.update)return false;
+      const raw=M.Engine.update;
+      M.Engine.update=function(engine,...args){
+        window.__PUPPETALK_PARITY_ENGINE__=engine;
+        return raw.call(this,engine,...args);
+      };
+      window.__PUPPETALK_PARITY_ENGINE_PROBE__=true;
+      return true;
+    })()`
+  );
+  await waitEval(stage,`!!window.__PUPPETALK_PARITY_ENGINE__`,`${label} stage walking engine`,4000);
+}
+
+async function stageWalkingState(stage){
+  return evaluate(stage,`(()=>{
+    const engine=window.__PUPPETALK_PARITY_ENGINE__;
+    if(!engine?.world?.bodies)return null;
+    const bodies=engine.world.bodies.filter(b=>!b.isStatic&&b.plugin?.puppetalkPart);
+    const part=name=>bodies.find(b=>b.plugin?.puppetalkPart===name);
+    const torso=part('torso'),left=part('shL'),right=part('shR');
+    if(!torso||!left||!right)return null;
+    const end=(body,length=25)=>({
+      x:body.position.x-Math.sin(body.angle)*length,
+      y:body.position.y+Math.cos(body.angle)*length
+    });
+    const canvas=document.querySelector('canvas');
+    const W=Math.max(1,canvas?.clientWidth||canvas?.width||1024);
+    const H=Math.max(1,canvas?.clientHeight||canvas?.height||768);
+    const l=end(left),r=end(right);
+    return {
+      torso:{x:torso.position.x/W,y:torso.position.y/H},
+      al:{x:l.x/W,y:l.y/H},
+      ar:{x:r.x/W,y:r.y/H}
+    };
   })()`);
 }
 
-async function exerciseWalking(controller,label){
-  const startScene=await waitEval(controller,`(()=>{
-    const trace=window.__PUPPETALK_PARITY_TRACE__||[];
-    for(let i=trace.length-1;i>=0;i--){
-      const e=trace[i];
-      if(e.event!=='recv'||e.type!=='scene'||!e.scene)continue;
-      const p=e.scene.puppets?.find(p=>p.slot===0);
-      if(p?.torso&&p?.al&&p?.ar)return {torso:p.torso,al:p.al,ar:p.ar};
-    }
-    return null;
-  })()`,`${label} walking start scene`);
+async function exerciseWalking(controller,stage,label){
+  await installStageWalkingProbe(stage,label);
+  const startScene=await waitEval(stage,`(()=>{
+    const engine=window.__PUPPETALK_PARITY_ENGINE__;
+    if(!engine?.world?.bodies)return null;
+    const bodies=engine.world.bodies.filter(b=>!b.isStatic&&b.plugin?.puppetalkPart);
+    const part=name=>bodies.find(b=>b.plugin?.puppetalkPart===name);
+    const torso=part('torso'),left=part('shL'),right=part('shR');
+    if(!torso||!left||!right)return null;
+    const end=(body,length=25)=>({x:body.position.x-Math.sin(body.angle)*length,y:body.position.y+Math.cos(body.angle)*length});
+    const canvas=document.querySelector('canvas');
+    const W=Math.max(1,canvas?.clientWidth||canvas?.width||1024),H=Math.max(1,canvas?.clientHeight||canvas?.height||768);
+    const l=end(left),r=end(right);
+    return {torso:{x:torso.position.x/W,y:torso.position.y/H},al:{x:l.x/W,y:l.y/H},ar:{x:r.x/W,y:r.y/H}};
+  })()`,`${label} walking start stage state`);
+
   const canvas=await evaluate(controller,`(()=>{const r=document.querySelector('#personal-canvas')?.getBoundingClientRect();return r?{left:r.left,top:r.top,width:r.width,height:r.height}:null;})()`);
   if(!canvas)throw new Error(`${label} walking canvas unavailable.`);
-
-  const sx=canvas.left+startScene.torso.x*canvas.width;
-  const sy=canvas.top+startScene.torso.y*canvas.height;
+  const controllerTorso=await latestTorsoScreenPoint(controller);
+  if(!controllerTorso)throw new Error(`${label} walking controller torso unavailable.`);
+  const sx=controllerTorso.x,sy=controllerTorso.y;
   const targetX=Math.min(canvas.left+canvas.width-24,sx+Math.max(190,canvas.width*.24));
   const traceStart=await traceLength(controller);
+  const samples=[startScene];
+
   await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:sx,y:sy,button:'left',buttons:1,clickCount:1});
   const down=await waitInput(controller,traceStart,"e.input.grabs?.some(g=>g.part==='torso')",`${label} walking torso press`);
   const downGrab=(down.grabs||[]).find(g=>g.part==='torso');
@@ -335,26 +371,25 @@ async function exerciseWalking(controller,label){
     const moved=await waitInput(controller,moveStart,"e.input.grabs?.some(g=>g.part==='torso')",`${label} walking torso move ${i}`);
     moveGrab=(moved.grabs||[]).find(g=>g.part==='torso');
     await sleep(65);
+    const sample=await stageWalkingState(stage);
+    if(sample)samples.push(sample);
   }
-  await sleep(520);
+  for(let i=0;i<9;i++){
+    await sleep(60);
+    const sample=await stageWalkingState(stage);
+    if(sample)samples.push(sample);
+  }
   const releaseStart=await traceLength(controller);
   await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:targetX,y:sy,button:'left',buttons:0,clickCount:1});
   await waitInput(controller,releaseStart,"e.input.grabs?.length===0",`${label} walking torso release`);
-  await sleep(260);
-
-  const scenes=await evaluate(controller,`(()=>{
-    const out=[];
-    for(const e of (window.__PUPPETALK_PARITY_TRACE__||[]).slice(${traceStart})){
-      if(e.event!=='recv'||e.type!=='scene'||!e.scene)continue;
-      const p=e.scene.puppets?.find(p=>p.slot===0);
-      if(p?.torso&&p?.al&&p?.ar)out.push({torso:p.torso,al:p.al,ar:p.ar});
-    }
-    return out;
-  })()`);
-  if(!Array.isArray(scenes)||!scenes.length)throw new Error(`${label} walking produced no scene samples.`);
+  for(let i=0;i<5;i++){
+    await sleep(60);
+    const sample=await stageWalkingState(stage);
+    if(sample)samples.push(sample);
+  }
 
   let torsoDx=-Infinity,leftTravel=0,rightTravel=0,leftLift=0,rightLift=0;
-  for(const p of scenes){
+  for(const p of samples){
     torsoDx=Math.max(torsoDx,Number(p.torso.x)-Number(startScene.torso.x));
     leftTravel=Math.max(leftTravel,Math.abs(Number(p.al.x)-Number(startScene.al.x)));
     rightTravel=Math.max(rightTravel,Math.abs(Number(p.ar.x)-Number(startScene.ar.x)));
@@ -369,10 +404,9 @@ async function exerciseWalking(controller,label){
       footTravel:Math.max(leftTravel,rightTravel)>.012,
       footLift:Math.max(leftLift,rightLift)>.004
     },
-    sample:{torsoDx:round(torsoDx),footTravel:round(Math.max(leftTravel,rightTravel)),footLift:round(Math.max(leftLift,rightLift)),sceneCount:scenes.length}
+    sample:{torsoDx:round(torsoDx),footTravel:round(Math.max(leftTravel,rightTravel)),footLift:round(Math.max(leftLift,rightLift)),sceneCount:samples.length}
   };
 }
-
 async function exerciseDepthGestures(controller,stage,label){
   await waitEval(controller,`(document.querySelector('.depth-gesture-guide')?.textContent||'').includes('3 quick taps')`,`${label} depth gesture guide`);
   const guide=await evaluate(controller,`(document.querySelector('.depth-gesture-guide')?.textContent||'').trim()`);
@@ -491,7 +525,7 @@ async function liveSession(prefix,room,label){
   // Exercise walking before depth so the locomotion contract starts from an
   // untouched neutral-depth puppet. The substantial horizontal travel also
   // exceeds the depth gesture's movement cancellation threshold.
-  const walking=await exerciseWalking(controller,label);
+  const walking=await exerciseWalking(controller,stage,label);
   const depth=await exerciseDepthGestures(controller,stage,label);
   const controls=await exerciseCoreControls(controller,label);
 
