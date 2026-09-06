@@ -17,6 +17,14 @@ function insertBefore(text,label,marker,addition){
   if(text.includes(addition.trim())) return text;
   return replaceOnce(text,label,marker,addition+marker);
 }
+function removeThroughOnce(text,label,startMarker,endMarker){
+  const start=text.indexOf(startMarker);
+  if(start<0) throw new Error(`Missing ${label} start marker.`);
+  if(text.indexOf(startMarker,start+startMarker.length)>=0) throw new Error(`${label} start marker matched more than once.`);
+  const end=text.indexOf(endMarker,start+startMarker.length);
+  if(end<0) throw new Error(`Missing ${label} end marker.`);
+  return text.slice(0,start)+text.slice(end+endMarker.length);
+}
 
 let build=read('translation/build-runtime.mjs');
 const rendererSetup=`replaceOnce(\n  'scene renderer setup point',`;
@@ -33,8 +41,26 @@ const tickNegative="assert.doesNotMatch(actual,/function tick\\(now\\)/,'Embedde
 const lifecycleNegatives="assert.doesNotMatch(actual,/function resize\\(\\)/,'Embedded stage resize survived stage-lifecycle extraction.');\nassert.doesNotMatch(actual,/addEventListener\\('resize',resize,\\{passive:true\\}\\)/,'Embedded stage resize listener survived stage-lifecycle extraction.');\n";
 if(!parity.includes('Embedded stage resize listener survived stage-lifecycle extraction.')) parity=insertAfter(parity,'stage lifecycle negative assertions',tickNegative,lifecycleNegatives);
 
-const lifecycleBinding="assert.match(actual,/const stageLifecycle = window\\.PuppetalkStageLifecycle\\?\\.create\\?\\.\\(\\{/,'Runtime is not bound to extracted stage lifecycle.');\nassert.match(actual,/stageLifecycle\\.start\\(\\);/,'Extracted stage lifecycle is not started.');\n";
-if(!parity.includes('Extracted stage lifecycle is not started.')) parity += `\n${lifecycleBinding}`;
+if(parity.includes('Resize listener moved during prop extraction.')){
+  parity=replaceOnce(
+    parity,
+    'stale inline resize-listener parity guard',
+    `assert.ok(actual.includes("addEventListener('resize',resize,{passive:true});"),'Resize listener moved during prop extraction.');\n`,
+    ''
+  );
+}
+if(parity.includes('V1 stage startup order changed during prop extraction.')){
+  parity=removeThroughOnce(
+    parity,
+    'stale inline stage-startup parity guard',
+    'assert.ok(actual.includes(`  resize();',
+    "`),'V1 stage startup order changed during prop extraction.');"
+  );
+}
+
+const lifecycleBinding="assert.match(actual,/const stageLifecycle = window\\.PuppetalkStageLifecycle\\?\\.create\\?\\.\\(\\{/,'Runtime is not bound to extracted stage lifecycle.');\nassert.match(actual,/stageLifecycle\\.start\\(\\);/,'Extracted stage lifecycle is not started.');\n\n";
+const parityConsole="console.log('Translated runtime matches frozen V1 with character systems, stage loop, host session and prop grip/attachment/contact systems extracted.');";
+if(!parity.includes('Extracted stage lifecycle is not started.')) parity=insertBefore(parity,'stage lifecycle binding assertions',parityConsole,lifecycleBinding);
 write('translation/runtime-parity-smoke.mjs',parity);
 
 let html=read('translation/index.html');
