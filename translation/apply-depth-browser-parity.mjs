@@ -17,20 +17,20 @@ replaceOnce(
 );
 
 replaceOnce(
-`  await waitEval(controller,\`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===1)\`,\`${label} closer depth-step\`);
-  const closer=await waitDepthScene(controller,closerStart,5,\`Number(p.depth)>.005&&Number(p.visualScale)>1\`,\`${label} closer depth plane\`);`,
+`  await waitEval(controller,\`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(\${closerStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===1)\`,\`\${label} closer depth-step\`);
+  const closer=await waitDepthScene(controller,closerStart,5,\`Number(p.depth)>.005&&Number(p.visualScale)>1\`,\`\${label} closer depth plane\`);`,
 `  try{
-    await waitEval(controller,\`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===1)\`,\`${label} closer depth-step\`);
+    await waitEval(controller,\`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(\${closerStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===1)\`,\`\${label} closer depth-step\`);
   }catch(error){
     const diagnostic=await evaluate(controller,\`(()=>{
-      const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart});
+      const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(\${closerStart});
       return entries.filter(e=>
         e.event==='send'&&(e.type==='input'||e.type==='depth-step')
       ).map(e=>({at:e.at,type:e.type,direction:e.direction,input:e.input}));
     })()\`);
-    throw new Error(\`${error.message}\\n${label} depth tap diagnostics: ${JSON.stringify({point,diagnostic},null,2)}\`);
+    throw new Error(\`\${error.message}\\n\${label} depth tap diagnostics: \${JSON.stringify({point,diagnostic},null,2)}\`);
   }
-  const closer=await waitDepthScene(controller,closerStart,5,\`Number(p.depth)>.005&&Number(p.visualScale)>1\`,\`${label} closer depth plane\`);`,
+  const closer=await waitDepthScene(controller,closerStart,5,\`Number(p.depth)>.005&&Number(p.visualScale)>1\`,\`\${label} closer depth plane\`);`,
 'closer depth diagnostics'
 );
 
