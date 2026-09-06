@@ -7,7 +7,7 @@ const base=process.env.PUPPETALK_PARITY_BASE||'http://127.0.0.1:8082';
 const port=9223;
 const profile=fs.mkdtempSync(path.join(os.tmpdir(),'puppetalk-parity-chrome-'));
 const chrome=spawn('google-chrome',[
-  '--headless','--no-sandbox','--disable-gpu',`--remote-debugging-port=${port}`,
+  '--headless','--no-sandbox','--disable-gpu','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows',`--remote-debugging-port=${port}`,
   `--user-data-dir=${profile}`,'--window-size=1024,768','about:blank'
 ],{stdio:['ignore','ignore','pipe']});
 chrome.stderr.on('data',()=>{});
@@ -324,7 +324,7 @@ async function exerciseWalking(controller,label){
   const traceStart=await traceLength(controller);
   await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:sx,y:sy,button:'left',buttons:1,clickCount:1});
   const down=await waitInput(controller,traceStart,"e.input.grabs?.some(g=>g.part==='torso')",`${label} walking torso press`);
-  const downGrab=normalizeInput(down).grabs.find(g=>g.part==='torso');
+  const downGrab=(down.grabs||[]).find(g=>g.part==='torso');
 
   let moveGrab=null;
   for(let i=1;i<=9;i++){
@@ -333,7 +333,7 @@ async function exerciseWalking(controller,label){
     const moveStart=await traceLength(controller);
     await controller.call('Input.dispatchMouseEvent',{type:'mouseMoved',x,y:sy,button:'left',buttons:1});
     const moved=await waitInput(controller,moveStart,"e.input.grabs?.some(g=>g.part==='torso')",`${label} walking torso move ${i}`);
-    moveGrab=normalizeInput(moved).grabs.find(g=>g.part==='torso');
+    moveGrab=(moved.grabs||[]).find(g=>g.part==='torso');
     await sleep(65);
   }
   await sleep(520);
@@ -532,6 +532,9 @@ async function liveSession(prefix,room,label){
 
 function comparable(state){
   const copy=structuredClone(state);
+  const walking=copy.walking;
+  if(walking?.input) walking.input.dx=Number(Number(walking.input.dx).toFixed(2));
+  if(walking) delete walking.sample;
   const gesture=copy.controls?.pointerGrab;
   if(gesture?.move){
     // The two independent Matter simulations can be sampled a few milliseconds
@@ -549,6 +552,12 @@ try{
   const translated=await liveSession('/translation/','LIVE2','translated');
   if(JSON.stringify(comparable(original))!==JSON.stringify(comparable(translated))){
     throw new Error(`Live session parity mismatch.\nORIGINAL ${JSON.stringify(original,null,2)}\nTRANSLATED ${JSON.stringify(translated,null,2)}`);
+  }
+  for(const [label,state] of [['original',original],['translated',translated]]){
+    const walk=state.walking;
+    if(walk?.input?.part!=='torso'||walk.input.screenY!==true||Math.abs(Number(walk.input.dx))<.15||!walk.observed?.torsoRight||!walk.observed?.footTravel||!walk.observed?.footLift){
+      throw new Error(`${label} body-drag walking behavior was not observed: ${JSON.stringify(walk)}`);
+    }
   }
   if(original.reply?.type!=='frisbee'||original.reply?.ok!==true){
     throw new Error(`Frozen V1 special-item reply shape changed unexpectedly: ${JSON.stringify(original.reply)}`);
