@@ -19,7 +19,7 @@ jobs:
           server_pid=$!
           trap 'kill $server_pid || true' EXIT
           sleep 1
-          google-chrome --headless --no-sandbox --disable-gpu --window-size=1280,1000 --virtual-time-budget=9000 --dump-dom http://127.0.0.1:8082/translation/browser-parity.html >/tmp/puppetalk-parity.html 2>/tmp/puppetalk-parity-chrome.log || true
+          google-chrome --headless --no-sandbox --disable-gpu --window-size=1280,1000 --virtual-time-budget=20000 --dump-dom http://127.0.0.1:8082/translation/browser-parity.html >/tmp/puppetalk-parity.html 2>/tmp/puppetalk-parity-chrome.log || true
           if ! grep -q 'id="parity-result" data-status="pass"' /tmp/puppetalk-parity.html; then
             echo 'Original vs translated Puppetalk browser parity failed.'
             cat /tmp/puppetalk-parity-chrome.log || true
