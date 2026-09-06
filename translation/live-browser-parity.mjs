@@ -15,11 +15,81 @@ chrome.stderr.on('data',()=>{});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function waitDebugger(){
   for(let i=0;i<120;i++){
-    try{const r=await fetch(`http://127.0.0.1:${port}/json/version`);if(r.ok)return; }catch{}
+    try{const r=await fetch(`http://127.0.0.1:${port}/json/version`);if(r.ok)return;}catch{}
     await sleep(100);
   }
   throw new Error('Chrome DevTools endpoint did not start.');
 }
+
+const fakePeerSource=String.raw`(()=>{
+  const channelName='puppetalk-parity-peer-v1';
+  let autoId=0;
+  class Emitter{
+    constructor(){this.handlers=new Map();}
+    on(name,fn){const list=this.handlers.get(name)||[];list.push(fn);this.handlers.set(name,list);return this;}
+    emit(name,...args){for(const fn of [...(this.handlers.get(name)||[])]){try{fn(...args);}catch(err){setTimeout(()=>{throw err;});}}}
+  }
+  class FakeConnection extends Emitter{
+    constructor(peer,connId,remoteId){super();this.peer=remoteId;this.connId=connId;this.owner=peer;this.open=false;this.closed=false;}
+    _open(){if(this.closed||this.open)return;this.open=true;this.emit('open');}
+    send(data){if(!this.open||this.closed)return;this.owner.channel.postMessage({kind:'data',connId:this.connId,from:this.owner.id,data});}
+    close(){if(this.closed)return;this.closed=true;this.open=false;this.owner.channel.postMessage({kind:'close',connId:this.connId,from:this.owner.id});this.emit('close');}
+    _remoteClose(){if(this.closed)return;this.closed=true;this.open=false;this.emit('close');}
+  }
+  class FakePeer extends Emitter{
+    constructor(id){
+      super();
+      this.id=id||('parity-client-'+(++autoId)+'-'+Math.random().toString(36).slice(2));
+      this.destroyed=false;
+      this.connections=new Map();
+      this.channel=new BroadcastChannel(channelName);
+      this.channel.onmessage=event=>this._message(event.data||{});
+      setTimeout(()=>{if(!this.destroyed)this.emit('open',this.id);},0);
+    }
+    connect(targetId){
+      const connId=this.id+'>'+targetId+'#'+Math.random().toString(36).slice(2);
+      const conn=new FakeConnection(this,connId,targetId);
+      this.connections.set(connId,conn);
+      this.channel.postMessage({kind:'connect',targetId,sourceId:this.id,connId});
+      return conn;
+    }
+    _message(msg){
+      if(this.destroyed||!msg)return;
+      if(msg.kind==='connect'&&msg.targetId===this.id){
+        if(this.connections.has(msg.connId))return;
+        const conn=new FakeConnection(this,msg.connId,msg.sourceId);
+        this.connections.set(msg.connId,conn);
+        this.emit('connection',conn);
+        setTimeout(()=>{
+          if(this.destroyed)return;
+          conn._open();
+          this.channel.postMessage({kind:'accept',connId:msg.connId,targetId:msg.sourceId,sourceId:this.id});
+        },0);
+        return;
+      }
+      if(msg.kind==='accept'&&msg.targetId===this.id){
+        this.connections.get(msg.connId)?._open();
+        return;
+      }
+      if(msg.kind==='data'&&msg.from!==this.id){
+        this.connections.get(msg.connId)?.emit('data',msg.data);
+        return;
+      }
+      if(msg.kind==='close'&&msg.from!==this.id){
+        this.connections.get(msg.connId)?._remoteClose();
+      }
+    }
+    destroy(){
+      if(this.destroyed)return;
+      this.destroyed=true;
+      for(const conn of this.connections.values())conn._remoteClose();
+      this.connections.clear();
+      this.channel.close();
+    }
+  }
+  Object.defineProperty(window,'Peer',{configurable:false,enumerable:true,get(){return FakePeer;},set(){}});
+  window.__PUPPETALK_PARITY_FAKE_PEER__=true;
+})();`;
 
 class Cdp{
   constructor(url){
@@ -53,6 +123,7 @@ async function target(url){
   const cdp=new Cdp(info.webSocketDebuggerUrl);
   await cdp.call('Page.enable');
   await cdp.call('Runtime.enable');
+  await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:fakePeerSource});
   await cdp.call('Page.navigate',{url});
   return cdp;
 }
@@ -61,12 +132,12 @@ async function evaluate(cdp,expression){
   if(out.exceptionDetails)throw new Error(out.exceptionDetails.text||'Browser evaluation failed.');
   return out.result?.value;
 }
-async function waitEval(cdp,expression,label,timeout=12000){
+async function waitEval(cdp,expression,label,timeout=7000){
   const started=Date.now();
   let value;
   while(Date.now()-started<timeout){
     try{value=await evaluate(cdp,expression);if(value)return value;}catch{}
-    await sleep(120);
+    await sleep(80);
   }
   throw new Error(`${label} timed out; final value: ${JSON.stringify(value)}`);
 }
@@ -79,43 +150,28 @@ async function controllerState(cdp){
       buttonText:(special?.textContent||'').trim(),
       buttonDisabled:!!special?.disabled,
       dotClass:document.querySelector('#dot')?.className||'',
-      youHidden:!!document.querySelector('#you-chip')?.hidden
+      youHidden:!!document.querySelector('#you-chip')?.hidden,
+      fakePeer:!!window.__PUPPETALK_PARITY_FAKE_PEER__
     };
   })()`);
 }
 
 async function liveSession(prefix,room,label){
   const stage=await target(`${base}${prefix}?mode=stage&room=${room}&lobby=done&embedded=1`);
+  await waitEval(stage,`window.__PUPPETALK_PARITY_FAKE_PEER__===true`,`${label} fake Peer injection`);
   await waitEval(stage,`document.querySelector('#stage-status')?.textContent.includes('stage live')`,`${label} stage open`);
   const controller=await target(`${base}${prefix}?mode=controller&room=${room}&lobby=done`);
+  await waitEval(controller,`window.__PUPPETALK_PARITY_FAKE_PEER__===true`,`${label} controller fake Peer injection`);
   await waitEval(controller,`(document.querySelector('#controller-status')?.textContent||'').trim().startsWith('you are ')`,`${label} controller welcome`);
   await waitEval(stage,`document.querySelector('#stage-status')?.textContent.includes('1 puppeteer connected')`,`${label} host connection count`);
-  await waitEval(controller,`(()=>{const b=document.querySelector('#special-item');return !!b && !b.disabled && b.textContent.trim().startsWith('Bring out ');})()`,`${label} special-item ready`);
+  await waitEval(controller,`(()=>{const b=document.querySelector('#special-item');return !!b&&!b.disabled&&b.textContent.trim().startsWith('Bring out ');})()`,`${label} special-item ready`);
 
   const before=await controllerState(controller);
   const stageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
-  const click=await evaluate(controller,`(()=>{
-    const b=document.querySelector('#special-item');
-    if(!b)return {clicked:false,reason:'missing'};
-    if(b.disabled)return {clicked:false,reason:'disabled',text:b.textContent.trim()};
-    b.click();
-    return {clicked:true,text:b.textContent.trim()};
-  })()`);
-  console.log(`${label} before special-item click:`,JSON.stringify({stageStatus,before,click}));
-  if(!click?.clicked) throw new Error(`${label} special-item click was not dispatched: ${JSON.stringify({stageStatus,before,click})}`);
-
-  const started=Date.now();
-  let after=await controllerState(controller);
-  while(Date.now()-started<12000){
-    after=await controllerState(controller);
-    if(after.hint.startsWith('Brought out ') || after.buttonDisabled || after.controllerStatus.includes('reconnecting') || after.controllerStatus.includes('network error')) break;
-    await sleep(120);
-  }
-  console.log(`${label} after special-item click:`,JSON.stringify(after));
-  if(!after.hint.startsWith('Brought out ')){
-    const laterStageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
-    throw new Error(`${label} special-item acknowledgement missing: ${JSON.stringify({stageStatus:laterStageStatus,before,click,after})}`);
-  }
+  const click=await evaluate(controller,`(()=>{const b=document.querySelector('#special-item');if(!b||b.disabled)return false;b.click();return true;})()`);
+  if(!click)throw new Error(`${label} special-item click was not dispatched: ${JSON.stringify({stageStatus,before})}`);
+  await waitEval(controller,`(document.querySelector('#stage-hint')?.textContent||'').trim().startsWith('Brought out ')`,`${label} special-item result`);
+  const after=await controllerState(controller);
 
   const state={
     controllerStatus:before.controllerStatus,
@@ -138,7 +194,7 @@ try{
     throw new Error(`Live session parity mismatch.\nORIGINAL ${JSON.stringify(original,null,2)}\nTRANSLATED ${JSON.stringify(translated,null,2)}`);
   }
   console.log('PASS');
-  console.log('Live stage/controller handshake and special-item round trip: pass');
+  console.log('Stage/controller handshake and special-item round trip: pass');
   console.log(JSON.stringify(original,null,2));
 }finally{
   const exited=new Promise(resolve=>chrome.once('exit',resolve));
