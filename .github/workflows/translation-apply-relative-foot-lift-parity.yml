@@ -1,0 +1,37 @@
+name: Apply relative foot-lift parity
+
+on:
+  push:
+    branches: [puppetalk-translation]
+    paths:
+      - 'translation/apply-relative-foot-lift-parity.mjs'
+      - '.github/workflows/translation-apply-relative-foot-lift-parity.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: puppetalk-translation
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Apply relative foot-lift parity correction
+        run: node translation/apply-relative-foot-lift-parity.mjs
+      - name: Check parity script syntax
+        run: node --check translation/live-browser-parity.mjs
+      - name: Commit parity harness correction
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add translation/live-browser-parity.mjs
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Measure walking foot lift relative to torso"
+          git push origin HEAD:puppetalk-translation
