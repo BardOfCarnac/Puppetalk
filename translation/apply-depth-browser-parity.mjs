@@ -11,57 +11,45 @@ function replaceOnce(from,to,label){
 }
 
 replaceOnce(
-  'async function exerciseDepthGestures(controller,label){',
-  'async function exerciseDepthGestures(controller,stage,label){',
-  'depth function signature'
+  "      if(msg.kind==='data'&&msg.from!==this.id){\n        note('recv',{owner:this.id,from:msg.from,connId:msg.connId,...msgInfo(msg.data)});\n        this.connections.get(msg.connId)?.emit('data',msg.data);\n        return;\n      }",
+  "      if(msg.kind==='data'&&msg.from!==this.id){\n        const conn=this.connections.get(msg.connId);\n        note('recv',{\n          owner:this.id,from:msg.from,connId:msg.connId,...msgInfo(msg.data),\n          foregroundPatched:!!conn?.__puppetalkForegroundPatched,\n          foregroundSlot:Number.isInteger(conn?.__puppetalkForegroundSlot)?conn.__puppetalkForegroundSlot:null,\n          stabilityPatched:!!conn?.__puppetalkPatched,\n          stabilitySlot:Number.isInteger(conn?.__puppetalkSlot)?conn.__puppetalkSlot:null,\n          locomotionPatched:!!conn?.__puppetalkLocomotionPatched,\n          locomotionSlot:Number.isInteger(conn?.__locomotionSlot)?conn.__locomotionSlot:null\n        });\n        conn?.emit('data',msg.data);\n        return;\n      }",
+  'stage transport wrapper trace'
 );
 
-const closerAnchor='  const closer=await waitDepthScene(controller,closerStart,5,`Number(p.depth)>.005&&Number(p.visualScale)>1`,`${label} closer depth plane`);';
-const closerReplacement=[
+const stageAnchor=[
   '  const stageCloser=await waitEval(stage,`(()=>{',
   '    const api=window.PuppetalkDepthState;',
   '    if(!api)return null;',
   '    const plane=api.getPlaneForSlot(0);',
   '    const depth=api.getDepthForSlot(0);',
   '    return plane===5&&depth>.005?{plane,depth}:null;',
-  '  })()`,`${label} stage closer depth state`);',
-  '  let closer;',
+  '  })()`,`${label} stage closer depth state`);'
+].join('\n');
+const stageReplacement=[
+  '  let stageCloser;',
   '  try{',
-  '    closer=await waitDepthScene(controller,closerStart,5,`Number(p.depth)>.005&&Number(p.visualScale)>1`,`${label} closer depth plane`);',
+  '    stageCloser=await waitEval(stage,`(()=>{',
+  '      const api=window.PuppetalkDepthState;',
+  '      if(!api)return null;',
+  '      const plane=api.getPlaneForSlot(0);',
+  '      const depth=api.getDepthForSlot(0);',
+  '      return plane===5&&depth>.005?{plane,depth}:null;',
+  '    })()`,`${label} stage closer depth state`);',
   '  }catch(error){',
-  '    const recentScenes=await evaluate(controller,`(()=>{',
-  '      const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).filter(e=>e.event===\'recv\'&&e.type===\'scene\'&&e.scene);',
-  '      return entries.slice(-8).map(e=>({at:e.at,puppet:e.scene.puppets?.find(p=>p.slot===0)||null}));',
+  '    const stageDiagnostic=await evaluate(stage,`(()=>{',
+  '      const api=window.PuppetalkDepthState;',
+  '      const trace=(window.__PUPPETALK_PARITY_TRACE__||[]).filter(e=>e.event===\'recv\'&&e.type===\'depth-step\');',
+  '      return {',
+  '        foreground:window.PuppetalkForegroundTuning||null,',
+  '        plane:api?.getPlaneForSlot?.(0)??null,',
+  '        depth:api?.getDepthForSlot?.(0)??null,',
+  '        depthSteps:trace.slice(-4)',
+  '      };',
   '    })()`);',
-  '    throw new Error(`${error.message}\\n${label} closer scene diagnostics: ${JSON.stringify({stageCloser,recentScenes},null,2)}`);',
+  '    throw new Error(`${error.message}\\n${label} stage depth diagnostics: ${JSON.stringify(stageDiagnostic,null,2)}`);',
   '  }'
 ].join('\n');
-replaceOnce(closerAnchor,closerReplacement,'closer stage diagnostics');
-
-const awayAnchor='  const away=await waitDepthScene(controller,awayStart,4,`Math.abs(Number(p.depth))<.02&&Math.abs(Number(p.visualScale)-1)<.04`,`${label} neutral depth plane return`,5000);';
-const awayReplacement=[
-  '  const stageAway=await waitEval(stage,`(()=>{',
-  '    const api=window.PuppetalkDepthState;',
-  '    if(!api)return null;',
-  '    const plane=api.getPlaneForSlot(0);',
-  '    const depth=api.getDepthForSlot(0);',
-  '    return plane===4&&Math.abs(depth)<.02?{plane,depth}:null;',
-  '  })()`,`${label} stage neutral depth state`,5000);',
-  '  const away=await waitDepthScene(controller,awayStart,4,`Math.abs(Number(p.depth))<.02&&Math.abs(Number(p.visualScale)-1)<.04`,`${label} neutral depth plane return`,5000);'
-].join('\n');
-replaceOnce(awayAnchor,awayReplacement,'away stage verification');
-
-replaceOnce(
-  '    closer:{direction:1,plane:closer.depthPlane,depthPositive:closer.depth>0,scaleAboveOne:closer.visualScale>1},\n    away:{direction:-1,plane:away.depthPlane,nearNeutral:Math.abs(away.depth)<.02,scaleNearOne:Math.abs(away.visualScale-1)<.04}',
-  '    closer:{direction:1,stagePlane:stageCloser.plane,plane:closer.depthPlane,depthPositive:closer.depth>0,scaleAboveOne:closer.visualScale>1},\n    away:{direction:-1,stagePlane:stageAway.plane,plane:away.depthPlane,nearNeutral:Math.abs(away.depth)<.02,scaleNearOne:Math.abs(away.visualScale-1)<.04}',
-  'depth result stage planes'
-);
-
-replaceOnce(
-  '  const depth=await exerciseDepthGestures(controller,label);',
-  '  const depth=await exerciseDepthGestures(controller,stage,label);',
-  'depth call stage argument'
-);
+replaceOnce(stageAnchor,stageReplacement,'stage depth state diagnostics');
 
 fs.writeFileSync(path,source);
-console.log('Instrumented depth parity with stage-side plane state and controller tuned-scene diagnostics.');
+console.log('Instrumented stage depth transport with wrapper markers and host-state diagnostics.');
