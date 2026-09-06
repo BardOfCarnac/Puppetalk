@@ -87,7 +87,7 @@ async function liveSession(prefix,room,label){
   await waitEval(controller,`(document.querySelector('#controller-status')?.textContent||'').trim().startsWith('you are ')`,`${label} controller welcome`);
   await waitEval(stage,`document.querySelector('#stage-status')?.textContent.includes('1 puppeteer connected')`,`${label} host connection count`);
   const state=await snapshot(controller);
-  state.stageStatus=(await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`));
+  state.stageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
   await evaluate(controller,`(()=>{const b=document.querySelector('#special-item');if(!b||b.disabled)return false;b.click();return true;})()`);
   await waitEval(controller,`(document.querySelector('#stage-hint')?.textContent||'').trim().startsWith('Brought out ')`,`${label} special-item result`);
   state.propHint=await evaluate(controller,`(document.querySelector('#stage-hint')?.textContent||'').trim()`);
@@ -108,6 +108,8 @@ try{
   console.log('Live stage/controller handshake and special-item round trip: pass');
   console.log(JSON.stringify(original,null,2));
 }finally{
+  const exited=new Promise(resolve=>chrome.once('exit',resolve));
   chrome.kill('SIGTERM');
-  fs.rmSync(profile,{recursive:true,force:true});
+  await Promise.race([exited,sleep(1500)]);
+  try{fs.rmSync(profile,{recursive:true,force:true,maxRetries:8,retryDelay:100});}catch(error){console.warn('Could not remove Chrome parity profile:',error.message);}
 }
