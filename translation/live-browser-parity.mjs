@@ -143,6 +143,8 @@ const fakePeerSource=String.raw`(()=>{
   window.__PUPPETALK_PARITY_FAKE_PEER__=true;
 })();`;
 
+const stageWalkingProbeSource="(()=>{\n  if(window.__PUPPETALK_PARITY_ENGINE_PROBE_BOOT__)return;\n  window.__PUPPETALK_PARITY_ENGINE_PROBE_BOOT__=true;\n  let matterValue;\n  Object.defineProperty(window,'Matter',{\n    configurable:true,\n    enumerable:true,\n    get(){return matterValue;},\n    set(value){\n      matterValue=value;\n      const raw=value?.Engine?.update;\n      if(typeof raw==='function'&&!raw.__puppetalkParityProbe){\n        const wrapped=function(engine,...args){\n          window.__PUPPETALK_PARITY_ENGINE__=engine;\n          return raw.call(this,engine,...args);\n        };\n        wrapped.__puppetalkParityProbe=true;\n        value.Engine.update=wrapped;\n      }\n      Object.defineProperty(window,'Matter',{configurable:true,enumerable:true,writable:true,value});\n    }\n  });\n})();";
+
 class Cdp{
   constructor(url){
     this.ws=new WebSocket(url);
@@ -172,7 +174,7 @@ class Cdp{
   close(){try{this.ws.close();}catch{}}
 }
 
-async function target(url){
+async function target(url,{stageProbe=false}={}){
   const r=await fetch(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'});
   if(!r.ok)throw new Error(`Could not create Chrome target: ${r.status}`);
   const info=await r.json();
@@ -180,6 +182,7 @@ async function target(url){
   await cdp.call('Page.enable');
   await cdp.call('Runtime.enable');
   await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:fakePeerSource});
+  if(stageProbe)await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:stageWalkingProbeSource});
   await cdp.call('Page.navigate',{url});
   return cdp;
 }
@@ -292,23 +295,8 @@ async function waitDepthScene(cdp,start,plane,extra,label,timeout=3500){
 }
 
 async function installStageWalkingProbe(stage,label){
-  await evaluate(stage,
-    `(()=>{
-      if(window.__PUPPETALK_PARITY_ENGINE_PROBE__)return true;
-      const M=window.Matter;
-      if(!M?.Engine?.update)return false;
-      const raw=M.Engine.update;
-      M.Engine.update=function(engine,...args){
-        window.__PUPPETALK_PARITY_ENGINE__=engine;
-        return raw.call(this,engine,...args);
-      };
-      window.__PUPPETALK_PARITY_ENGINE_PROBE__=true;
-      return true;
-    })()`
-  );
   await waitEval(stage,`!!window.__PUPPETALK_PARITY_ENGINE__`,`${label} stage walking engine`,4000);
 }
-
 async function stageWalkingState(stage){
   return evaluate(stage,`(()=>{
     const engine=window.__PUPPETALK_PARITY_ENGINE__;
@@ -511,7 +499,7 @@ async function exerciseCoreControls(controller,label){
 }
 
 async function liveSession(prefix,room,label){
-  const stage=await target(`${base}${prefix}?mode=stage&room=${room}&lobby=done&embedded=1`);
+  const stage=await target(`${base}${prefix}?mode=stage&room=${room}&lobby=done&embedded=1`,{stageProbe:true});
   await waitEval(stage,`window.__PUPPETALK_PARITY_FAKE_PEER__===true`,`${label} fake Peer injection`);
   await waitEval(stage,`document.querySelector('#stage-status')?.textContent.includes('stage live')`,`${label} stage open`);
   const controller=await target(`${base}${prefix}?mode=controller&room=${room}&lobby=done`);
