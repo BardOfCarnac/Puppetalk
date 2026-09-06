@@ -113,8 +113,17 @@ const fakePeerSource=String.raw`(()=>{
         return;
       }
       if(msg.kind==='data'&&msg.from!==this.id){
-        note('recv',{owner:this.id,from:msg.from,connId:msg.connId,...msgInfo(msg.data)});
-        this.connections.get(msg.connId)?.emit('data',msg.data);
+        const conn=this.connections.get(msg.connId);
+        note('recv',{
+          owner:this.id,from:msg.from,connId:msg.connId,...msgInfo(msg.data),
+          foregroundPatched:!!conn?.__puppetalkForegroundPatched,
+          foregroundSlot:Number.isInteger(conn?.__puppetalkForegroundSlot)?conn.__puppetalkForegroundSlot:null,
+          stabilityPatched:!!conn?.__puppetalkPatched,
+          stabilitySlot:Number.isInteger(conn?.__puppetalkSlot)?conn.__puppetalkSlot:null,
+          locomotionPatched:!!conn?.__puppetalkLocomotionPatched,
+          locomotionSlot:Number.isInteger(conn?.__locomotionSlot)?conn.__locomotionSlot:null
+        });
+        conn?.emit('data',msg.data);
         return;
       }
       if(msg.kind==='close'&&msg.from!==this.id)this.connections.get(msg.connId)?._remoteClose();
@@ -304,13 +313,28 @@ async function exerciseDepthGestures(controller,stage,label){
     })()`);
     throw new Error(`${error.message}\n${label} depth tap diagnostics: ${JSON.stringify({point,diagnostic},null,2)}`);
   }
-  const stageCloser=await waitEval(stage,`(()=>{
-    const api=window.PuppetalkDepthState;
-    if(!api)return null;
-    const plane=api.getPlaneForSlot(0);
-    const depth=api.getDepthForSlot(0);
-    return plane===5&&depth>.005?{plane,depth}:null;
-  })()`,`${label} stage closer depth state`);
+  let stageCloser;
+  try{
+    stageCloser=await waitEval(stage,`(()=>{
+      const api=window.PuppetalkDepthState;
+      if(!api)return null;
+      const plane=api.getPlaneForSlot(0);
+      const depth=api.getDepthForSlot(0);
+      return plane===5&&depth>.005?{plane,depth}:null;
+    })()`,`${label} stage closer depth state`);
+  }catch(error){
+    const stageDiagnostic=await evaluate(stage,`(()=>{
+      const api=window.PuppetalkDepthState;
+      const trace=(window.__PUPPETALK_PARITY_TRACE__||[]).filter(e=>e.event==='recv'&&e.type==='depth-step');
+      return {
+        foreground:window.PuppetalkForegroundTuning||null,
+        plane:api?.getPlaneForSlot?.(0)??null,
+        depth:api?.getDepthForSlot?.(0)??null,
+        depthSteps:trace.slice(-4)
+      };
+    })()`);
+    throw new Error(`${error.message}\n${label} stage depth diagnostics: ${JSON.stringify(stageDiagnostic,null,2)}`);
+  }
   let closer;
   try{
     closer=await waitDepthScene(controller,closerStart,5,`Number(p.depth)>.005&&Number(p.visualScale)>1`,`${label} closer depth plane`);
