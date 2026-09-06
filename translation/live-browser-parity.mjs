@@ -189,6 +189,17 @@ function normalizeInput(input){
     grabs:(input.grabs||[]).map(g=>({part:g.part,x:round(g.x),y:round(g.y)}))
   };
 }
+async function inputsSince(cdp,start){
+  const values=await evaluate(cdp,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${start}).filter(e=>e.event==='send'&&e.type==='input'&&e.input).map(e=>e.input)`);
+  return (values||[]).map(normalizeInput);
+}
+async function commandSequence(cdp,selector,requiredExpression,label){
+  const start=await traceLength(cdp);
+  await click(cdp,selector);
+  await waitEval(cdp,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${start}).some(e=>e.event==='send'&&e.type==='input'&&e.input&&(${requiredExpression}))`,label);
+  await sleep(80);
+  return {messages:await inputsSince(cdp,start),ui:await commandUi(cdp)};
+}
 async function commandUi(cdp){
   return evaluate(cdp,`(()=>({
     activePose:document.querySelector('#poses [data-pose].active')?.dataset.pose||'',
@@ -226,40 +237,17 @@ async function latestTorsoAndCanvas(cdp){
 
 async function exerciseCoreControls(controller,label){
   const out={};
+  out.point=await commandSequence(controller,'[data-pose="point"]',"e.input.pose==='point'&&!e.input.rag",`${label} point input`);
+  out.cheer=await commandSequence(controller,'[data-pose="cheer"]',"e.input.pose==='cheer'&&!e.input.rag",`${label} cheer input`);
+  out.limp=await commandSequence(controller,'[data-rag]',"e.input.rag===true",`${label} limp input`);
+  out.recoverToggle=await commandSequence(controller,'[data-rag]',"e.input.rag===false",`${label} recover toggle input`);
 
   let start=await traceLength(controller);
-  await click(controller,'[data-pose="point"]');
-  out.point={
-    input:normalizeInput(await waitInput(controller,start,"e.input.pose==='point'&&e.input.poseVersion===1&&!e.input.rag",`${label} point input`)),
-    ui:await commandUi(controller)
-  };
-
-  start=await traceLength(controller);
-  await click(controller,'[data-pose="cheer"]');
-  out.cheer={
-    input:normalizeInput(await waitInput(controller,start,"e.input.pose==='cheer'&&e.input.poseVersion===2&&!e.input.rag",`${label} cheer input`)),
-    ui:await commandUi(controller)
-  };
-
-  start=await traceLength(controller);
-  await click(controller,'[data-rag]');
-  out.limp={
-    input:normalizeInput(await waitInput(controller,start,"e.input.rag===true",`${label} limp input`)),
-    ui:await commandUi(controller)
-  };
-
-  start=await traceLength(controller);
-  await click(controller,'[data-rag]');
-  out.recoverToggle={
-    input:normalizeInput(await waitInput(controller,start,"e.input.rag===false",`${label} recover toggle input`)),
-    ui:await commandUi(controller)
-  };
-
-  start=await traceLength(controller);
   await click(controller,'#centre');
-  const centreDown=await waitInput(controller,start,"e.input.grabs?.length===1&&e.input.grabs[0]?.part==='torso'&&e.input.grabs[0]?.x===.5&&e.input.grabs[0]?.y===.55",`${label} centre grab`);
-  const centreUp=await waitInput(controller,start,"e.input.grabs?.length===0&&e.input.poseVersion===2",`${label} centre release`);
-  out.centre={down:normalizeInput(centreDown),up:normalizeInput(centreUp)};
+  await waitInput(controller,start,"e.input.grabs?.length===1&&e.input.grabs[0]?.part==='torso'&&e.input.grabs[0]?.x===.5&&e.input.grabs[0]?.y===.55",`${label} centre grab`);
+  await waitInput(controller,start,"e.input.grabs?.length===0",`${label} centre release`);
+  await sleep(40);
+  out.centre={messages:await inputsSince(controller,start)};
 
   await waitEval(controller,`(()=>{const t=window.__PUPPETALK_PARITY_TRACE__||[];return t.some(e=>e.event==='recv'&&e.type==='scene'&&e.scene?.puppets?.some(p=>p.slot===0&&p.torso));})()`,`${label} scene torso for pointer grab`);
   const geometry=await latestTorsoAndCanvas(controller);
@@ -281,7 +269,6 @@ async function exerciseCoreControls(controller,label){
   await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:tx,y:ty,button:'left',buttons:0,clickCount:1});
   const grabUp=await waitInput(controller,releaseStart,"e.input.grabs?.length===0",`${label} torso pointer release`);
   out.pointerGrab={down:normalizeInput(grabDown),move:normalizeInput(grabMove),up:normalizeInput(grabUp)};
-
   return out;
 }
 
@@ -343,7 +330,7 @@ try{
     throw new Error(`Frozen V1 special-item reply shape changed unexpectedly: ${JSON.stringify(original.reply)}`);
   }
   console.log('PASS');
-  console.log('Stage/controller handshake, pose/ragdoll controls, centre pulse, direct torso drag and frozen special-item behavior: pass');
+  console.log('Stage/controller handshake, complete pose/ragdoll message sequences, centre pulse, direct torso drag and frozen special-item behavior: pass');
   console.log(JSON.stringify(original,null,2));
 }finally{
   const exited=new Promise(resolve=>chrome.once('exit',resolve));
