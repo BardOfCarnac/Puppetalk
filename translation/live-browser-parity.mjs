@@ -50,6 +50,8 @@ const fakePeerSource=String.raw`(()=>{
       puppets:Array.isArray(data.puppets)?data.puppets.map(p=>({
         slot:p?.slot,
         torso:p?.torso?{x:Number(p.torso.x),y:Number(p.torso.y),a:Number(p.torso.a||0)}:null,
+        al:p?.al?{x:Number(p.al.x),y:Number(p.al.y)}:null,
+        ar:p?.ar?{x:Number(p.ar.x),y:Number(p.ar.y)}:null,
         depth:Number.isFinite(p?.depth)?Number(p.depth):null,
         visualScale:Number.isFinite(p?.visualScale)?Number(p.visualScale):null,
         depthPlane:Number.isInteger(p?.depthPlane)?p.depthPlane:null
@@ -289,6 +291,88 @@ async function waitDepthScene(cdp,start,plane,extra,label,timeout=3500){
   })()`,label,timeout);
 }
 
+async function latestWalkingScene(cdp){
+  return evaluate(cdp,`(()=>{
+    const trace=window.__PUPPETALK_PARITY_TRACE__||[];
+    for(let i=trace.length-1;i>=0;i--){
+      const e=trace[i];
+      if(e.event!=='recv'||e.type!=='scene'||!e.scene)continue;
+      const p=e.scene.puppets?.find(p=>p.slot===0);
+      if(p?.torso&&p?.al&&p?.ar)return {torso:p.torso,al:p.al,ar:p.ar};
+    }
+    return null;
+  })()`);
+}
+
+async function exerciseWalking(controller,label){
+  const startScene=await waitEval(controller,`(()=>{
+    const trace=window.__PUPPETALK_PARITY_TRACE__||[];
+    for(let i=trace.length-1;i>=0;i--){
+      const e=trace[i];
+      if(e.event!=='recv'||e.type!=='scene'||!e.scene)continue;
+      const p=e.scene.puppets?.find(p=>p.slot===0);
+      if(p?.torso&&p?.al&&p?.ar)return {torso:p.torso,al:p.al,ar:p.ar};
+    }
+    return null;
+  })()`,`${label} walking start scene`);
+  const canvas=await evaluate(controller,`(()=>{const r=document.querySelector('#personal-canvas')?.getBoundingClientRect();return r?{left:r.left,top:r.top,width:r.width,height:r.height}:null;})()`);
+  if(!canvas)throw new Error(`${label} walking canvas unavailable.`);
+
+  const sx=canvas.left+startScene.torso.x*canvas.width;
+  const sy=canvas.top+startScene.torso.y*canvas.height;
+  const targetX=Math.min(canvas.left+canvas.width-24,sx+Math.max(190,canvas.width*.24));
+  const traceStart=await traceLength(controller);
+  await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:sx,y:sy,button:'left',buttons:1,clickCount:1});
+  const down=await waitInput(controller,traceStart,"e.input.grabs?.some(g=>g.part==='torso')",`${label} walking torso press`);
+  const downGrab=normalizeInput(down).grabs.find(g=>g.part==='torso');
+
+  let moveGrab=null;
+  for(let i=1;i<=9;i++){
+    const t=i/9;
+    const x=sx+(targetX-sx)*t;
+    const moveStart=await traceLength(controller);
+    await controller.call('Input.dispatchMouseEvent',{type:'mouseMoved',x,y:sy,button:'left',buttons:1});
+    const moved=await waitInput(controller,moveStart,"e.input.grabs?.some(g=>g.part==='torso')",`${label} walking torso move ${i}`);
+    moveGrab=normalizeInput(moved).grabs.find(g=>g.part==='torso');
+    await sleep(65);
+  }
+  await sleep(520);
+  const releaseStart=await traceLength(controller);
+  await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:targetX,y:sy,button:'left',buttons:0,clickCount:1});
+  await waitInput(controller,releaseStart,"e.input.grabs?.length===0",`${label} walking torso release`);
+  await sleep(260);
+
+  const scenes=await evaluate(controller,`(()=>{
+    const out=[];
+    for(const e of (window.__PUPPETALK_PARITY_TRACE__||[]).slice(${traceStart})){
+      if(e.event!=='recv'||e.type!=='scene'||!e.scene)continue;
+      const p=e.scene.puppets?.find(p=>p.slot===0);
+      if(p?.torso&&p?.al&&p?.ar)out.push({torso:p.torso,al:p.al,ar:p.ar});
+    }
+    return out;
+  })()`);
+  if(!Array.isArray(scenes)||!scenes.length)throw new Error(`${label} walking produced no scene samples.`);
+
+  let torsoDx=-Infinity,leftTravel=0,rightTravel=0,leftLift=0,rightLift=0;
+  for(const p of scenes){
+    torsoDx=Math.max(torsoDx,Number(p.torso.x)-Number(startScene.torso.x));
+    leftTravel=Math.max(leftTravel,Math.abs(Number(p.al.x)-Number(startScene.al.x)));
+    rightTravel=Math.max(rightTravel,Math.abs(Number(p.ar.x)-Number(startScene.ar.x)));
+    leftLift=Math.max(leftLift,Number(startScene.al.y)-Number(p.al.y));
+    rightLift=Math.max(rightLift,Number(startScene.ar.y)-Number(p.ar.y));
+  }
+  const dragDx=(moveGrab?.x||0)-(downGrab?.x||0);
+  return {
+    input:{part:downGrab?.part||null,dx:round(dragDx),screenY:Number.isFinite(moveGrab?.screenY)},
+    observed:{
+      torsoRight:torsoDx>.02,
+      footTravel:Math.max(leftTravel,rightTravel)>.012,
+      footLift:Math.max(leftLift,rightLift)>.004
+    },
+    sample:{torsoDx:round(torsoDx),footTravel:round(Math.max(leftTravel,rightTravel)),footLift:round(Math.max(leftLift,rightLift)),sceneCount:scenes.length}
+  };
+}
+
 async function exerciseDepthGestures(controller,stage,label){
   await waitEval(controller,`(document.querySelector('.depth-gesture-guide')?.textContent||'').includes('3 quick taps')`,`${label} depth gesture guide`);
   const guide=await evaluate(controller,`(document.querySelector('.depth-gesture-guide')?.textContent||'').trim()`);
@@ -404,9 +488,10 @@ async function liveSession(prefix,room,label){
 
   const before=await controllerState(controller);
   const stageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
-  // Run depth first on a fresh connected puppet. The mature controller's torso
-  // interactions can leave gesture-derived sends in flight, so ordering this
-  // contract first prevents cross-test contamination without changing behavior.
+  // Exercise walking before depth so the locomotion contract starts from an
+  // untouched neutral-depth puppet. The substantial horizontal travel also
+  // exceeds the depth gesture's movement cancellation threshold.
+  const walking=await exerciseWalking(controller,label);
   const depth=await exerciseDepthGestures(controller,stage,label);
   const controls=await exerciseCoreControls(controller,label);
 
@@ -433,6 +518,7 @@ async function liveSession(prefix,room,label){
     stageStatus,
     welcomeHint:before.hint,
     controls,
+    walking,
     depth,
     beforeButton:before.buttonText,
     reply,
@@ -468,7 +554,7 @@ try{
     throw new Error(`Frozen V1 special-item reply shape changed unexpectedly: ${JSON.stringify(original.reply)}`);
   }
   console.log('PASS');
-  console.log('Stage/controller handshake, pose/ragdoll controls, centre pulse, direct torso drag, discrete depth gestures and frozen special-item behavior: pass');
+  console.log('Stage/controller handshake, body-drag walking, pose/ragdoll controls, centre pulse, direct torso drag, discrete depth gestures and frozen special-item behavior: pass');
   console.log(JSON.stringify(comparable(original),null,2));
 }finally{
   const exited=new Promise(resolve=>chrome.once('exit',resolve));
