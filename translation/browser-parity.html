@@ -1,0 +1,142 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Puppetalk browser parity</title>
+<style>
+  body{font:14px/1.45 system-ui,sans-serif;margin:24px;background:#111;color:#eee}
+  #frames{position:fixed;left:-12000px;top:0;width:1100px}
+  iframe{width:1024px;height:768px;border:0;display:block}
+  pre{white-space:pre-wrap}
+</style>
+<h1>Puppetalk browser parity</h1>
+<pre id="parity-result" data-status="running">Running…</pre>
+<div id="frames" aria-hidden="true"></div>
+<script>
+(async()=>{
+  const result=document.querySelector('#parity-result');
+  const frames=document.querySelector('#frames');
+  const tests=[];
+  const failures=[];
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const canonical=(value,replacements=[])=>{
+    let text=String(value??'').replace(/\s+/g,' ').trim();
+    text=text.replaceAll('/translation/','/');
+    for(const [from,to] of replacements) text=text.replaceAll(from,to);
+    return text;
+  };
+  function frame(src,name){
+    const el=document.createElement('iframe');
+    el.name=name;
+    el.src=src;
+    frames.appendChild(el);
+    return el;
+  }
+  async function waitFor(el,selector,timeout=6500){
+    const started=performance.now();
+    while(performance.now()-started<timeout){
+      try{
+        const doc=el.contentDocument;
+        if(doc?.querySelector(selector)) return doc;
+      }catch{}
+      await sleep(40);
+    }
+    throw new Error(`${el.name} did not reach ${selector}`);
+  }
+  function surface(doc,replacements=[]){
+    const root=doc.querySelector('#app');
+    if(!root) return {missingApp:true};
+    const volatile=new Set(['controller-status','stage-status','stage-hint','you-chip','dot','stage-invite-feedback','host-invite-feedback']);
+    const ids=[...root.querySelectorAll('[id]')].map(el=>({
+      id:el.id,
+      tag:el.tagName.toLowerCase(),
+      cls:volatile.has(el.id)?'':canonical([...el.classList].sort().join(' '),replacements)
+    }));
+    const buttons=[...root.querySelectorAll('button')].map(el=>({
+      id:el.id||'',
+      text:canonical(el.textContent,replacements),
+      type:el.type||'',
+      look:el.dataset.look||'',
+      pose:el.dataset.pose||''
+    }));
+    const inputs=[...root.querySelectorAll('input,select,textarea')].map(el=>({
+      tag:el.tagName.toLowerCase(),id:el.id||'',type:el.type||'',name:el.name||'',
+      placeholder:canonical(el.getAttribute('placeholder')||'',replacements)
+    }));
+    const labels=[...root.querySelectorAll('label')].map(el=>canonical(el.textContent,replacements));
+    const directText=[...root.querySelectorAll('.home-brand,.home-copy,.home-note,.invite-label,.invite-title,.controller-head strong,.controller-head .muted')]
+      .map(el=>canonical(el.textContent,replacements));
+    return {title:canonical(doc.title,replacements),ids,buttons,inputs,labels,directText};
+  }
+  function same(name,a,b){
+    const aa=JSON.stringify(a);
+    const bb=JSON.stringify(b);
+    if(aa!==bb){ failures.push(`${name}\nORIGINAL ${JSON.stringify(a,null,2)}\nTRANSLATED ${JSON.stringify(b,null,2)}`); return; }
+    tests.push(`${name}: pass`);
+  }
+  function creatorState(el,replacements=[]){
+    const doc=el.contentDocument;
+    const stored=JSON.parse(el.contentWindow.localStorage.getItem('puppetalk-look')||'null');
+    const labels={};
+    for(const key of ['headStyle','eyes','nose','mouth','extra']) labels[key]=canonical(doc.querySelector('#look-'+key)?.textContent||'',replacements);
+    const active=doc.querySelector('#character-colors [data-color].active')?.dataset.color||'';
+    return {stored,labels,active};
+  }
+
+  try{
+    localStorage.removeItem('puppetalk-look');
+    localStorage.removeItem('puppetalk-name');
+
+    const lobbyOld=frame('/?parity=1','original lobby');
+    const lobbyNew=frame('/translation/?parity=1','translated lobby');
+    const ctrlOld=frame('/?mode=controller&room=CTRL1&lobby=done','original controller');
+    const ctrlNew=frame('/translation/?mode=controller&room=CTRL2&lobby=done','translated controller');
+    const stageOld=frame('/?mode=stage&room=STAGE1&lobby=done&embedded=1','original stage');
+    const stageNew=frame('/translation/?mode=stage&room=STAGE2&lobby=done&embedded=1','translated stage');
+
+    await Promise.all([
+      waitFor(lobbyOld,'#character-name'),waitFor(lobbyNew,'#character-name'),
+      waitFor(ctrlOld,'.personal-controller'),waitFor(ctrlNew,'.personal-controller'),
+      waitFor(stageOld,'#stage-canvas'),waitFor(stageNew,'#stage-canvas')
+    ]);
+
+    same('Lobby surface',surface(lobbyOld.contentDocument),surface(lobbyNew.contentDocument));
+    same('Controller surface',
+      surface(ctrlOld.contentDocument,[['CTRL1','ROOM']]),
+      surface(ctrlNew.contentDocument,[['CTRL2','ROOM']]));
+    same('Stage surface',
+      surface(stageOld.contentDocument,[['STAGE1','ROOM']]),
+      surface(stageNew.contentDocument,[['STAGE2','ROOM']]));
+
+    localStorage.removeItem('puppetalk-look');
+    ctrlOld.contentWindow.Math.random=()=>0.37;
+    ctrlNew.contentWindow.Math.random=()=>0.37;
+    ctrlOld.contentDocument.querySelector('#character-random')?.click();
+    await sleep(40);
+    const oldRandom=creatorState(ctrlOld,[['CTRL1','ROOM']]);
+    localStorage.removeItem('puppetalk-look');
+    ctrlNew.contentDocument.querySelector('#character-random')?.click();
+    await sleep(40);
+    const newRandom=creatorState(ctrlNew,[['CTRL2','ROOM']]);
+    same('Deterministic character randomise',oldRandom,newRandom);
+
+    ctrlOld.contentDocument.querySelector('[data-look="headStyle"]')?.click();
+    await sleep(30);
+    const oldCycle=creatorState(ctrlOld,[['CTRL1','ROOM']]);
+    localStorage.setItem('puppetalk-look',JSON.stringify(newRandom.stored));
+    ctrlNew.contentDocument.querySelector('[data-look="headStyle"]')?.click();
+    await sleep(30);
+    const newCycle=creatorState(ctrlNew,[['CTRL2','ROOM']]);
+    same('Character head-style cycle',oldCycle,newCycle);
+
+    if(failures.length){
+      result.dataset.status='fail';
+      result.textContent=`FAIL\n${tests.join('\n')}\n\n${failures.join('\n\n')}`;
+    }else{
+      result.dataset.status='pass';
+      result.textContent=`PASS\n${tests.join('\n')}`;
+    }
+  }catch(error){
+    result.dataset.status='fail';
+    result.textContent=`FAIL\n${error?.stack||error}`;
+  }
+})();
+</script>
