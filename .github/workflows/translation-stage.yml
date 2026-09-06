@@ -15,5 +15,7 @@ jobs:
           node-version: 24
       - run: node --check translation/stage/stage-loop.js
       - run: node translation/stage/stage-loop-smoke.mjs
+      - run: node --check translation/stage/stage-lifecycle.js
+      - run: node translation/stage/stage-lifecycle-smoke.mjs
       - run: node --check translation/build-runtime.mjs
       - run: node translation/runtime-parity-smoke.mjs
