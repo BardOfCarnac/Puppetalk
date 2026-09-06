@@ -419,8 +419,11 @@ async function liveSession(prefix,room,label){
 
   const before=await controllerState(controller);
   const stageStatus=await evaluate(stage,`(document.querySelector('#stage-status')?.textContent||'').trim()`);
-  const controls=await exerciseCoreControls(controller,label);
+  // Run depth first on a fresh connected puppet. The mature controller's torso
+  // interactions can leave gesture-derived sends in flight, so ordering this
+  // contract first prevents cross-test contamination without changing behavior.
   const depth=await exerciseDepthGestures(controller,stage,label);
+  const controls=await exerciseCoreControls(controller,label);
 
   const specialStart=await traceLength(controller);
   await click(controller,'#special-item');
