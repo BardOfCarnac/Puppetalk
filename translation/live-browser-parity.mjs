@@ -26,7 +26,7 @@ const fakePeerSource=String.raw`(()=>{
   const channelName='puppetalk-parity-peer-v1';
   let autoId=0;
   const trace=window.__PUPPETALK_PARITY_TRACE__=[];
-  const note=(event,extra={})=>trace.push({event,...extra});
+  const note=(event,extra={})=>trace.push({at:performance.now(),event,...extra});
   const msgInfo=data=>({
     type:data?.type||null,
     action:data?.action||null,
@@ -295,7 +295,17 @@ async function exerciseDepthGestures(controller,label){
     await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:point.x,y:point.y,button:'left',buttons:0,clickCount:1});
     await sleep(45);
   }
-  await waitEval(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===1)`,`${label} closer depth-step`);
+  try{
+    await waitEval(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart}).some(e=>e.event==='send'&&e.type==='depth-step'&&e.direction===1)`,`${label} closer depth-step`);
+  }catch(error){
+    const diagnostic=await evaluate(controller,`(()=>{
+      const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${closerStart});
+      return entries.filter(e=>
+        e.event==='send'&&(e.type==='input'||e.type==='depth-step')
+      ).map(e=>({at:e.at,type:e.type,direction:e.direction,input:e.input}));
+    })()`);
+    throw new Error(`${error.message}\n${label} depth tap diagnostics: ${JSON.stringify({point,diagnostic},null,2)}`);
+  }
   const closer=await waitDepthScene(controller,closerStart,5,`Number(p.depth)>.005&&Number(p.visualScale)>1`,`${label} closer depth plane`);
 
   point=await latestTorsoScreenPoint(controller);
