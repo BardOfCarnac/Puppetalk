@@ -23,7 +23,7 @@ const decorators = [
   'segmented-puppet.js',
   'seat-render.js',
   'depth-assist.js',
-  'voice-layer.js'
+  'live-voice.js'
 ];
 
 const stubNode = () => ({
@@ -31,14 +31,16 @@ const stubNode = () => ({
   play(){ return Promise.resolve(); },
   setAttribute(){}, addEventListener(){},
   classList:{ add(){}, remove(){}, toggle(){} },
-  dataset:{}, style:{}, textContent:'', srcObject:null
+  dataset:{}, style:{}, textContent:'', srcObject:null,
+  paused:false
 });
 const document = {
   documentElement:stubNode(),
   head:stubNode(),
   body:stubNode(),
   createElement:stubNode,
-  querySelector(){ return null; }
+  querySelector(){ return null; },
+  addEventListener(){}
 };
 class MutationObserver { observe(){} disconnect(){} }
 const location = { href:'https://puppetalk.test/app.js', origin:'https://puppetalk.test' };
@@ -102,16 +104,17 @@ for(const hook of [
   'puppetalkAimProjectPoint(p,qRaw,prop._throwerSlot)',
   'throwerSlot:Number.isInteger(prop._throwerSlot)',
   'viewScale:depthApi?.scaleForDepth?.(viewDepth)||1',
-  'window.PuppetalkVoice?.stageJoin(conn,slot)',
-  'window.PuppetalkVoice?.controllerPeer(peer,room)',
-  'live audio + mouth',
-  'window.PuppetalkVoice?.setLocalStream(stream)'
+  'window.PuppetalkLiveVoice?.stageJoin(conn,slot)',
+  'window.PuppetalkLiveVoice?.controllerPeer(peer,room)',
+  'window.PuppetalkLiveVoice?.setLocalStream(stream)',
+  'window.PuppetalkLiveVoice?.clearLocalStream(stream)'
 ]){
   if(!composed.includes(hook)) throw new Error(`Missing live architecture hook: ${hook}`);
 }
 
+if(composed.includes('window.PuppetalkVoice?.mouthState')) throw new Error('Live voice must not alter mouth analysis.');
 if(composed.includes('splitPuppetBody(')) throw new Error('Runtime body slicing should not be in the live composed source.');
 if(composed.includes('PUPPETALK_SEAT_VIEW')) throw new Error('Peer-wrapped seat view should not be in the live composed source.');
 
 new Function(composed);
-console.log('Composed live app + profile items + segmented bodies + seat projection + voice passed.');
+console.log('Composed live app + profile items + segmented bodies + seat projection + minimal voice passed.');
