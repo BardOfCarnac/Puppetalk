@@ -13,6 +13,8 @@
        typeof handleJointRecovery !== 'function' || typeof cleanLook !== 'function' || typeof cleanPlayerName !== 'function' ||
        typeof removePuppet !== 'function' || typeof setTimer !== 'function' || typeof logError !== 'function') return null;
 
+    const liveVoice=global.PuppetalkLiveVoice?.createStage?.({send})||null;
+
     function updateStatus(extra=''){
       const n = conns.size;
       status.textContent = `${n} puppeteer${n===1?'':'s'} connected${extra ? ' — '+extra : ''}`;
@@ -46,8 +48,10 @@
       conn.on('open',()=>{
         send(conn,{type:'welcome',slot,name:NAMES[slot]});
         send(conn,scenePayload());
+        liveVoice?.join?.(conn,slot);
         updateStatus();
       });
+      conn.on('data',msg=>liveVoice?.data?.(conn,slot,msg));
       conn.on('data',msg=>handleDepthInput(slot,msg));
       conn.on('data',msg=>applyInput(slot,msg));
       conn.on('data',msg=>handlePropInput(slot,msg));
@@ -56,6 +60,7 @@
       conn.on('data',msg=>{ if(msg?.type==='look'){ const p=makePuppet(slot); p.look=cleanLook(msg.look,slot); p.color=p.look.color; const chosen=cleanPlayerName(msg.name); if(chosen) p.name=chosen; } });
       const goodbye = ()=>{
         if(conns.get(slot) !== conn) return;
+        liveVoice?.leave?.(slot);
         conns.delete(slot);
         removePuppet(slot);
         updateStatus();
@@ -68,7 +73,7 @@
       status.textContent = err.type === 'unavailable-id' ? 'table already in use — start another' : `network error: ${err.type || 'unknown'}`;
     });
 
-    return {peer,updateStatus,freeSlot,scenePayload,handleDepthInput};
+    return {peer,updateStatus,freeSlot,scenePayload,handleDepthInput,getLiveVoice:()=>liveVoice};
   }
 
   global.PuppetalkHostSession={create};
