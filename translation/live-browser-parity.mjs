@@ -559,7 +559,7 @@ async function exerciseDepthGestures(controller,stage,label){
   };
 }
 async function exerciseMultiTouch(controller,label){
-  const geometry=await latestHandScreenPoints(controller);
+  const geometry=await latestProjectedHandScreenPoints(controller);
   if(!geometry)throw new Error(`${label} could not resolve hand/canvas geometry for multi-touch.`);
   const {left,right,rect}=geometry;
   const clampX=x=>Math.max(rect.left+18,Math.min(rect.left+rect.width-18,x));
