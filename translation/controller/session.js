@@ -18,6 +18,12 @@
     let lastSent='';
     let reconnectTimer=null;
     let connectGeneration=0;
+    const liveVoice=root.PuppetalkLiveVoice?.createController?.({
+      documentRef:root.document,
+      setTimer:setTimeoutFn,
+      clearTimer:clearTimeoutFn,
+      random:()=>Math.random()
+    })||null;
     let hooks={
       updateSpecialItemButton:()=>{},
       updateGripButtons:()=>{},
@@ -47,8 +53,10 @@
     }
 
     function handleData(msg){
+      liveVoice?.data?.(msg);
       if(msg?.type==='welcome'){
         slot=msg.slot;
+        liveVoice?.welcome?.(conn,slot);
         hooks.updateSpecialItemButton(false);
         setStatus(`you are ${savedPlayerName() || NAMES[slot] || msg.name}`,'live');
         youChip.hidden=false;
@@ -89,6 +97,7 @@
       setStatus('connecting');
       hint.textContent='Connecting to the ensemble…';
       peer=new Peer();
+      liveVoice?.peerReady?.(peer,room);
       peer.on('open',()=>{
         setStatus('joining…');
         conn=peer.connect(peerId(room),{serialization:'json'});
@@ -108,7 +117,7 @@
 
     return {
       setHooks,setStatus,transmit,handleData,connect,
-      getPeer:()=>peer,getConn:()=>conn,getSlot:()=>slot,getScene:()=>scene,getPropScene:()=>propScene,
+      getPeer:()=>peer,getConn:()=>conn,getSlot:()=>slot,getScene:()=>scene,getPropScene:()=>propScene,getLiveVoice:()=>liveVoice,
       getReconnectTimer:()=>reconnectTimer,getConnectGeneration:()=>connectGeneration
     };
   }
