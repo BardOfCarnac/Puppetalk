@@ -8,6 +8,9 @@ const decorators = [
   'line-face-mouths-patch.js',
   'line-face-features-patch.js',
   'face-spacing-patch.js',
+  'profile-name-patch.js',
+  'look-sync-patch.js',
+  'live-face-render-patch.js',
   'toy-system.js',
   'toy-tap.js',
   'dart-stick.js',
@@ -23,6 +26,8 @@ const decorators = [
   'segmented-puppet.js',
   'seat-render.js',
   'depth-assist.js',
+  'visual-thickness.js',
+  'canonical-puppet-render.js',
   'live-voice.js'
 ];
 
@@ -82,7 +87,9 @@ for(const marker of [
   'PUPPETALK_SPECIAL_ITEMS_V1',
   'PUPPETALK_SEGMENTED_PUPPET_V1',
   'PUPPETALK_SEAT_RENDER_V1',
-  'PUPPETALK_DEPTH_ASSIST_V1'
+  'PUPPETALK_DEPTH_ASSIST_V1',
+  'PUPPETALK_VISUAL_THICKNESS_V1',
+  'PUPPETALK_CANONICAL_SLIM_RENDER_V1'
 ]){
   if(!composed.includes(marker)) throw new Error(`Missing composed marker: ${marker}`);
 }
@@ -104,6 +111,12 @@ for(const hook of [
   'puppetalkAimProjectPoint(p,qRaw,prop._throwerSlot)',
   'throwerSlot:Number.isInteger(prop._throwerSlot)',
   'viewScale:depthApi?.scaleForDepth?.(viewDepth)||1',
+  'PUPPETALK_LAST_LOOK_SENT',
+  'puppetalkLiveHeadPath = function(ctx,style,r)',
+  'const tw = Math.max(16,34.5*scale);',
+  'const hr = Math.max(11,22*scale);',
+  ',p.color,10.2);',
+  ',p.color,11.6);',
   'window.PuppetalkLiveVoice?.stageJoin(conn,slot)',
   'window.PuppetalkLiveVoice?.controllerPeer(peer,room)',
   'window.PuppetalkLiveVoice?.setLocalStream(stream)',
@@ -117,4 +130,4 @@ if(composed.includes('splitPuppetBody(')) throw new Error('Runtime body slicing 
 if(composed.includes('PUPPETALK_SEAT_VIEW')) throw new Error('Peer-wrapped seat view should not be in the live composed source.');
 
 new Function(composed);
-console.log('Composed live app + profile items + segmented bodies + seat projection + minimal voice passed.');
+console.log('Composed live app + synced canonical slim character + profile items + segmented bodies + seat projection + minimal voice passed.');
