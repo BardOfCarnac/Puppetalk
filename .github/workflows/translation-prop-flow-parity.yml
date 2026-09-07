@@ -1,0 +1,36 @@
+name: Apply live prop flow parity
+
+on:
+  push:
+    branches: [puppetalk-translation]
+    paths:
+      - translation/apply-prop-flow-parity.mjs
+      - translation/prop-flow-parity-fragment.txt
+      - .github/workflows/translation-prop-flow-parity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Apply prop flow parity patch
+        run: node translation/apply-prop-flow-parity.mjs
+      - name: Syntax check
+        run: node --check translation/live-browser-parity.mjs
+      - name: Commit generated parity change
+        run: |
+          if git diff --quiet -- translation/live-browser-parity.mjs; then
+            echo 'No parity change produced.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add translation/live-browser-parity.mjs
+          git commit -m 'Add live prop pickup and throw parity'
+          git push
