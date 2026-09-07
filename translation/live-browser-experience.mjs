@@ -1,16 +1,42 @@
 import {spawn} from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import assert from 'node:assert/strict';
 
+function experienceHarnessPath(){
+  const sourcePath='translation/live-browser-parity.mjs';
+  const source=fs.readFileSync(sourcePath,'utf8');
+  const oldTorso=`    return {
+      x:r.left+torso.x*r.width,
+      y:r.top+torso.y*r.height
+    };`;
+  const projectedTorso=`    const q=typeof window.displayPoint==='function'
+      ? window.displayPoint(torso,r.width,r.height)
+      : {x:torso.x*r.width,y:torso.y*r.height};
+    return {x:r.left+q.x,y:r.top+q.y};`;
+  if(!source.includes(oldTorso)) throw new Error('Legacy live harness torso probe shape changed unexpectedly.');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'puppetalk-experience-'));
+  const target=path.join(dir,'live-browser-parity.mjs');
+  fs.writeFileSync(target,source.replace(oldTorso,projectedTorso),'utf8');
+  return {dir,target};
+}
+
 function runLegacyHarness(){
+  const harness=experienceHarnessPath();
   return new Promise(resolve=>{
-    const child=spawn(process.execPath,['translation/live-browser-parity.mjs'],{
+    const child=spawn(process.execPath,[harness.target],{
       env:process.env,
+      cwd:process.cwd(),
       stdio:['ignore','pipe','pipe']
     });
     let stdout='',stderr='';
     child.stdout.on('data',chunk=>{stdout+=chunk;process.stdout.write(chunk);});
     child.stderr.on('data',chunk=>{stderr+=chunk;});
-    child.on('close',code=>resolve({code,stdout,stderr}));
+    child.on('close',code=>{
+      try{fs.rmSync(harness.dir,{recursive:true,force:true});}catch{}
+      resolve({code,stdout,stderr});
+    });
   });
 }
 
