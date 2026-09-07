@@ -13,6 +13,58 @@
     supports:['tall','standard','wide']
   };
 
+  const APPROVED_SCENES=[
+    {
+      id:'cowboys-railroad',label:'Old western town with railroad tracks',
+      image:'https://images.unsplash.com/photo-1759234969177-a914255c2324?auto=format&fit=crop&w=2000&q=82',
+      source:'https://unsplash.com/photos/old-western-town-with-railroad-tracks-and-buildings-1mmSOl66HGE',
+      floor:{horizon:.61,baseline:.89,left:.04,right:.96},
+      crops:{tall:{focusX:.50,focusY:.60,zoom:1.08},standard:{focusX:.50,focusY:.59,zoom:1.02},wide:{focusX:.50,focusY:.58,zoom:1}}
+    },
+    {
+      id:'cowboys-lumber-yard',label:'Lumber yard and water tower',
+      image:'https://images.unsplash.com/photo-1769276124346-57b244a1c6e5?auto=format&fit=crop&w=2000&q=82',
+      source:'https://unsplash.com/photos/old-wooden-lumber-yard-building-with-water-tower-uj7-cj5OxmI',
+      floor:{horizon:.62,baseline:.89,left:.04,right:.96},
+      crops:{tall:{focusX:.50,focusY:.58,zoom:1.08},standard:{focusX:.50,focusY:.57,zoom:1.02},wide:{focusX:.50,focusY:.56,zoom:1}}
+    },
+    {
+      id:'seabed-shark',label:'Shark above sandy seabed',
+      image:'https://images.unsplash.com/photo-1762717564112-042869adfea9?auto=format&fit=crop&w=2000&q=82',
+      source:'https://unsplash.com/photos/a-shark-swims-above-a-sandy-ocean-floor-Y6i5__8wmEM',
+      floor:{horizon:.59,baseline:.90,left:.04,right:.96},
+      crops:{tall:{focusX:.50,focusY:.55,zoom:1.08},standard:{focusX:.50,focusY:.54,zoom:1.02},wide:{focusX:.50,focusY:.53,zoom:1}}
+    },
+    {
+      id:'clifftop-path',label:'Path through grass to the sea',
+      image:'https://images.unsplash.com/photo-1682251135248-32a5d6e75a4d?auto=format&fit=crop&w=2000&q=82',
+      source:'https://unsplash.com/photos/a-path-through-tall-grass-leading-to-the-ocean-hxeifzBanNI',
+      floor:{horizon:.57,baseline:.89,left:.04,right:.96},
+      crops:{tall:{focusX:.50,focusY:.62,zoom:1.08},standard:{focusX:.50,focusY:.61,zoom:1.02},wide:{focusX:.50,focusY:.60,zoom:1}}
+    },
+    {
+      id:'forest-misty-clearing',label:'Misty green clearing',
+      image:'https://images.unsplash.com/photo-1758007604230-51ceb456ed97?auto=format&fit=crop&w=2000&q=82',
+      source:'https://unsplash.com/photos/misty-green-forest-with-a-clearing-in-foreground-qL1MqlSyu1A',
+      floor:{horizon:.61,baseline:.89,left:.04,right:.96},
+      crops:{tall:{focusX:.50,focusY:.63,zoom:1.08},standard:{focusX:.50,focusY:.62,zoom:1.02},wide:{focusX:.50,focusY:.61,zoom:1}}
+    },
+    {
+      id:'forest-simple-clearing',label:'Simple woodland clearing',
+      image:'https://images.unsplash.com/photo-1754375910434-5de08e27d800?auto=format&fit=crop&w=2000&q=82',
+      source:'https://unsplash.com/photos/a-forest-clearing-with-trees-lJOo9XGZnls',
+      floor:{horizon:.62,baseline:.89,left:.04,right:.96},
+      crops:{tall:{focusX:.50,focusY:.63,zoom:1.08},standard:{focusX:.50,focusY:.62,zoom:1.02},wide:{focusX:.50,focusY:.61,zoom:1}}
+    },
+    {
+      id:'ruins-courtyard',label:'Ancient stone ruins with grassy courtyard',
+      image:'https://images.unsplash.com/photo-1763388703554-a3659ea16e10?auto=format&fit=crop&w=2000&q=82',
+      source:'https://unsplash.com/photos/ancient-stone-ruins-with-an-open-courtyard-and-grassy-courtyard-NIrZPwqeaNg',
+      floor:{horizon:.60,baseline:.89,left:.04,right:.96},
+      crops:{tall:{focusX:.50,focusY:.63,zoom:1.08},standard:{focusX:.50,focusY:.62,zoom:1.02},wide:{focusX:.50,focusY:.61,zoom:1}}
+    }
+  ];
+
   function create(options={}){
     const {
       ImageClass=root.Image,
@@ -180,7 +232,23 @@
     };
   }
 
+  function hashRoom(room){
+    const text=String(room||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    let hash=2166136261;
+    for(let i=0;i<text.length;i++) hash=Math.imul(hash^text.charCodeAt(i),16777619);
+    return hash>>>0;
+  }
+
   const camera=create();
+  camera.registerScenes(APPROVED_SCENES);
   camera.installViewportListeners();
-  root.PuppetalkSceneCamera={create,...camera};
+
+  function selectForRoom(room){
+    const key=String(room||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(!key) return camera.getScene();
+    const scene=APPROVED_SCENES[hashRoom(key)%APPROVED_SCENES.length];
+    return camera.setScene(scene?.id||'default');
+  }
+
+  root.PuppetalkSceneCamera={create,APPROVED_SCENES,hashRoom,selectForRoom,...camera};
 })(typeof window!=='undefined'?window:globalThis);
