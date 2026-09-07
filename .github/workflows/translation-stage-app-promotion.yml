@@ -20,9 +20,20 @@ jobs:
         run: |
           node --check translation/stage/app.js
           node translation/stage/app-smoke.mjs
+      - name: Detect existing promotion
+        id: promotion
+        run: |
+          if grep -q 'PuppetalkStageApp' translation/build-runtime.mjs && grep -q './translation/stage/app.js?v=1' translation/index.html; then
+            echo 'needed=false' >> "$GITHUB_OUTPUT"
+            echo 'Stage app composition is already promoted.'
+          else
+            echo 'needed=true' >> "$GITHUB_OUTPUT"
+          fi
       - name: Apply stage app slice
+        if: steps.promotion.outputs.needed == 'true'
         run: node translation/apply-stage-app.mjs
       - name: Rebuild translated runtime
+        if: steps.promotion.outputs.needed == 'true'
         run: |
           node --check translation/build-runtime.mjs
           node translation/build-runtime.mjs
@@ -31,6 +42,7 @@ jobs:
           node translation/runtime-parity-smoke.mjs
           git diff --check
       - name: Commit promoted stage app
+        if: steps.promotion.outputs.needed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
