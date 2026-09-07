@@ -969,6 +969,10 @@ replaceOnce("controller canvas render hook","  } = puppetInteraction;\n\n  const
 
 replaceOnce("controller canvas startup","  addEventListener('resize',resizeCanvas,{passive:true});\n  resizeCanvas();\n  connect();","  controllerCanvas.start();\n  connect();");
 
+replaceOnce('controller app setup',"if(mode === 'controller') startController(room);\nelse startStage(room || roomCode());","const controllerApp = window.PuppetalkControllerApp?.create?.({\n  app,document,POSES,LOOK_PALETTE,LOOK_PARTS,cleanLook,saveLook,savedLook,\n  peerId,NAMES,send,savedPlayerName,clamp,drawBackdrop,puppetalkSeatProjection,\n  drawProp,drawAnatomy,incompleteInviteShell,controllerShell\n});\nif(!controllerApp) throw new Error('Puppetalk controller app failed to load.');\nconst {startController} = controllerApp;\n\nif(mode === 'controller') startController(room);\nelse startStage(room || roomCode());");
+
+removeBetweenOnce('embedded controller app composition','function startController(room){','\n\n})();');
+
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');

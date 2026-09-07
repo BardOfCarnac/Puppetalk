@@ -42,13 +42,16 @@ assert.match(actual,/PuppetalkPropInput/,'Translated runtime is not connected to
 assert.match(actual,/PuppetalkSpecialItems/,'Translated runtime is not connected to extracted special items.');
 assert.match(actual,/PuppetalkDartImpacts/,'Translated runtime is not connected to extracted dart impacts.');
 assert.match(actual,/PuppetalkPropContactPhysics/,'Translated runtime is not connected to extracted prop contact physics.');
-assert.match(actual,/PuppetalkControllerPuppetry/,'Translated runtime is not connected to extracted direct puppet interaction.');
-assert.match(actual,/PuppetalkControllerItems/,'Translated runtime is not connected to extracted controller item interactions.');
-assert.match(actual,/PuppetalkCharacterCreator/,'Translated runtime is not connected to extracted character creator controller.');
-assert.match(actual,/PuppetalkControllerThrowGesture/,'Translated runtime is not connected to extracted controller throw gesture.');
-assert.match(actual,/PuppetalkControllerAudio/,'Translated runtime is not connected to extracted controller audio system.');
-assert.match(actual,/PuppetalkControllerCommands/,'Translated runtime is not connected to extracted controller command panel.');
-assert.match(actual,/PuppetalkControllerSession/,'Translated runtime is not connected to extracted controller session.');
+assert.match(actual,/PuppetalkControllerApp/,'Translated runtime is not connected to extracted controller app composition.');
+const controllerAppSource=fs.readFileSync('translation/controller/app.js','utf8');
+assert.match(controllerAppSource,/PuppetalkControllerPuppetry/,'Controller app is not connected to extracted direct puppet interaction.');
+assert.match(controllerAppSource,/PuppetalkControllerItems/,'Controller app is not connected to extracted controller item interactions.');
+assert.match(controllerAppSource,/PuppetalkCharacterCreator/,'Controller app is not connected to extracted character creator controller.');
+assert.match(controllerAppSource,/PuppetalkControllerThrowGesture/,'Controller app is not connected to extracted controller throw gesture.');
+assert.match(controllerAppSource,/PuppetalkControllerAudio/,'Controller app is not connected to extracted controller audio system.');
+assert.match(controllerAppSource,/PuppetalkControllerCommands/,'Controller app is not connected to extracted controller command panel.');
+assert.match(controllerAppSource,/PuppetalkControllerSession/,'Controller app is not connected to extracted controller session.');
+assert.doesNotMatch(actual,/function startController\(room\)/,'Embedded startController survived controller-app extraction.');
 
 assert.doesNotMatch(actual,/const LOOK_PALETTE = \[/,'Embedded LOOK_PALETTE survived look-model extraction.');
 assert.doesNotMatch(actual,/function defaultLook\(slot=0\)/,'Embedded defaultLook survived look-model extraction.');
@@ -198,8 +201,8 @@ assert.doesNotMatch(actual,/<section class=\"stage-shell\">/,'Embedded stage she
 assert.doesNotMatch(actual,/<section class=\"shell controller-shell personal-controller\">/,'Embedded controller shell markup survived view-shell extraction.');
 assert.doesNotMatch(actual,/This invite is incomplete\.<\/div><\/div><\/section>/,'Embedded incomplete-invite shell survived view-shell extraction.');
 assert.match(actual,/app\.innerHTML = stageShell\(room,joinUrl\.href\);/,'Stage does not render through extracted view shell.');
-assert.match(actual,/app\.innerHTML = controllerShell\(room,POSES\);/,'Controller does not render through extracted view shell.');
-assert.match(actual,/app\.innerHTML = incompleteInviteShell\(\);/,'Incomplete controller invite does not render through extracted view shell.');
+assert.match(controllerAppSource,/app\.innerHTML = controllerShell\(room,POSES\);/,'Controller app does not render through extracted view shell.');
+assert.match(controllerAppSource,/app\.innerHTML = incompleteInviteShell\(\);/,'Controller app incomplete invite does not render through extracted view shell.');
 assert.doesNotMatch(actual,/const PUPPET_HEAD_STYLES =/,'Dead legacy head-style table survived pruning.');
 assert.doesNotMatch(actual,/const LINE_FACE_EYES =/,'Dead legacy line-face eye table survived pruning.');
 assert.doesNotMatch(actual,/const LINE_FACE_NOSES =/,'Dead legacy line-face nose table survived pruning.');
@@ -259,22 +262,22 @@ assert.match(actual,/const \{propHandIsClose,tapProp,releaseAllPropGrips,throwHe
 assert.match(actual,/const \{specialItemLabel,specialItemType,specialItemStillOut,bringOutSpecialItem,handleSpecialItemInput\} = specialItemSystem;/,'Runtime is not bound to extracted special items.');
 assert.match(actual,/const \{installDartImpacts\} = dartImpacts;/,'Runtime is not bound to the extracted dart impacts.');
 assert.match(actual,/const \{installPropContactPhysics\} = propContactPhysics;/,'Runtime is not bound to the extracted prop contact physics.');
-assert.match(actual,/const puppetInteraction = window\.PuppetalkControllerPuppetry\?\.create\?\.\(\{/,'Runtime is not bound to extracted direct puppet interaction.');
-assert.match(actual,/puppetInteraction\.install\(\);/,'Extracted direct puppet interaction is not installed.');
-assert.match(actual,/const itemInteraction = window\.PuppetalkControllerItems\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller item interactions.');
-assert.match(actual,/itemInteraction\.installPropTap\(\);/,'Extracted controller prop-tap interactions are not installed.');
-assert.match(actual,/itemInteraction\.installButtons\(\);/,'Extracted controller item buttons are not installed.');
-assert.match(actual,/const characterCreator = window\.PuppetalkCharacterCreator\?\.create\?\.\(\{/,'Runtime is not bound to extracted character creator controller.');
-assert.match(actual,/characterCreator\.install\(\);/,'Extracted character creator controller is not installed.');
-assert.match(actual,/const controllerThrowGesture = window\.PuppetalkControllerThrowGesture\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller throw gesture.');
-assert.match(actual,/controllerThrowGesture\.install\(\);/,'Extracted controller throw gesture is not installed.');
-assert.match(actual,/const controllerAudio = window\.PuppetalkControllerAudio\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller audio.');
-assert.match(actual,/controllerAudio\.install\(\);/,'Extracted controller audio is not installed.');
-assert.match(actual,/const commandPanel = window\.PuppetalkControllerCommands\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller command panel.');
-assert.match(actual,/commandPanel\.install\(\);/,'Extracted controller command panel is not installed.');
-assert.match(actual,/const controllerSession = window\.PuppetalkControllerSession\?\.create\?\.\(\{/,'Runtime is not bound to extracted controller session.');
-assert.match(actual,/const \{setStatus,transmit,connect,getConn,getSlot,getScene,getPropScene\} = controllerSession;/,'Controller session accessors are not bound.');
-assert.match(actual,/controllerSession\.setHooks\(\{updateSpecialItemButton,updateGripButtons,renderPersonalScene\}\);/,'Controller session UI hooks are not installed.');
+assert.match(controllerAppSource,/const puppetInteraction = root\.PuppetalkControllerPuppetry\?\.create\?\.\(\{/,'Controller app is not bound to direct puppet interaction.');
+assert.match(controllerAppSource,/puppetInteraction\.install\(\);/,'Controller app does not install direct puppet interaction.');
+assert.match(controllerAppSource,/const itemInteraction = root\.PuppetalkControllerItems\?\.create\?\.\(\{/,'Controller app is not bound to item interactions.');
+assert.match(controllerAppSource,/itemInteraction\.installPropTap\(\);/,'Controller app does not install prop-tap interactions.');
+assert.match(controllerAppSource,/itemInteraction\.installButtons\(\);/,'Controller app does not install item buttons.');
+assert.match(controllerAppSource,/const characterCreator = root\.PuppetalkCharacterCreator\?\.create\?\.\(\{/,'Controller app is not bound to character creator.');
+assert.match(controllerAppSource,/characterCreator\.install\(\);/,'Controller app does not install character creator.');
+assert.match(controllerAppSource,/const controllerThrowGesture = root\.PuppetalkControllerThrowGesture\?\.create\?\.\(\{/,'Controller app is not bound to throw gesture.');
+assert.match(controllerAppSource,/controllerThrowGesture\.install\(\);/,'Controller app does not install throw gesture.');
+assert.match(controllerAppSource,/const controllerAudio = root\.PuppetalkControllerAudio\?\.create\?\.\(\{/,'Controller app is not bound to audio.');
+assert.match(controllerAppSource,/controllerAudio\.install\(\);/,'Controller app does not install audio.');
+assert.match(controllerAppSource,/const commandPanel = root\.PuppetalkControllerCommands\?\.create\?\.\(\{/,'Controller app is not bound to command panel.');
+assert.match(controllerAppSource,/commandPanel\.install\(\);/,'Controller app does not install command panel.');
+assert.match(controllerAppSource,/const controllerSession = root\.PuppetalkControllerSession\?\.create\?\.\(\{/,'Controller app is not bound to session.');
+assert.match(controllerAppSource,/const \{setStatus,transmit,connect,getConn,getSlot,getScene,getPropScene\} = controllerSession;/,'Controller app session accessors are not bound.');
+assert.match(controllerAppSource,/controllerSession\.setHooks\(\{updateSpecialItemButton,updateGripButtons,renderPersonalScene\}\);/,'Controller app session UI hooks are not installed.');
 
 
 

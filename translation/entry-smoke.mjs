@@ -54,6 +54,7 @@ expectedRuntime.push('./translation/controller/character-creator.js?v=1');
 expectedRuntime.push('./translation/controller/throw-gesture.js?v=1');
 expectedRuntime.push('./translation/controller/audio-controls.js?v=1');
 expectedRuntime.push('./translation/controller/command-panel.js?v=1');
+expectedRuntime.push('./translation/controller/app.js?v=1');
 expectedRuntime.push('./translation/bootstrap.js?v=2');
 
 assert.match(html,/<title>Puppetalk<\/title>/,'Translation entry changed the product name.');
@@ -110,6 +111,7 @@ assert.ok(actualScripts.includes('./translation/controller/character-creator.js?
 assert.ok(actualScripts.includes('./translation/controller/throw-gesture.js?v=1'),'Extracted controller throw gesture is missing.');
 assert.ok(actualScripts.includes('./translation/controller/audio-controls.js?v=1'),'Extracted controller audio system is missing.');
 assert.ok(actualScripts.includes('./translation/controller/command-panel.js?v=1'),'Extracted controller command panel is missing.');
+assert.ok(actualScripts.includes('./translation/controller/app.js?v=1'),'Extracted controller app composition is missing.');
 assert.ok(actualScripts.includes('./translation/bootstrap.js?v=2'),'Translated bootstrap is missing.');
 assert.ok(fs.existsSync('translation/generated/app-preboot.js'),'Frozen preboot source is missing.');
 assert.ok(fs.existsSync('translation/generated/app-final.js'),'Frozen final source is missing.');
