@@ -42,6 +42,7 @@
       const body=JSON.stringify(input);
       if(!force && body===lastSent) return;
       lastSent=body;
+      root.PuppetalkDepthController?.observeInput?.(input,direction=>send(conn,{type:'depth-step',direction}));
       send(conn,{type:'input',input});
     }
 
@@ -58,6 +59,7 @@
         send(conn,{type:'look',look:input.look,name:savedPlayerName()});
       }
       if(msg?.type==='scene'){
+        root.PuppetalkDepthController?.updateSourceStage?.(msg);
         scene=Array.isArray(msg.puppets)?msg.puppets:[];
         propScene=Array.isArray(msg.props)?msg.props:[];
         hooks.updateGripButtons();
