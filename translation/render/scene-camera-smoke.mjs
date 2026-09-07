@@ -14,6 +14,12 @@ assert.equal(installed.profileFor(320,600),'tall');
 assert.equal(installed.profileFor(900,500),'wide');
 assert.equal(installed.profileFor(600,600),'standard');
 assert.equal(body.dataset.sceneProfile,'standard','Installed camera should keep the page profile current.');
+assert.equal(installed.APPROVED_SCENES.length,7,'Only the seven approved Puppetalk photographs should be in rotation.');
+assert.ok(installed.APPROVED_SCENES.every(scene=>scene.image.startsWith('https://images.unsplash.com/')),'Approved scene registry should use direct Unsplash image assets.');
+const firstRoom=installed.selectForRoom('ABCDE');
+const repeatRoom=installed.selectForRoom('ABCDE');
+assert.equal(firstRoom.id,repeatRoom.id,'A room must always resolve to the same photograph on every device.');
+assert.notEqual(firstRoom.id,'default','A valid room should resolve to an approved photograph.');
 
 const events=[];
 const camera=installed.create({
@@ -44,4 +50,4 @@ assert.equal(frame.floorRight,900);
 assert.equal(camera.setScene('missing').id,'default','Unknown scene ids should return to the default stage.');
 assert.equal(camera.stageFrame(320,360).sceneId,'default');
 
-console.log('Scene camera owns responsive profiles, scene registration/selection and floor geometry without source rewriting.');
+console.log('Scene camera owns approved room-photo selection, responsive crops and floor geometry without source rewriting.');
