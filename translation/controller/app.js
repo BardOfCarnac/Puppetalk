@@ -52,7 +52,8 @@ function create(deps={}){
       clearTimeoutFn:id=>root.clearTimeout(id)
     });
     if(!controllerSession) throw new Error('Puppetalk controller session failed to load.');
-    const {setStatus,transmit,connect,getConn,getSlot,getScene,getPropScene,getLiveVoice} = controllerSession;
+    const {setStatus,transmit,connect,getConn,getSlot,getScene,getPropScene} = controllerSession;
+    const {getLiveVoice} = controllerSession;
 
     const puppetInteraction = root.PuppetalkControllerPuppetry?.create?.({
       canvas,ctx,hint,input,clamp,
