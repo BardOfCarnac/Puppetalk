@@ -15,7 +15,8 @@ assert.deepEqual(actualStyles,[...styles],'Translation entry styles changed unex
 
 const retiredRuntimeScripts=[
   './fullscreen-controller.js','./look-migration.js','./scene-camera.js','./device-projection.js','./foreground-tuning.js',
-  './stability.js','./pose-tuning.js','./locomotion.js','./segmented-stance-compat.js','./jump-feel.js','./control-feel.js'
+  './stability.js','./pose-tuning.js','./locomotion.js','./segmented-stance-compat.js','./jump-feel.js','./control-feel.js',
+  './live-voice.js'
 ];
 for(const retired of retiredRuntimeScripts){
   assert.ok(!actualBareScripts.includes(retired),`Retired legacy runtime script survived translation: ${retired}`);
@@ -60,6 +61,7 @@ const requiredTranslated=[
   './translation/stage/stage-loop.js',
   './translation/stage/stage-lifecycle.js',
   './translation/stage/app.js',
+  './translation/network/live-voice.js',
   './translation/network/host-session.js',
   './translation/props/prop-factory.js',
   './translation/props/prop-geometry.js',
@@ -103,4 +105,4 @@ const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
 assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
 assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
 
-console.log('Translation entry owns all Puppetalk behavior modules, excludes retired/source-rewriting patches and boots the translated runtime while retaining V1 only as a test specimen.');
+console.log('Translation entry owns all Puppetalk behavior modules, including live voice, excludes retired/source-rewriting patches and boots the translated runtime while retaining V1 only as a test specimen.');
