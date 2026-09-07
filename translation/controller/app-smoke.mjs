@@ -34,7 +34,8 @@ const elements=new Map();
 const canvas={getContext:()=>({})};
 for(const id of ['#personal-stage','#stage-hint','#you-chip','#dot','#controller-status','#mic','#level','#talk']) elements.set(id,{});
 elements.set('#personal-canvas',canvas);
-const document={querySelector:selector=>elements.get(selector)||null};
+const body={classList:{add:name=>calls.push(`body:${name}`)}};
+const document={body,querySelector:selector=>elements.get(selector)||null};
 root.devicePixelRatio=2;
 root.addEventListener=()=>{};
 root.setTimeout=()=>1;
@@ -77,8 +78,8 @@ const full=api.create({...common,document,savedLook:()=>({color:'#fff'})});
 full.startController('AB12');
 assert.equal(app.innerHTML,'<controller>AB12</controller>');
 assert.deepEqual(calls,[
-  'canvas:setRender','session:setHooks','puppet:install','items:propTap','creator:install','throw:install',
+  'body:puppetalk-fullscreen','canvas:setRender','session:setHooks','puppet:install','items:propTap','creator:install','throw:install',
   'commands:install','items:buttons','special:false','audio:install','canvas:start','connect'
-],'Frozen controller composition/install order changed.');
+],'Translated controller composition or fullscreen ownership changed.');
 
-console.log('Controller app preserves frozen library failure, invite fallback and subsystem install order.');
+console.log('Controller app preserves library failure/invite fallback, owns fullscreen mode and installs its subsystems coherently.');
