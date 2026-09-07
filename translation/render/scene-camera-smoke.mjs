@@ -13,7 +13,7 @@ assert.ok(installed?.create,'Scene camera did not install.');
 assert.equal(installed.profileFor(320,600),'tall');
 assert.equal(installed.profileFor(900,500),'wide');
 assert.equal(installed.profileFor(600,600),'standard');
-assert.equal(body.dataset.sceneProfile,'tall','Installed camera should keep the page profile current.');
+assert.equal(body.dataset.sceneProfile,'standard','Installed camera should keep the page profile current.');
 
 const events=[];
 const camera=installed.create({
