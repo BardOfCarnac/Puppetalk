@@ -525,7 +525,6 @@ async function exerciseDepthGestures(controller,stage,label){
   };
 }
 async function exerciseMultiTouch(controller,label){
-  await controller.call('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
   const geometry=await latestHandScreenPoints(controller);
   if(!geometry)throw new Error(`${label} could not resolve hand/canvas geometry for multi-touch.`);
   const {left,right,rect}=geometry;
@@ -533,20 +532,37 @@ async function exerciseMultiTouch(controller,label){
   const clampY=y=>Math.max(rect.top+18,Math.min(rect.top+rect.height-18,y));
   const l2={x:clampX(left.x-38),y:clampY(left.y+12)};
   const r2={x:clampX(right.x+38),y:clampY(right.y-12)};
-  const point=(id,p)=>({id,x:p.x,y:p.y,radiusX:2,radiusY:2,force:1});
+  const dispatch=async(type,id,p,buttons)=>evaluate(controller,`(()=>{
+    const canvas=document.querySelector('#personal-canvas');
+    if(!canvas)return false;
+    const rawCapture=canvas.setPointerCapture;
+    canvas.setPointerCapture=()=>{};
+    try{
+      const event=new PointerEvent(${JSON.stringify(type)},{
+        pointerId:${id},pointerType:'touch',isPrimary:${id===11},
+        clientX:${Number(p.x)},clientY:${Number(p.y)},button:0,buttons:${buttons},
+        bubbles:true,cancelable:true
+      });
+      return canvas.dispatchEvent(event);
+    }finally{canvas.setPointerCapture=rawCapture;}
+  })()`);
 
   const downStart=await traceLength(controller);
-  await controller.call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point(11,left),point(12,right)]});
-  const downRaw=await waitInput(controller,downStart,"e.input.grabs?.length===2&&e.input.grabs.some(g=>g.part==='leftHand')&&e.input.grabs.some(g=>g.part==='rightHand')",`${label} two-hand touch down`,5000);
+  await dispatch('pointerdown',11,left,1);
+  await dispatch('pointerdown',12,right,1);
+  const downRaw=await waitInput(controller,downStart,"e.input.grabs?.length===2&&e.input.grabs.some(g=>g.part==='leftHand')&&e.input.grabs.some(g=>g.part==='rightHand')",`${label} two-hand pointer down`,5000);
 
-  const moveStart=await traceLength(controller);
-  await controller.call('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point(11,l2),point(12,r2)]});
-  const moveRaw=await waitInput(controller,moveStart,"e.input.grabs?.length===2&&e.input.grabs.some(g=>g.part==='leftHand')&&e.input.grabs.some(g=>g.part==='rightHand')",`${label} two-hand touch move`,5000);
+  const leftMoveStart=await traceLength(controller);
+  await dispatch('pointermove',11,l2,1);
+  await waitInput(controller,leftMoveStart,"e.input.grabs?.length===2&&e.input.grabs.some(g=>g.part==='leftHand')&&e.input.grabs.some(g=>g.part==='rightHand')",`${label} left-hand pointer move`,5000);
+  const rightMoveStart=await traceLength(controller);
+  await dispatch('pointermove',12,r2,1);
+  const moveRaw=await waitInput(controller,rightMoveStart,"e.input.grabs?.length===2&&e.input.grabs.some(g=>g.part==='leftHand')&&e.input.grabs.some(g=>g.part==='rightHand')",`${label} right-hand pointer move`,5000);
 
+  await dispatch('pointerup',11,l2,0);
   const upStart=await traceLength(controller);
-  await controller.call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  const upRaw=await waitInput(controller,upStart,"e.input.grabs?.length===0",`${label} two-hand touch release`,5000);
-  await controller.call('Emulation.setTouchEmulationEnabled',{enabled:false});
+  await dispatch('pointerup',12,r2,0);
+  const upRaw=await waitInput(controller,upStart,"e.input.grabs?.length===0",`${label} two-hand pointer release`,5000);
 
   const down=normalizeInput(downRaw),move=normalizeInput(moveRaw),up=normalizeInput(upRaw);
   const dl=down.grabs.find(g=>g.part==='leftHand'),dr=down.grabs.find(g=>g.part==='rightHand');
