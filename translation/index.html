@@ -16,16 +16,13 @@
   <script src="./lobby-routing.js?v=2"></script>
   <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
-  <script src="./stability.js?v=23"></script>
-  <script src="./pose-tuning.js?v=25"></script>
-  <script src="./locomotion.js?v=32"></script>
-  <script src="./segmented-stance-compat.js?v=4"></script>
-  <script src="./jump-feel.js?v=35"></script>
-  <script src="./control-feel.js?v=31"></script>
+  <script src="./translation/character/stability-runtime.js?v=1"></script>
+  <script src="./translation/character/pose-runtime.js?v=1"></script>
+  <script src="./translation/character/locomotion-runtime.js?v=1"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
   <!-- Translation modules are loaded before the translated runtime. Frozen
-       app-final.js remains the immutable behavioural control specimen. -->
+       app-final.js remains a reference specimen, not a runtime dependency. -->
   <script src="./translation/character/look-model.js?v=1"></script>
   <script src="./translation/core/runtime-helpers.js?v=1"></script>
   <script src="./translation/core/runtime-route.js?v=1"></script>
