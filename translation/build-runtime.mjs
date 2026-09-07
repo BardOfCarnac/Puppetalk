@@ -973,6 +973,10 @@ replaceOnce('controller app setup',"if(mode === 'controller') startController(ro
 
 removeBetweenOnce('embedded controller app composition','function startController(room){','\n\n})();');
 
+replaceOnce('stage app setup',"if(mode === 'controller') startController(room);\nelse startStage(room || roomCode());","const stageApp = window.PuppetalkStageApp?.create?.({\n  app,document,stageShell,clamp,angleDelta,NAMES,COLORS,defaultLook,cleanLook,\n  GRAB_PARTS,POSES,ensureRig,resetPins,antiTangleTarget,rootFollow,\n  drawBackdrop,drawProp,drawAnatomy,send,peerId,cleanPlayerName\n});\nif(!stageApp) throw new Error('Puppetalk stage app failed to load.');\nconst {startStage} = stageApp;\n\nif(mode === 'controller') startController(room);\nelse startStage(room || roomCode());");
+
+removeBetweenOnce('embedded stage app composition','function startStage(room){','\n\n\n\n})();');
+
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
