@@ -1,0 +1,35 @@
+name: Apply moving-prop pickup parity retry
+
+on:
+  push:
+    branches: [puppetalk-translation]
+    paths:
+      - translation/apply-live-prop-pickup-retry.mjs
+      - .github/workflows/translation-live-prop-pickup-retry.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Apply moving prop pickup retry
+        run: node translation/apply-live-prop-pickup-retry.mjs
+      - name: Syntax check
+        run: node --check translation/live-browser-parity.mjs
+      - name: Commit generated parity change
+        run: |
+          if git diff --quiet -- translation/live-browser-parity.mjs; then
+            echo 'No parity change produced.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add translation/live-browser-parity.mjs
+          git commit -m 'Retry live clicks against moving props'
+          git push
