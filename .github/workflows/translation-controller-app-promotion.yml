@@ -1,0 +1,39 @@
+name: Promote Controller App Composition
+
+on:
+  push:
+    branches: [puppetalk-translation]
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify candidate contract
+        run: |
+          node --check translation/controller/app.js
+          node translation/controller/app-smoke.mjs
+      - name: Apply controller app slice
+        run: node translation/apply-controller-app.mjs
+      - name: Rebuild translated runtime
+        run: |
+          node --check translation/build-runtime.mjs
+          node translation/build-runtime.mjs
+          node --check translation/runtime/app.js
+          node translation/entry-smoke.mjs
+          node translation/runtime-parity-smoke.mjs
+          git diff --check
+      - name: Commit promoted controller app
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add translation/build-runtime.mjs translation/index.html translation/entry-smoke.mjs translation/runtime/app.js
+          git commit -m "Promote controller app composition"
+          git push
