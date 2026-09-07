@@ -114,8 +114,8 @@ ctx=makeCtx(true);
 renderer.drawAnatomy(ctx,split,900,650,false,1);
 assert.equal(cleanCalls.length,cleanBeforeSplit,'Broken head returns before face/look rendering.');
 assert.ok(ctx.calls.filter(c=>c[0]==='roundRect').length>=2,'Broken head renders both head segments.');
-assert.ok(ctx.calls.some(c=>c[0]==='translate'&&c[1]===457&&c[2]===191),'Broken lower-head segment uses projected coordinates.');
-assert.ok(ctx.calls.some(c=>c[0]==='translate'&&c[1]===457&&c[2]===139),'Broken upper-head segment uses projected coordinates.');
+assert.ok(ctx.calls.some(c=>c[0]==='translate'&&Math.abs(c[1]-457)<1e-9&&Math.abs(c[2]-191)<1e-9),'Broken lower-head segment uses projected coordinates.');
+assert.ok(ctx.calls.some(c=>c[0]==='translate'&&Math.abs(c[1]-457)<1e-9&&Math.abs(c[2]-139)<1e-9),'Broken upper-head segment uses projected coordinates.');
 assert.equal(ctx.calls.some(c=>c[0]==='fillText'),false,'Broken head path returns before name label exactly as V1.');
 
 function drawProp(type,extra={}){
