@@ -3,7 +3,7 @@
 
   function create(options={}){
     const {
-      micButton,level,talkButton,input,transmit,setStatus,clamp,
+      micButton,level,talkButton,input,transmit,setStatus,clamp,liveVoice=null,
       getUserMedia=constraints=>navigator.mediaDevices.getUserMedia(constraints),
       createAudioContext=()=>new AudioContext(),
       requestFrame=callback=>requestAnimationFrame(callback),
@@ -30,13 +30,14 @@
         return;
       }
       try{
-        const stream=await getUserMedia({audio:true});
+        const stream=await getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
         const audio=createAudioContext();
         const source=audio.createMediaStreamSource(stream);
         const analyser=audio.createAnalyser();
         analyser.fftSize=512;
         analyser.smoothingTimeConstant=.45;
         source.connect(analyser);
+        liveVoice?.setLocalStream?.(stream);
         const data=new ByteArray(analyser.fftSize);
         let raf=0;
         let lastMouth=-1;
@@ -62,6 +63,7 @@
         };
         raf=requestFrame(sample);
         micStop=()=>{
+          liveVoice?.clearLocalStream?.(stream);
           cancelFrame(raf);
           stream.getTracks().forEach(track=>track.stop());
           audio.close();
