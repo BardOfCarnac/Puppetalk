@@ -43,6 +43,7 @@ const requiredTranslated=[
   './translation/render/scene-camera.js?v=1',
   './translation/controller/device-projection.js?v=1',
   './translation/render/scene-renderer.js?v=1',
+  './translation/render/random-photo-backdrop.js?v=1',
   './translation/render/seat-projection.js?v=1',
   './translation/ui/shells.js?v=1',
   './translation/character/rig-core.js?v=1',
