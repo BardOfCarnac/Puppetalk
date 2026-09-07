@@ -692,16 +692,18 @@ async function exercisePropPickupThrow(controller,label,propId){
   const hands=await latestHandScreenPoints(controller);
   if(!hands)throw new Error(`${label} could not resolve throwing hand geometry.`);
   const startPoint=hand==='left'?hands.left:hands.right;
-  const targetX=Math.min(hands.rect.left+hands.rect.width-24,startPoint.x+Math.max(105,hands.rect.width*.12));
-  const targetY=Math.max(hands.rect.top+24,startPoint.y-24);
+  const releaseX=Math.min(hands.rect.left+hands.rect.width-24,startPoint.x+Math.max(150,hands.rect.width*.18));
+  const releaseY=Math.max(hands.rect.top+24,startPoint.y-32);
+  const midX=startPoint.x+(releaseX-startPoint.x)*.45;
+  const midY=startPoint.y+(releaseY-startPoint.y)*.45;
   const handPart=hand==='left'?'leftHand':'rightHand';
   const throwStart=await traceLength(controller);
   await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:startPoint.x,y:startPoint.y,button:'left',buttons:1,clickCount:1});
   await waitInput(controller,throwStart,`e.input.grabs?.some(g=>g.part==='${handPart}')`,`${label} throwing hand press`,5000);
-  await sleep(24);
-  await controller.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:targetX,y:targetY,button:'left',buttons:1});
-  await sleep(42);
-  await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:targetX,y:targetY,button:'left',buttons:0,clickCount:1});
+  await sleep(20);
+  await controller.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:midX,y:midY,button:'left',buttons:1});
+  await sleep(38);
+  await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:releaseX,y:releaseY,button:'left',buttons:0,clickCount:1});
   const throwSend=await waitEval(controller,`(()=>{
     const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${throwStart});
     const e=entries.find(e=>e.event==='send'&&e.type==='prop'&&e.action==='throw'&&e.hand===${JSON.stringify(hand)});
