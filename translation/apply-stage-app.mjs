@@ -40,8 +40,27 @@ fs.writeFileSync(smokePath,smoke);
 
 const parityPath='translation/runtime-parity-smoke.mjs';
 let parity=fs.readFileSync(parityPath,'utf8');
+parity=replaceOnce(parity,'stage source parity setup',
+  "const actual=fs.readFileSync('translation/runtime/app.js','utf8');\n",
+  "const actual=fs.readFileSync('translation/runtime/app.js','utf8');\nconst stageAppSource=fs.readFileSync('translation/stage/app.js','utf8');\n"
+);
+
+const stageModules=[
+  'GrabGeometry','DriveForces','RecoveryGeometry','RigFactory','RecoverySystem','CharacterSceneState',
+  'CharacterInputSystem','PuppetDriver','PuppetLifecycle','StageLoop','StageLifecycle','HostSession',
+  'PropGeometry','PropState','PropFactory','PumpBalloon','BalloonPops','BalloonLift','PropDriver',
+  'LaserFrisbee','DepthAssist','PropGripCore','PropAttachmentCore','PropInput','SpecialItems',
+  'DartImpacts','PropContactPhysics'
+];
+for(const name of stageModules){
+  parity=replaceOnce(parity,`stage module ownership ${name}`,
+    `assert.match(actual,/Puppetalk${name}/`,
+    `assert.match(stageAppSource,/Puppetalk${name}/`
+  );
+}
+
 const stageShellOld="assert.match(actual,/app\\.innerHTML = stageShell\\(room,joinUrl\\.href\\);/,'Stage does not render through extracted view shell.');";
-const stageShellNew="const stageAppSource=fs.readFileSync('translation/stage/app.js','utf8');\nassert.match(actual,/PuppetalkStageApp/,'Translated runtime is not connected to extracted stage app composition.');\nassert.doesNotMatch(actual,/function startStage\\(room\\)/,'Embedded startStage survived stage-app extraction.');\nassert.match(stageAppSource,/app\\.innerHTML = stageShell\\(room,joinUrl\\.href\\);/,'Stage app does not render through extracted view shell.');";
+const stageShellNew="assert.match(actual,/PuppetalkStageApp/,'Translated runtime is not connected to extracted stage app composition.');\nassert.doesNotMatch(actual,/function startStage\\(room\\)/,'Embedded startStage survived stage-app extraction.');\nassert.match(stageAppSource,/app\\.innerHTML = stageShell\\(room,joinUrl\\.href\\);/,'Stage app does not render through extracted view shell.');";
 parity=replaceOnce(parity,'stage app parity boundary',stageShellOld,stageShellNew);
 
 const stageBindingAssertions=[
