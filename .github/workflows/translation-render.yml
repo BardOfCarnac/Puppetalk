@@ -17,6 +17,8 @@ jobs:
       - run: node translation/render/scene-camera-smoke.mjs
       - run: node --check translation/render/scene-renderer.js
       - run: node translation/render/scene-renderer-smoke.mjs
+      - run: node --check translation/render/random-photo-backdrop.js
+      - run: node translation/render/random-photo-backdrop-smoke.mjs
       - run: node --check translation/render/seat-projection.js
       - run: node translation/render/seat-projection-smoke.mjs
       - run: node translation/render/legacy-line-face-dead-code-smoke.mjs
