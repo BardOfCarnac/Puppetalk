@@ -20,6 +20,7 @@ function create(deps={}){
     }
 
     app.innerHTML = controllerShell(room,POSES);
+    document.body.classList.add('puppetalk-fullscreen');
 
     const canvas = document.querySelector('#personal-canvas');
     const ctx = canvas.getContext('2d');
