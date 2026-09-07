@@ -52,7 +52,7 @@ function create(deps={}){
       clearTimeoutFn:id=>root.clearTimeout(id)
     });
     if(!controllerSession) throw new Error('Puppetalk controller session failed to load.');
-    const {setStatus,transmit,connect,getConn,getSlot,getScene,getPropScene} = controllerSession;
+    const {setStatus,transmit,connect,getConn,getSlot,getScene,getPropScene,getLiveVoice} = controllerSession;
 
     const puppetInteraction = root.PuppetalkControllerPuppetry?.create?.({
       canvas,ctx,hint,input,clamp,
@@ -114,7 +114,7 @@ function create(deps={}){
     updateSpecialItemButton(false);
 
     const controllerAudio = root.PuppetalkControllerAudio?.create?.({
-      micButton,level,talkButton,input,transmit,setStatus,clamp,
+      micButton,level,talkButton,input,transmit,setStatus,clamp,liveVoice:getLiveVoice?.(),
       getUserMedia:constraints=>root.navigator.mediaDevices.getUserMedia(constraints),
       createAudioContext:()=>new root.AudioContext(),
       requestFrame:callback=>root.requestAnimationFrame(callback),
