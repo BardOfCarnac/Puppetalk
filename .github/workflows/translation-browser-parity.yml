@@ -38,7 +38,7 @@ jobs:
       - name: Live stage/controller parity
         env:
           PUPPETALK_PARITY_BASE: http://127.0.0.1:8082
-        run: node translation/live-browser-parity.mjs
+        run: node translation/live-browser-parity-projected-probe.mjs
       - name: Stop parity server
         if: always()
         run: kill $(cat /tmp/puppetalk-parity-server.pid) || true
