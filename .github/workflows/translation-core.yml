@@ -24,4 +24,4 @@ jobs:
       - name: Translation entry smoke
         run: node translation/entry-smoke.mjs
       - name: Runtime parity
-        run: node translation/runtime-parity.mjs
+        run: node translation/runtime-parity-smoke.mjs
