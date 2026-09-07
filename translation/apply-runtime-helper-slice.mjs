@@ -25,10 +25,9 @@ const setup =
 if(!build.includes(setupAnchor)) throw new Error('Missing pose/grab transform anchor.');
 build=build.replace(setupAnchor,setup+setupAnchor);
 
-const poseEnd="});\n\nreplaceOnce('character helper factory point'";
+const helperAnchor="\n\nreplaceOnce('character helper factory point'";
 const utilityRemovals =
-"});\n\n"+
-"replaceOnce(\n"+
+"\n\nreplaceOnce(\n"+
 "  'embedded shared runtime helpers',\n"+
 "  `const clamp = (v,a,b) => Math.max(a,Math.min(b,v));\n"+
 "const clean = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);\n"+
@@ -53,10 +52,9 @@ const utilityRemovals =
 "}\n"+
 "`,\n"+
 "  ``\n"+
-");\n\n"+
-"replaceOnce('character helper factory point'";
-if(!build.includes(poseEnd)) throw new Error('Missing character helper transform anchor.');
-build=build.replace(poseEnd,utilityRemovals);
+");";
+if(!build.includes(helperAnchor)) throw new Error('Missing character helper transform anchor.');
+build=build.replace(helperAnchor,utilityRemovals+helperAnchor);
 fs.writeFileSync(buildPath,build);
 
 const indexPath='translation/index.html';
