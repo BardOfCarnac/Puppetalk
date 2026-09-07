@@ -24,10 +24,16 @@
       puppets.forEach(p=>drawAnatomy(ctx,anatomy(p),W,H,false));
     }
 
+    function scenePayload(now){
+      const {W,H}=getDimensions();
+      const scene={type:'scene',puppets:[...puppets.values()].map(anatomy),props:[...props.values()].map(propState)};
+      return global.PuppetalkDepthState?.tuneScene?.(scene,{width:W,height:H,time:now})||scene;
+    }
+
     function broadcastScene(now){
       if(now-getLastSceneSent() < 66 || !conns.size) return;
       setLastSceneSent(now);
-      const scene = {type:'scene',puppets:[...puppets.values()].map(anatomy),props:[...props.values()].map(propState)};
+      const scene=scenePayload(now);
       conns.forEach(conn=>send(conn,scene));
     }
 
@@ -44,7 +50,7 @@
       requestFrame(tick);
     }
 
-    return {drawStage,broadcastScene,tick};
+    return {drawStage,scenePayload,broadcastScene,tick};
   }
 
   global.PuppetalkStageLoop={create};
