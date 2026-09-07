@@ -23,6 +23,16 @@
       return -1;
     }
 
+    function scenePayload(){
+      const scene={type:'scene',puppets:[...puppets.values()].map(anatomy),props:[...props.values()].map(propState)};
+      return global.PuppetalkDepthState?.tuneScene?.(scene,{width:global.innerWidth||320,height:global.innerHeight||360})||scene;
+    }
+
+    function handleDepthInput(slot,msg){
+      if(msg?.type!=='depth-step') return false;
+      return !!global.PuppetalkDepthState?.stepDepth?.(slot,msg.direction);
+    }
+
     const peer = new Peer(peerId(room));
     peer.on('open',()=>status.textContent='stage live — waiting for puppeteers');
     peer.on('connection',conn=>{
@@ -35,9 +45,10 @@
       makePuppet(slot);
       conn.on('open',()=>{
         send(conn,{type:'welcome',slot,name:NAMES[slot]});
-        send(conn,{type:'scene',puppets:[...puppets.values()].map(anatomy),props:[...props.values()].map(propState)});
+        send(conn,scenePayload());
         updateStatus();
       });
+      conn.on('data',msg=>handleDepthInput(slot,msg));
       conn.on('data',msg=>applyInput(slot,msg));
       conn.on('data',msg=>handlePropInput(slot,msg));
       conn.on('data',msg=>handleSpecialItemInput(slot,msg));
@@ -57,7 +68,7 @@
       status.textContent = err.type === 'unavailable-id' ? 'table already in use — start another' : `network error: ${err.type || 'unknown'}`;
     });
 
-    return {peer,updateStatus,freeSlot};
+    return {peer,updateStatus,freeSlot,scenePayload,handleDepthInput};
   }
 
   global.PuppetalkHostSession={create};
