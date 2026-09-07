@@ -25,7 +25,7 @@ const renderer=api.create({
   cleanLook:(look,slot)=>{cleanCalls.push([look,slot]);return {headStyle:'spikes',eyes:'dots',nose:'curve',mouth:'line',extra:'none',color:'#cf6c63'};},
   document:documentRef,Path2DClass:FakePath2D,
   getDisplayPoint:()=>((q,w,h)=>{displayCalls++;return {x:q.x*w+7,y:q.y*h+9};}),
-  getProjectionRenderScale:()=>((w,h)=>{scaleCalls++;return Math.min(w/900,h/650);})
+  getProjectionRenderScale:()=>((w,h)=>{scaleCalls++;return 2;})
 });
 assert.ok(renderer?.drawBackdrop,'Scene renderer factory failed.');
 
@@ -87,16 +87,23 @@ assert.equal(cleanCalls.length,0,'Missing anatomy must return before look cleani
 
 const q=(x,y,a=0)=>({x,y,a});
 const puppet={
-  slot:3,name:'Vale',color:'#729d78',mouth:1,look:{eyes:'anything'},
+  slot:3,name:'Vale',color:'#729d78',mouth:1,look:{eyes:'anything'},visualScale:1.25,
   torso:q(.5,.5),head:q(.5,.25),
   hl:q(.46,.62),hr:q(.54,.62),kl:q(.44,.78),kr:q(.56,.78),al:q(.43,.91),ar:q(.57,.91),
   sl:q(.44,.4),sr:q(.56,.4),el:q(.37,.52),er:q(.63,.52),wl:q(.30,.61),wr:q(.70,.61)
 };
 ctx=makeCtx(true);
+const anatomyDisplayBefore=displayCalls;
+const anatomyScaleBefore=scaleCalls;
 renderer.drawAnatomy(ctx,puppet,900,650,true,.8);
 assert.equal(cleanCalls.length,1);
 assert.equal(cleanCalls[0][0],puppet.look);
 assert.equal(cleanCalls[0][1],3);
+assert.ok(displayCalls>anatomyDisplayBefore,'Anatomy renderer uses the display projection for body points.');
+assert.ok(scaleCalls>anatomyScaleBefore,'Anatomy renderer uses the projection render scale.');
+assert.ok(ctx.calls.some(c=>c[0]==='arc'&&c[1]===457&&c[2]===334&&c[3]===145),'Own-puppet highlight uses projected torso coordinates and projection scale × visualScale.');
+assert.ok(ctx.calls.some(c=>c[0]==='translate'&&c[1]===457&&c[2]===334),'Torso body uses projected coordinates.');
+assert.ok(ctx.calls.some(c=>c[0]==='translate'&&c[1]===457&&c[2]===171.5),'Head uses projected coordinates.');
 assert.ok(ctx.calls.some(c=>c[0]==='setLineDash'&&Array.isArray(c[1])&&c[1][0]===6),'Highlight keeps dashed own-puppet ring.');
 assert.ok(ctx.calls.some(c=>c[0]==='fillText'&&c[1]==='Vale · YOU'),'Highlighted puppet keeps YOU label.');
 assert.ok(ctx.calls.some(c=>c[0]==='stroke'&&c[1] instanceof FakePath2D),'Face eyes/nose continue using Path2D.');
@@ -107,6 +114,8 @@ ctx=makeCtx(true);
 renderer.drawAnatomy(ctx,split,900,650,false,1);
 assert.equal(cleanCalls.length,cleanBeforeSplit,'Broken head returns before face/look rendering.');
 assert.ok(ctx.calls.filter(c=>c[0]==='roundRect').length>=2,'Broken head renders both head segments.');
+assert.ok(ctx.calls.some(c=>c[0]==='translate'&&c[1]===457&&c[2]===191),'Broken lower-head segment uses projected coordinates.');
+assert.ok(ctx.calls.some(c=>c[0]==='translate'&&c[1]===457&&c[2]===139),'Broken upper-head segment uses projected coordinates.');
 assert.equal(ctx.calls.some(c=>c[0]==='fillText'),false,'Broken head path returns before name label exactly as V1.');
 
 function drawProp(type,extra={}){
@@ -134,4 +143,4 @@ assert.ok(calls.some(c=>c[0]==='moveTo'&&c[1]<0),'Dart fallback keeps shaft rend
 calls=drawProp('ball',{heldBy:{slot:1,hand:'left'}});
 assert.ok(calls.some(c=>c[0]==='strokeStyle'&&c[1]==='rgba(255,255,255,.7)'),'Held prop keeps white ownership ring.');
 
-console.log('Shared scene renderer candidate preserves V1 backdrop, live face helpers, mouth sampling/cache, anatomy split/highlight semantics, prop branches/projection and rounded geometry.');
+console.log('Shared scene renderer candidate preserves V1 backdrop, live face helpers, mouth sampling/cache, projected/scaled anatomy, prop branches/projection and rounded geometry.');
