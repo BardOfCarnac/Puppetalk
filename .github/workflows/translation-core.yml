@@ -1,0 +1,27 @@
+name: Translation Core
+
+on:
+  push:
+    branches: [puppetalk-translation]
+    paths:
+      - 'translation/core/**'
+      - 'translation/build-runtime.mjs'
+      - 'translation/runtime/app.js'
+      - 'translation/index.html'
+      - 'translation/entry-smoke.mjs'
+      - '.github/workflows/translation-core.yml'
+
+jobs:
+  core-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Runtime helper contract
+        run: node translation/core/runtime-helpers-smoke.mjs
+      - name: Translation entry smoke
+        run: node translation/entry-smoke.mjs
+      - name: Runtime parity
+        run: node translation/runtime-parity.mjs
