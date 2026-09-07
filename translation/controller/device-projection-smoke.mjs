@@ -38,14 +38,21 @@ assert.ok(Math.abs(roundTrip.x-prop.x)<1e-12);
 assert.ok(Math.abs(roundTrip.y-prop.y)<1e-12);
 assert.ok(Math.abs(projection.projectionRenderScale(1024,681)-frame.scale)<1e-12);
 
+// Objects returned from vm.runInNewContext have a different Object prototype, so
+// compare values rather than realm identity here.
 mode='stage';
-assert.deepEqual(projection.displayPoint({x:.25,y:.75},800,600),{x:200,y:450});
-assert.deepEqual(projection.displayNorm(200,450,800,600),{x:.25,y:.75});
+const stagePoint=projection.displayPoint({x:.25,y:.75},800,600);
+assert.equal(stagePoint.x,200);
+assert.equal(stagePoint.y,450);
+const stageNorm=projection.displayNorm(200,450,800,600);
+assert.equal(stageNorm.x,.25);
+assert.equal(stageNorm.y,.75);
 assert.equal(projection.projectionRenderScale(800,600),1);
 
 mode='controller';
 sourceStage.width=80;sourceStage.height=50;
 const fallback=projection.sourceStageSize();
-assert.deepEqual(fallback,{width:320,height:360},'Invalid source-stage dimensions must preserve V1 fallback size.');
+assert.equal(fallback.width,320,'Invalid source-stage width must preserve V1 fallback size.');
+assert.equal(fallback.height,360,'Invalid source-stage height must preserve V1 fallback size.');
 
 console.log('Controller projection preserves V1 source-stage fit, live frisbee screen coordinates, inverse pointer mapping and stage passthrough.');
