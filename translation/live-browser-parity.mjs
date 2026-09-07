@@ -34,6 +34,9 @@ const fakePeerSource=String.raw`(()=>{
     ok:data?.ok??null,
     message:data?.message||null,
     direction:Number.isFinite(data?.direction)?Number(data.direction):null,
+    hand:data?.hand||null,
+    vx:Number.isFinite(data?.vx)?Number(data.vx):null,
+    vy:Number.isFinite(data?.vy)?Number(data.vy):null,
     input:data?.type==='input'?{
       pose:data.input?.pose||null,
       poseVersion:Number.isInteger(data.input?.poseVersion)?data.input.poseVersion:null,
@@ -58,7 +61,12 @@ const fakePeerSource=String.raw`(()=>{
         visualScale:Number.isFinite(p?.visualScale)?Number(p.visualScale):null,
         depthPlane:Number.isInteger(p?.depthPlane)?p.depthPlane:null
       })):[],
-      propCount:Array.isArray(data.props)?data.props.length:0
+      propCount:Array.isArray(data.props)?data.props.length:0,
+      props:Array.isArray(data.props)?data.props.map(prop=>({
+        id:prop?.id||null,type:prop?.type||null,x:Number(prop?.x),y:Number(prop?.y),
+        heldBy:prop?.heldBy?{slot:prop.heldBy.slot,hand:prop.heldBy.hand}:null,
+        armed:prop?.type==='frisbee'?!!prop?.armed:null
+      })):[]
     }:null
   });
   class Emitter{
@@ -629,6 +637,89 @@ async function exerciseCoreControls(controller,label){
   return out;
 }
 
+async function latestPropAndCanvas(cdp,propId){
+  return evaluate(cdp,`(()=>{
+    const trace=window.__PUPPETALK_PARITY_TRACE__||[];
+    let prop=null;
+    for(let i=trace.length-1;i>=0&&!prop;i--){
+      const e=trace[i];
+      if(e.event!=='recv'||e.type!=='scene'||!e.scene)continue;
+      const q=e.scene.props?.find(p=>p.id===${JSON.stringify(propId)});
+      if(q)prop=q;
+    }
+    const r=document.querySelector('#personal-canvas')?.getBoundingClientRect();
+    return prop&&r?{prop,rect:{left:r.left,top:r.top,width:r.width,height:r.height}}:null;
+  })()`);
+}
+
+async function waitPropScene(cdp,start,propId,predicate,label,timeout=5000){
+  return waitEval(cdp,`(()=>{
+    const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${start});
+    for(const e of entries){
+      if(e.event!=='recv'||e.type!=='scene'||!e.scene)continue;
+      const p=e.scene.props?.find(p=>p.id===${JSON.stringify(propId)});
+      if(p&&(${predicate}))return p;
+    }
+    return null;
+  })()`,label,timeout);
+}
+
+async function exercisePropPickupThrow(controller,label,propId){
+  if(!propId)throw new Error(`${label} missing prop id for pickup/throw parity.`);
+  await waitPropScene(controller,0,propId,"!p.heldBy&&p.type==='frisbee'",`${label} frisbee scene`);
+  const geometry=await latestPropAndCanvas(controller,propId);
+  if(!geometry)throw new Error(`${label} could not resolve frisbee/canvas geometry.`);
+  const px=geometry.rect.left+geometry.prop.x*geometry.rect.width;
+  const py=geometry.rect.top+geometry.prop.y*geometry.rect.height;
+
+  const pickupStart=await traceLength(controller);
+  await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:px,y:py,button:'left',buttons:1,clickCount:1});
+  const pickupSend=await waitEval(controller,`(()=>{
+    const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${pickupStart});
+    const e=entries.find(e=>e.event==='send'&&e.type==='prop'&&e.action==='tap'&&e.propId===${JSON.stringify(propId)});
+    return e?{action:e.action,propId:e.propId,hand:e.hand}:null;
+  })()`,`${label} frisbee pickup command`);
+  await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:px,y:py,button:'left',buttons:0,clickCount:1});
+  const pickupReply=await waitEval(controller,`(()=>{
+    const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${pickupStart});
+    const e=entries.find(e=>e.event==='recv'&&e.type==='prop-result'&&e.propId===${JSON.stringify(propId)}&&e.ok===true&&String(e.message||'').startsWith('Picked up '));
+    return e?{type:e.type,ok:e.ok,message:e.message}:null;
+  })()`,`${label} frisbee pickup reply`);
+  const held=await waitPropScene(controller,pickupStart,propId,"p.heldBy&&p.heldBy.slot===0",`${label} held frisbee scene`);
+  const hand=pickupSend?.hand;
+  if(hand!=='left'&&hand!=='right')throw new Error(`${label} frisbee was not picked up by a hand: ${JSON.stringify(pickupSend)}`);
+
+  const hands=await latestHandScreenPoints(controller);
+  if(!hands)throw new Error(`${label} could not resolve throwing hand geometry.`);
+  const startPoint=hand==='left'?hands.left:hands.right;
+  const targetX=Math.min(hands.rect.left+hands.rect.width-24,startPoint.x+Math.max(105,hands.rect.width*.12));
+  const targetY=Math.max(hands.rect.top+24,startPoint.y-24);
+  const handPart=hand==='left'?'leftHand':'rightHand';
+  const throwStart=await traceLength(controller);
+  await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:startPoint.x,y:startPoint.y,button:'left',buttons:1,clickCount:1});
+  await waitInput(controller,throwStart,`e.input.grabs?.some(g=>g.part==='${handPart}')`,`${label} throwing hand press`,5000);
+  await sleep(24);
+  await controller.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:targetX,y:targetY,button:'left',buttons:1});
+  await sleep(42);
+  await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:targetX,y:targetY,button:'left',buttons:0,clickCount:1});
+  const throwSend=await waitEval(controller,`(()=>{
+    const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${throwStart});
+    const e=entries.find(e=>e.event==='send'&&e.type==='prop'&&e.action==='throw'&&e.hand===${JSON.stringify(hand)});
+    return e?{action:e.action,hand:e.hand,vx:e.vx,vy:e.vy}:null;
+  })()`,`${label} frisbee throw command`,5000);
+  const throwReply=await waitEval(controller,`(()=>{
+    const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${throwStart});
+    const e=entries.find(e=>e.event==='recv'&&e.type==='prop-result'&&e.propId===${JSON.stringify(propId)}&&e.ok===true&&e.message==='Threw frisbee.');
+    return e?{type:e.type,ok:e.ok,message:e.message}:null;
+  })()`,`${label} frisbee throw reply`,5000);
+  const released=await waitPropScene(controller,throwStart,propId,"!p.heldBy&&p.armed===true",`${label} thrown frisbee scene`,5000);
+
+  return {
+    pickup:{action:pickupSend.action,hand,reply:pickupReply?.message||'',held:held?.heldBy?.slot===0&&held?.heldBy?.hand===hand},
+    throw:{action:throwSend.action,hand:throwSend.hand,fast:Math.hypot(Number(throwSend.vx)||0,Number(throwSend.vy)||0)>.62,reply:throwReply?.message||'',released:!released?.heldBy,armed:released?.armed===true}
+  };
+}
+
 async function liveSession(prefix,room,label){
   const stage=await target(`${base}${prefix}?mode=stage&room=${room}&lobby=done&embedded=1`,{stageProbe:true});
   await waitEval(stage,`window.__PUPPETALK_PARITY_FAKE_PEER__===true`,`${label} fake Peer injection`);
@@ -652,6 +743,7 @@ async function liveSession(prefix,room,label){
   await click(controller,'#special-item');
   await waitEval(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${specialStart}).some(e=>e.event==='recv'&&e.message==='Brought out Laser frisbee.')`,`${label} frozen special-item transport reply`);
   await sleep(120);
+  const propInteraction=await exercisePropPickupThrow(controller,label,reply?.propId);
   const after=await controllerState(controller);
   const reply=await evaluate(controller,`(()=>{
     const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${specialStart}).filter(e=>e.event==='recv'&&e.message==='Brought out Laser frisbee.');
@@ -675,6 +767,7 @@ async function liveSession(prefix,room,label){
     depth,
     beforeButton:before.buttonText,
     reply,
+    propInteraction,
     afterHint:after.hint,
     afterButton:after.buttonText,
     afterDisabled:after.buttonDisabled
@@ -718,12 +811,16 @@ try{
     if(touch?.down?.grabCount!==2||touch?.down?.parts?.join(',')!=='leftHand,rightHand'||touch?.move?.grabCount!==2||!touch.move.leftMovedLeft||!touch.move.rightMovedRight||touch?.up?.grabCount!==0){
       throw new Error(`${label} two-pointer grab behavior was not observed: ${JSON.stringify(touch)}`);
     }
+    const propFlow=state.propInteraction;
+    if(!propFlow?.pickup?.held||propFlow.pickup.action!=='tap'||!['left','right'].includes(propFlow.pickup.hand)||propFlow.pickup.reply!=='Picked up frisbee.'||propFlow.throw?.action!=='throw'||propFlow.throw.hand!==propFlow.pickup.hand||!propFlow.throw.fast||propFlow.throw.reply!=='Threw frisbee.'||!propFlow.throw.released||!propFlow.throw.armed){
+      throw new Error(`${label} prop pickup/throw behavior was not observed: ${JSON.stringify(propFlow)}`);
+    }
   }
   if(original.reply?.type!=='frisbee'||original.reply?.ok!==true){
     throw new Error(`Frozen V1 special-item reply shape changed unexpectedly: ${JSON.stringify(original.reply)}`);
   }
   console.log('PASS');
-  console.log('Stage/controller handshake, body-drag walking, pose/ragdoll controls, centre pulse, direct torso drag, two-pointer grabbing, discrete depth gestures and frozen special-item behavior: pass');
+  console.log('Stage/controller handshake, body-drag walking, pose/ragdoll controls, centre pulse, direct torso drag, two-pointer grabbing, discrete depth gestures, prop pickup/throw and frozen special-item behavior: pass');
   console.log(JSON.stringify(comparable(original),null,2));
 }finally{
   const exited=new Promise(resolve=>chrome.once('exit',resolve));
