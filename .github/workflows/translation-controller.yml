@@ -27,6 +27,8 @@ jobs:
       - run: node translation/controller/command-panel-smoke.mjs
       - run: node --check translation/controller/session.js
       - run: node translation/controller/session-smoke.mjs
+      - run: node --check translation/controller/canvas-lifecycle.js
+      - run: node translation/controller/canvas-lifecycle-smoke.mjs
       - run: node --check translation/build-runtime.mjs
       - run: node --check translation/runtime-parity-smoke.mjs
       - run: node translation/runtime-parity-smoke.mjs
