@@ -12,6 +12,7 @@ const expectedRuntime=scripts.filter(src=>{
   return !decoratorSet.has(bare) && bare!=='./boot.js';
 });
 expectedRuntime.push('./translation/character/look-model.js?v=1');
+expectedRuntime.push('./translation/core/runtime-helpers.js?v=1');
 expectedRuntime.push('./translation/render/scene-renderer.js?v=1');
 expectedRuntime.push('./translation/render/seat-projection.js?v=1');
 expectedRuntime.push('./translation/ui/shells.js?v=1');
@@ -64,6 +65,7 @@ for(const decorator of appSourceDecorators){
 assert.ok(!actualScripts.some(src=>src.replace(/\?.*$/,'')==='./boot.js'),'V1 source-rewriting boot.js survived in translation runtime.');
 assert.ok(!actualScripts.some(src=>src.includes('precomposed-fetch.js')),'Preboot fetch adapter survived after final source freeze.');
 assert.ok(actualScripts.includes('./translation/character/look-model.js?v=1'),'Extracted character look model is missing.');
+assert.ok(actualScripts.includes('./translation/core/runtime-helpers.js?v=1'),'Extracted frozen runtime helpers are missing.');
 assert.ok(actualScripts.includes('./translation/render/scene-renderer.js?v=1'),'Extracted shared scene renderer is missing.');
 assert.ok(actualScripts.includes('./translation/render/seat-projection.js?v=1'),'Extracted seat projection is missing.');
 assert.ok(actualScripts.includes('./translation/ui/shells.js?v=1'),'Extracted view shells are missing.');

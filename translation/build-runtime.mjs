@@ -861,6 +861,39 @@ removeBetweenOnce(
 );
 
 replaceOnce(
+  'runtime helper setup point',
+  `function savedLook(){try{return cleanLook(JSON.parse(localStorage.getItem('puppetalk-look')||'null'));}catch{return defaultLook();}}
+function saveLook(look){try{localStorage.setItem('puppetalk-look',JSON.stringify(cleanLook(look)));}catch{}}`,
+  `const runtimeHelpers = window.PuppetalkRuntimeHelpers?.create?.({
+  cleanLook,defaultLook,getStorage:()=>localStorage,random:()=>Math.random()
+});
+if(!runtimeHelpers) throw new Error('Puppetalk runtime helpers failed to load.');
+const {clamp,clean,peerId,send,cleanPlayerName,savedPlayerName,savedLook,saveLook,roomCode,angleDelta} = runtimeHelpers;`
+);
+
+removeBetweenOnce(
+  'embedded shared runtime helpers',
+  `const clamp = (v,a,b) => Math.max(a,Math.min(b,v));`,
+  `function roomCode(){`
+);
+
+replaceOnce(
+  'embedded room and angle helpers',
+  `function roomCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:5},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+function angleDelta(target,current){
+  let d = target-current;
+  while(d > Math.PI) d -= Math.PI*2;
+  while(d < -Math.PI) d += Math.PI*2;
+  return d;
+}
+`,
+  ``
+);
+
+replaceOnce(
   'view shell setup point',
   `if(mode === 'controller') startController(room);`,
   `const {incompleteInviteShell,stageShell,controllerShell} = window.PuppetalkViewShells || {};

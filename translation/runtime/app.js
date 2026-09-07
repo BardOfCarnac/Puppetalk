@@ -12,8 +12,11 @@ if(!LOOK_PALETTE || !LOOK_PARTS || !defaultLook || !cleanLook){
   throw new Error('Puppetalk look model failed to load.');
 }
 
-function savedLook(){try{return cleanLook(JSON.parse(localStorage.getItem('puppetalk-look')||'null'));}catch{return defaultLook();}}
-function saveLook(look){try{localStorage.setItem('puppetalk-look',JSON.stringify(cleanLook(look)));}catch{}}
+const runtimeHelpers = window.PuppetalkRuntimeHelpers?.create?.({
+  cleanLook,defaultLook,getStorage:()=>localStorage,random:()=>Math.random()
+});
+if(!runtimeHelpers) throw new Error('Puppetalk runtime helpers failed to load.');
+const {clamp,clean,peerId,send,cleanPlayerName,savedPlayerName,savedLook,saveLook,roomCode,angleDelta} = runtimeHelpers;
 
 const {
   POSES,GRAB_PARTS,ensureRig,resetPins,antiTangleTarget,rootFollow
@@ -22,23 +25,6 @@ if(!POSES || !GRAB_PARTS || !ensureRig || !resetPins || !antiTangleTarget || !ro
   throw new Error('Puppetalk character rig core failed to load.');
 }
 
-const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
-const clean = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
-const peerId = r => `puppetalk-${r.toLowerCase()}`;
-const send = (conn,msg) => { if(conn?.open) conn.send(msg); };
-const cleanPlayerName = v => String(v || '').trim().replace(/\s+/g,' ').slice(0,24);
-function savedPlayerName(){ try{return cleanPlayerName(localStorage.getItem('puppetalk-name'));}catch{return '';} }
-
-function roomCode(){
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return Array.from({length:5},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
-}
-function angleDelta(target,current){
-  let d = target-current;
-  while(d > Math.PI) d -= Math.PI*2;
-  while(d < -Math.PI) d += Math.PI*2;
-  return d;
-}
 
 const sceneRenderer = window.PuppetalkSceneRenderer?.create?.({
   cleanLook,document,
