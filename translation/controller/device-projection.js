@@ -8,11 +8,17 @@
       getSceneCamera=()=>root.PuppetalkSceneCamera
     }=options;
 
+    let controllerProjection=null;
+
     function sourceStageSize(){
       const source=getSourceStage();
       const width=Number.isFinite(source?.width)&&source.width>100?source.width:320;
       const height=Number.isFinite(source?.height)&&source.height>100?source.height:360;
       return {width,height};
+    }
+
+    function invalidateControllerProjection(){
+      controllerProjection=null;
     }
 
     function rebuildControllerProjection(w,h){
@@ -36,17 +42,15 @@
       const floorCenter=sceneHasPhoto?(floorLeft+floorRight)*.5:w*.5;
       const offsetX=floorCenter-displayW*.5;
       const offsetY=floorY-source.height*sourceFloor*scale;
-      return {
+      controllerProjection={
         w,h,sourceW:source.width,sourceH:source.height,scale,displayW,displayH,offsetX,offsetY,
         floorY,floorLeft,floorRight,profile:camera?.profile||'standard',sceneId:camera?.sceneId||'default'
       };
+      return controllerProjection;
     }
 
-    // V1 cached this value and invalidated it on viewport/scene events. Recomputing the
-    // same formula on demand is deliberately equivalent and avoids stale projection
-    // state while the translated modules are being separated from the old Blob patch.
     function projectionFor(w,h){
-      return rebuildControllerProjection(w,h);
+      return controllerProjection||rebuildControllerProjection(w,h);
     }
 
     function displayPoint(q,w,h){
@@ -66,7 +70,10 @@
       return projectionFor(w,h)?.scale||1;
     }
 
-    return {sourceStageSize,rebuildControllerProjection,projectionFor,displayPoint,displayNorm,projectionRenderScale};
+    return {
+      sourceStageSize,invalidateControllerProjection,rebuildControllerProjection,
+      projectionFor,displayPoint,displayNorm,projectionRenderScale
+    };
   }
 
   function currentMode(){
