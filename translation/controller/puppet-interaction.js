@@ -4,7 +4,9 @@
   function create(options={}){
     const {
       canvas,ctx,hint,input,clamp,getScene,getPropScene,getSlot,getDimensions,
-      drawBackdrop,seatProjection,drawProp,drawAnatomy,transmit,cancelCentre
+      drawBackdrop,seatProjection,drawProp,drawAnatomy,transmit,cancelCentre,
+      displayPoint=typeof root.displayPoint==='function'?root.displayPoint:null,
+      displayNorm=typeof root.displayNorm==='function'?root.displayNorm:null
     }=options;
     if(!canvas || !ctx || !hint || !input || !clamp || !getScene || !getPropScene || !getSlot || !getDimensions || !drawBackdrop || !seatProjection || !drawProp || !drawAnatomy || !transmit || !cancelCentre) return null;
 
@@ -35,14 +37,23 @@
       ];
     }
 
+    function projectPoint(q,w,h){
+      return typeof displayPoint==='function'?displayPoint(q,w,h):{x:q.x*w,y:q.y*h};
+    }
+
+    function unprojectPoint(x,y,w,h){
+      return typeof displayNorm==='function'?displayNorm(x,y,w,h):{x:x/w,y:y/h};
+    }
+
     function renderGrabHandles(p){
       if(!p) return;
       const {cw,ch}=getDimensions();
       const active=new Set([...activePointers.values()].map(g=>g.part));
       ctx.save();
       grabSpots(p).forEach(spot=>{
-        const x=spot.q.x*cw;
-        const y=spot.q.y*ch;
+        const point=projectPoint(spot.q,cw,ch);
+        const x=point.x;
+        const y=point.y;
         const selected=active.has(spot.part);
         ctx.beginPath();
         ctx.arc(x,y,selected?12:6.5,0,Math.PI*2);
@@ -74,9 +85,10 @@
 
     function pointerToWorld(event){
       const rect=canvas.getBoundingClientRect();
+      const point=unprojectPoint(event.clientX-rect.left,event.clientY-rect.top,rect.width,rect.height);
       return {
-        x:clamp((event.clientX-rect.left)/rect.width,.02,.98),
-        y:clamp((event.clientY-rect.top)/rect.height,.08,.94)
+        x:clamp(point.x,.02,.98),
+        y:clamp(point.y,.08,.94)
       };
     }
 
@@ -90,9 +102,8 @@
       const occupied=new Set([...activePointers.values()].map(g=>g.part));
       for(const spot of grabSpots(mine)){
         if(occupied.has(spot.part)) continue;
-        const x=spot.q.x*rect.width;
-        const y=spot.q.y*rect.height;
-        const distance=Math.hypot(px-x,py-y);
+        const point=projectPoint(spot.q,rect.width,rect.height);
+        const distance=Math.hypot(px-point.x,py-point.y);
         if(distance<=spot.r && (!best || distance<best.distance)) best={...spot,distance};
       }
       return best;
@@ -153,8 +164,9 @@
     }
 
     return {
-      activePointers,syncGrabs,myPuppet,grabSpots,renderGrabHandles,renderPersonalScene,
-      pointerToWorld,pickGrab,describeActiveGrabs,pointerDown,pointerMove,stopPointer,install
+      activePointers,syncGrabs,myPuppet,grabSpots,projectPoint,unprojectPoint,
+      renderGrabHandles,renderPersonalScene,pointerToWorld,pickGrab,describeActiveGrabs,
+      pointerDown,pointerMove,stopPointer,install
     };
   }
 
