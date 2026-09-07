@@ -153,7 +153,11 @@ class Cdp{
     this.next=1;
     this.pending=new Map();
     this.events=[];
-    this.ready=new Promise((resolve,reject)=>{this.ws.onopen=resolve;this.ws.onerror=reject;});
+    this.ready=new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('CDP WebSocket open timed out.')),12000);
+      this.ws.onopen=()=>{clearTimeout(timer);resolve();};
+      this.ws.onerror=error=>{clearTimeout(timer);reject(error);};
+    });
     this.ws.onmessage=event=>{
       const msg=JSON.parse(event.data);
       if(!msg.id){
@@ -187,7 +191,7 @@ class Cdp{
 }
 
 async function target(url,{stageProbe=false}={}){
-  const r=await fetch(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'});
+  const r=await fetch(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT',signal:AbortSignal.timeout(12000)});
   if(!r.ok)throw new Error(`Could not create Chrome target: ${r.status}`);
   const info=await r.json();
   const cdp=new Cdp(info.webSocketDebuggerUrl);
