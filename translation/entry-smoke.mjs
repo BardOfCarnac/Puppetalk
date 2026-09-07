@@ -7,9 +7,12 @@ const actualStyles=[...html.matchAll(/<link\b[^>]*\brel=["']stylesheet["'][^>]*\
 const actualScripts=[...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/gi)].map(m=>m[1]);
 
 const decoratorSet=new Set(appSourceDecorators.map(file=>`./${file}`));
+const retiredRuntimeScripts=new Set([
+  './fullscreen-controller.js'
+]);
 const expectedRuntime=scripts.filter(src=>{
   const bare=src.replace(/\?.*$/,'');
-  return !decoratorSet.has(bare) && bare!=='./boot.js';
+  return !decoratorSet.has(bare) && !retiredRuntimeScripts.has(bare) && bare!=='./boot.js';
 });
 expectedRuntime.push('./translation/character/look-model.js?v=1');
 expectedRuntime.push('./translation/core/runtime-helpers.js?v=1');
@@ -63,10 +66,13 @@ assert.match(html,/<title>Puppetalk<\/title>/,'Translation entry changed the pro
 assert.match(html,/<main id="app" aria-live="polite"><\/main>/,'Translation entry changed the app mount.');
 assert.match(html,/<base href="\.\.\/"\s*\/>/,'Translation entry must resolve frozen runtime files from repository root.');
 assert.deepEqual(actualStyles,[...styles],'Translation entry styles differ from frozen Puppetalk.');
-assert.deepEqual(actualScripts,expectedRuntime,'Translation entry changed frozen runtime ordering before translated modules.');
+assert.deepEqual(actualScripts,expectedRuntime,'Translation entry runtime composition differs from the expected translated stack.');
 
 for(const decorator of appSourceDecorators){
   assert.ok(!actualScripts.some(src=>src.replace(/\?.*$/,'')===`./${decorator}`),`Runtime source decorator survived translation: ${decorator}`);
+}
+for(const retired of retiredRuntimeScripts){
+  assert.ok(!actualScripts.some(src=>src.replace(/\?.*$/,'')===retired),`Retired legacy runtime script survived translation: ${retired}`);
 }
 assert.ok(!actualScripts.some(src=>src.replace(/\?.*$/,'')==='./boot.js'),'V1 source-rewriting boot.js survived in translation runtime.');
 assert.ok(!actualScripts.some(src=>src.includes('precomposed-fetch.js')),'Preboot fetch adapter survived after final source freeze.');
@@ -125,4 +131,4 @@ const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
 assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
 assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
 
-console.log('Translation entry boots extracted character, projection, stage, host-session and prop modules while retaining frozen V1 as control.');
+console.log('Translation entry boots extracted modules while allowing legacy runtime patches to retire as ownership moves into the rebuild.');
