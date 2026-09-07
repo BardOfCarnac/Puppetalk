@@ -743,13 +743,13 @@ async function liveSession(prefix,room,label){
   await click(controller,'#special-item');
   await waitEval(controller,`(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${specialStart}).some(e=>e.event==='recv'&&e.message==='Brought out Laser frisbee.')`,`${label} frozen special-item transport reply`);
   await sleep(120);
-  const propInteraction=await exercisePropPickupThrow(controller,label,reply?.propId);
-  const after=await controllerState(controller);
   const reply=await evaluate(controller,`(()=>{
     const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${specialStart}).filter(e=>e.event==='recv'&&e.message==='Brought out Laser frisbee.');
     const e=entries[entries.length-1];
     return e?{type:e.type,propId:e.propId,ok:e.ok,message:e.message}:null;
   })()`);
+  const propInteraction=await exercisePropPickupThrow(controller,label,reply?.propId);
+  const after=await controllerState(controller);
   if(stage.events.some(e=>e.type==='exception')||controller.events.some(e=>e.type==='exception')){
     throw new Error(`${label} browser exception during session: ${JSON.stringify({stage:stage.events,controller:controller.events})}`);
   }
