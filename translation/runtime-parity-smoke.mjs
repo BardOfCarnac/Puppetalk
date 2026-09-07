@@ -8,6 +8,8 @@ const expected=fs.readFileSync(temp,'utf8');
 const actual=fs.readFileSync('translation/runtime/app.js','utf8');
 assert.equal(actual,expected,'Committed translated runtime drifted from deterministic extraction.');
 
+assert.match(actual,/PuppetalkRuntimeRoute/,'Translated runtime is not connected to extracted runtime route.');
+assert.match(actual,/PuppetalkRuntimeConfig/,'Translated runtime is not connected to extracted runtime config.');
 assert.match(actual,/PuppetalkLookModel/,'Translated runtime is not connected to extracted character look model.');
 assert.match(actual,/PuppetalkSceneRenderer/,'Translated runtime is not connected to extracted shared scene renderer.');
 assert.match(actual,/PuppetalkSeatProjection/,'Translated runtime is not connected to extracted seat projection.');
@@ -215,6 +217,12 @@ assert.doesNotMatch(actual,/function saveLook\(look\)/,'Embedded saveLook surviv
 assert.doesNotMatch(actual,/const clamp = \(v,a,b\) => Math\.max\(a,Math\.min\(b,v\)\);/,'Embedded clamp survived runtime-helper extraction.');
 assert.doesNotMatch(actual,/function roomCode\(\)/,'Embedded roomCode survived runtime-helper extraction.');
 assert.doesNotMatch(actual,/function angleDelta\(target,current\)/,'Embedded angleDelta survived runtime-helper extraction.');
+assert.match(actual,/const runtimeRoute = window\.PuppetalkRuntimeRoute\?\.create\?\.\(\{URLSearchParamsClass:URLSearchParams\}\);/,'Runtime route binding is missing.');
+assert.match(actual,/const \{mode,room\} = runtimeRoute\.parse\(location\.search\);/,'Runtime route parse binding is missing.');
+assert.match(actual,/const \{COLORS,NAMES\} = window\.PuppetalkRuntimeConfig \|\| \{\};/,'Runtime config binding is missing.');
+assert.doesNotMatch(actual,/const qs = new URLSearchParams\(location\.search\);/,'Embedded query route parser survived extraction.');
+assert.doesNotMatch(actual,/const COLORS = \[/,'Embedded runtime COLORS survived config extraction.');
+assert.doesNotMatch(actual,/const NAMES = \[/,'Embedded runtime NAMES survived config extraction.');
 
 assert.match(actual,/const \{LOOK_PALETTE,LOOK_PARTS,defaultLook,cleanLook\} = window\.PuppetalkLookModel \|\| \{\};/,'Runtime is not bound to the extracted look model.');
 assert.match(actual,/const sceneRenderer = window\.PuppetalkSceneRenderer\?\.create\?\.\(\{/,'Runtime is not bound to extracted shared scene renderer.');

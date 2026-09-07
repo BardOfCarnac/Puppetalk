@@ -1,11 +1,10 @@
 (function(){
 const app = document.querySelector('#app');
-const qs = new URLSearchParams(location.search);
-const mode = qs.get('mode') === 'controller' ? 'controller' : 'stage';
-const room = String(qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
-
-const COLORS = ['#cf6c63','#d0a950','#7089b9','#729d78','#a879b2','#67a7a8'];
-const NAMES = ['Mara','Ivo','Nix','Odo','Vale','Pip'];
+const runtimeRoute = window.PuppetalkRuntimeRoute?.create?.({URLSearchParamsClass:URLSearchParams});
+if(!runtimeRoute) throw new Error('Puppetalk runtime route failed to load.');
+const {mode,room} = runtimeRoute.parse(location.search);
+const {COLORS,NAMES} = window.PuppetalkRuntimeConfig || {};
+if(!COLORS || !NAMES) throw new Error('Puppetalk runtime config failed to load.');
 
 const {LOOK_PALETTE,LOOK_PARTS,defaultLook,cleanLook} = window.PuppetalkLookModel || {};
 if(!LOOK_PALETTE || !LOOK_PARTS || !defaultLook || !cleanLook){
