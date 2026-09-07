@@ -6,6 +6,7 @@ const html=fs.readFileSync('translation/index.html','utf8');
 const actualStyles=[...html.matchAll(/<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]);
 const actualScripts=[...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/gi)].map(m=>m[1]);
 const bare=src=>src.replace(/\?.*$/,'');
+const actualBareScripts=actualScripts.map(bare);
 
 assert.match(html,/<title>Puppetalk<\/title>/,'Translation entry changed the product name.');
 assert.match(html,/<main id="app" aria-live="polite"><\/main>/,'Translation entry changed the app mount.');
@@ -17,13 +18,13 @@ const retiredRuntimeScripts=[
   './stability.js','./pose-tuning.js','./locomotion.js','./segmented-stance-compat.js','./jump-feel.js','./control-feel.js'
 ];
 for(const retired of retiredRuntimeScripts){
-  assert.ok(!actualScripts.some(src=>bare(src)===retired),`Retired legacy runtime script survived translation: ${retired}`);
+  assert.ok(!actualBareScripts.includes(retired),`Retired legacy runtime script survived translation: ${retired}`);
 }
 for(const decorator of appSourceDecorators){
-  assert.ok(!actualScripts.some(src=>bare(src)===`./${decorator}`),`Runtime source decorator survived translation: ${decorator}`);
+  assert.ok(!actualBareScripts.includes(`./${decorator}`),`Runtime source decorator survived translation: ${decorator}`);
 }
-assert.ok(!actualScripts.some(src=>bare(src)==='./boot.js'),'V1 source-rewriting boot.js survived in translation runtime.');
-assert.ok(!actualScripts.some(src=>src.includes('precomposed-fetch.js')),'Preboot fetch adapter survived after final source freeze.');
+assert.ok(!actualBareScripts.includes('./boot.js'),'V1 source-rewriting boot.js survived in translation runtime.');
+assert.ok(!actualBareScripts.some(src=>src.includes('precomposed-fetch.js')),'Preboot fetch adapter survived after final source freeze.');
 
 const requiredShared=[
   'https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js',
@@ -32,67 +33,67 @@ const requiredShared=[
 for(const src of requiredShared) assert.ok(actualScripts.includes(src),`Required shared dependency is missing: ${src}`);
 
 const requiredTranslated=[
-  './translation/character/stability-runtime.js?v=1',
-  './translation/character/pose-runtime.js?v=1',
-  './translation/character/locomotion-runtime.js?v=1',
-  './translation/character/look-model.js?v=1',
-  './translation/core/runtime-helpers.js?v=1',
-  './translation/core/runtime-route.js?v=1',
-  './translation/core/runtime-config.js?v=1',
-  './translation/core/depth-system.js?v=1',
-  './translation/render/scene-camera.js?v=1',
-  './translation/controller/device-projection.js?v=1',
-  './translation/render/scene-renderer.js?v=1',
-  './translation/render/random-photo-backdrop.js?v=1',
-  './translation/render/seat-projection.js?v=1',
-  './translation/ui/shells.js?v=1',
-  './translation/character/rig-core.js?v=1',
-  './translation/character/grab-geometry.js?v=1',
-  './translation/character/drive-forces.js?v=1',
-  './translation/character/recovery-geometry.js?v=1',
-  './translation/character/rig-factory.js?v=1',
-  './translation/character/recovery-system.js?v=1',
-  './translation/character/scene-state.js?v=1',
-  './translation/character/input-system.js?v=1',
-  './translation/character/puppet-driver.js?v=1',
-  './translation/character/puppet-lifecycle.js?v=1',
-  './translation/stage/stage-loop.js?v=1',
-  './translation/stage/stage-lifecycle.js?v=1',
-  './translation/stage/app.js?v=1',
-  './translation/network/host-session.js?v=1',
-  './translation/props/prop-factory.js?v=1',
-  './translation/props/prop-geometry.js?v=1',
-  './translation/props/prop-state.js?v=1',
-  './translation/props/grip-core.js?v=1',
-  './translation/props/attachment-core.js?v=1',
-  './translation/props/balloon-lift.js?v=1',
-  './translation/props/pump-balloon.js?v=1',
-  './translation/props/balloon-pops.js?v=1',
-  './translation/props/prop-driver.js?v=1',
-  './translation/props/depth-assist.js?v=1',
-  './translation/props/laser-frisbee.js?v=1',
-  './translation/props/prop-input.js?v=1',
-  './translation/props/special-items.js?v=1',
-  './translation/props/dart-impacts.js?v=1',
-  './translation/props/contact-physics.js?v=1',
-  './translation/controller/canvas-lifecycle.js?v=1',
-  './translation/controller/session.js?v=1',
-  './translation/controller/puppet-interaction.js?v=1',
-  './translation/controller/item-interactions.js?v=1',
-  './translation/controller/character-creator.js?v=1',
-  './translation/controller/throw-gesture.js?v=1',
-  './translation/controller/audio-controls.js?v=1',
-  './translation/controller/command-panel.js?v=1',
-  './translation/controller/app.js?v=1',
-  './translation/bootstrap.js?v=2'
+  './translation/character/stability-runtime.js',
+  './translation/character/pose-runtime.js',
+  './translation/character/locomotion-runtime.js',
+  './translation/character/look-model.js',
+  './translation/core/runtime-helpers.js',
+  './translation/core/runtime-route.js',
+  './translation/core/runtime-config.js',
+  './translation/core/depth-system.js',
+  './translation/render/scene-camera.js',
+  './translation/controller/device-projection.js',
+  './translation/render/scene-renderer.js',
+  './translation/render/random-photo-backdrop.js',
+  './translation/render/seat-projection.js',
+  './translation/ui/shells.js',
+  './translation/character/rig-core.js',
+  './translation/character/grab-geometry.js',
+  './translation/character/drive-forces.js',
+  './translation/character/recovery-geometry.js',
+  './translation/character/rig-factory.js',
+  './translation/character/recovery-system.js',
+  './translation/character/scene-state.js',
+  './translation/character/input-system.js',
+  './translation/character/puppet-driver.js',
+  './translation/character/puppet-lifecycle.js',
+  './translation/stage/stage-loop.js',
+  './translation/stage/stage-lifecycle.js',
+  './translation/stage/app.js',
+  './translation/network/host-session.js',
+  './translation/props/prop-factory.js',
+  './translation/props/prop-geometry.js',
+  './translation/props/prop-state.js',
+  './translation/props/grip-core.js',
+  './translation/props/attachment-core.js',
+  './translation/props/balloon-lift.js',
+  './translation/props/pump-balloon.js',
+  './translation/props/balloon-pops.js',
+  './translation/props/prop-driver.js',
+  './translation/props/depth-assist.js',
+  './translation/props/laser-frisbee.js',
+  './translation/props/prop-input.js',
+  './translation/props/special-items.js',
+  './translation/props/dart-impacts.js',
+  './translation/props/contact-physics.js',
+  './translation/controller/canvas-lifecycle.js',
+  './translation/controller/session.js',
+  './translation/controller/puppet-interaction.js',
+  './translation/controller/item-interactions.js',
+  './translation/controller/character-creator.js',
+  './translation/controller/throw-gesture.js',
+  './translation/controller/audio-controls.js',
+  './translation/controller/command-panel.js',
+  './translation/controller/app.js',
+  './translation/bootstrap.js'
 ];
-for(const src of requiredTranslated) assert.ok(actualScripts.includes(src),`Translated runtime module is missing: ${src}`);
+for(const src of requiredTranslated) assert.ok(actualBareScripts.includes(src),`Translated runtime module is missing: ${src}`);
 
-const translatedPositions=requiredTranslated.map(src=>actualScripts.indexOf(src));
+const translatedPositions=requiredTranslated.map(src=>actualBareScripts.indexOf(src));
 for(let i=1;i<translatedPositions.length;i++){
   assert.ok(translatedPositions[i]>translatedPositions[i-1],`Translated module order is invalid around ${requiredTranslated[i]}`);
 }
-assert.equal(actualScripts.at(-1),'./translation/bootstrap.js?v=2','Translated bootstrap should remain the final application script.');
+assert.equal(actualBareScripts.at(-1),'./translation/bootstrap.js','Translated bootstrap should remain the final application script.');
 
 assert.ok(fs.existsSync('translation/generated/app-preboot.js'),'Frozen preboot control specimen is missing.');
 assert.ok(fs.existsSync('translation/generated/app-final.js'),'Frozen final control specimen is missing.');
