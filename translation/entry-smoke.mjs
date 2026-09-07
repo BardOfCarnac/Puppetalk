@@ -14,7 +14,9 @@ assert.deepEqual(actualStyles,[...styles],'Translation entry styles changed unex
 
 const retiredRuntimeScripts=[
   './fullscreen-controller.js',
-  './look-migration.js'
+  './look-migration.js',
+  './scene-camera.js',
+  './device-projection.js'
 ];
 for(const retired of retiredRuntimeScripts){
   assert.ok(!actualScripts.some(src=>bare(src)===retired),`Retired legacy runtime script survived translation: ${retired}`);
@@ -36,6 +38,7 @@ const requiredTranslated=[
   './translation/core/runtime-helpers.js?v=1',
   './translation/core/runtime-route.js?v=1',
   './translation/core/runtime-config.js?v=1',
+  './translation/render/scene-camera.js?v=1',
   './translation/controller/device-projection.js?v=1',
   './translation/render/scene-renderer.js?v=1',
   './translation/render/seat-projection.js?v=1',
