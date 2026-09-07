@@ -13,6 +13,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - run: node --check translation/controller/device-projection.js
+      - run: node translation/controller/device-projection-smoke.mjs
       - run: node --check translation/controller/throw-gesture.js
       - run: node translation/controller/throw-gesture-smoke.mjs
       - run: node --check translation/controller/audio-controls.js
