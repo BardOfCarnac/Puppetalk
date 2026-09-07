@@ -27,17 +27,12 @@ build=build.replace(setupAnchor,setup+setupAnchor);
 
 const helperAnchor="\n\nreplaceOnce('character helper factory point'";
 const utilityRemovals =
-"\n\nreplaceOnce(\n"+
-"  'embedded shared runtime helpers',\n"+
-"  `const clamp = (v,a,b) => Math.max(a,Math.min(b,v));\n"+
-"const clean = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);\n"+
-"const peerId = r => `puppetalk-${r.toLowerCase()}`;\n"+
-"const send = (conn,msg) => { if(conn?.open) conn.send(msg); };\n"+
-"const cleanPlayerName = v => String(v || '').trim().replace(/\\s+/g,' ').slice(0,24);\n"+
-"function savedPlayerName(){ try{return cleanPlayerName(localStorage.getItem('puppetalk-name'));}catch{return '';} }\n"+
-"`,\n"+
-"  ``\n"+
-");\n\n"+
+"\n\nreplaceOnce('embedded clamp helper',`const clamp = (v,a,b) => Math.max(a,Math.min(b,v));`,``);\n"+
+"replaceOnce('embedded clean helper',`const clean = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);`,``);\n"+
+"replaceOnce('embedded peer id helper',\"const peerId = r => `puppetalk-${r.toLowerCase()}`;\",``);\n"+
+"replaceOnce('embedded send helper',`const send = (conn,msg) => { if(conn?.open) conn.send(msg); };`,``);\n"+
+"replaceOnce('embedded clean player name helper',`const cleanPlayerName = v => String(v || '').trim().replace(/\\s+/g,' ').slice(0,24);`,``);\n"+
+"replaceOnce('embedded saved player name helper',`function savedPlayerName(){ try{return cleanPlayerName(localStorage.getItem('puppetalk-name'));}catch{return '';} }`,``);\n\n"+
 "replaceOnce(\n"+
 "  'embedded room and angle helpers',\n"+
 "  `function roomCode(){\n"+
