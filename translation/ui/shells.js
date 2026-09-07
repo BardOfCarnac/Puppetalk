@@ -35,6 +35,7 @@
         <canvas id="personal-canvas" aria-label="Your Puppetalk scene"></canvas>
         <div class="personal-stage-hint" id="stage-hint">Connecting to the ensemble…</div>
         <div class="you-chip" id="you-chip" hidden>YOU</div>
+        <div class="depth-gesture-guide" aria-hidden="true">3 quick taps: closer · long tap: away</div>
       </section>
 
 
