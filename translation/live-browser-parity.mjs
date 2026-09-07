@@ -667,19 +667,25 @@ async function waitPropScene(cdp,start,propId,predicate,label,timeout=5000){
 async function exercisePropPickupThrow(controller,label,propId){
   if(!propId)throw new Error(`${label} missing prop id for pickup/throw parity.`);
   await waitPropScene(controller,0,propId,"!p.heldBy&&p.type==='frisbee'",`${label} frisbee scene`);
-  const geometry=await latestPropAndCanvas(controller,propId);
-  if(!geometry)throw new Error(`${label} could not resolve frisbee/canvas geometry.`);
-  const px=geometry.rect.left+geometry.prop.x*geometry.rect.width;
-  const py=geometry.rect.top+geometry.prop.y*geometry.rect.height;
 
   const pickupStart=await traceLength(controller);
-  await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:px,y:py,button:'left',buttons:1,clickCount:1});
-  const pickupSend=await waitEval(controller,`(()=>{
-    const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${pickupStart});
-    const e=entries.find(e=>e.event==='send'&&e.type==='prop'&&e.action==='tap'&&e.propId===${JSON.stringify(propId)});
-    return e?{action:e.action,propId:e.propId,hand:e.hand}:null;
-  })()`,`${label} frisbee pickup command`);
-  await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:px,y:py,button:'left',buttons:0,clickCount:1});
+  let pickupSend=null;
+  for(let attempt=0;attempt<4&&!pickupSend;attempt++){
+    const geometry=await latestPropAndCanvas(controller,propId);
+    if(!geometry)throw new Error(`${label} could not resolve frisbee/canvas geometry.`);
+    const px=geometry.rect.left+geometry.prop.x*geometry.rect.width;
+    const py=geometry.rect.top+geometry.prop.y*geometry.rect.height;
+    await controller.call('Input.dispatchMouseEvent',{type:'mousePressed',x:px,y:py,button:'left',buttons:1,clickCount:1});
+    await sleep(18);
+    await controller.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:px,y:py,button:'left',buttons:0,clickCount:1});
+    await sleep(70);
+    pickupSend=await evaluate(controller,`(()=>{
+      const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${pickupStart});
+      const e=entries.find(e=>e.event==='send'&&e.type==='prop'&&e.action==='tap'&&e.propId===${JSON.stringify(propId)});
+      return e?{action:e.action,propId:e.propId,hand:e.hand}:null;
+    })()`);
+  }
+  if(!pickupSend)throw new Error(`${label} frisbee pickup command was not emitted after refreshed moving-prop clicks.`);
   const pickupReply=await waitEval(controller,`(()=>{
     const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${pickupStart});
     const e=entries.find(e=>e.event==='recv'&&e.type==='prop-result'&&e.propId===${JSON.stringify(propId)}&&e.ok===true&&String(e.message||'').startsWith('Picked up '));
