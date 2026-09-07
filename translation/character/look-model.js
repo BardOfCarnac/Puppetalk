@@ -18,19 +18,23 @@
     if(hair==='crop') return 'spikes';
     if(head==='long') return 'tallSpikes';
     if(head==='wide') return 'burst';
-    return 'smooth';
+    return null;
   }
 
   function defaultLook(slot=0){
-    return {color:LOOK_PALETTE[slot%LOOK_PALETTE.length],headStyle:'spikes',eyes:'dots',nose:'curve',mouth:'line',extra:'none'};
+    const index=((slot%LOOK_PALETTE.length)+LOOK_PALETTE.length)%LOOK_PALETTE.length;
+    return {color:LOOK_PALETTE[index],headStyle:'spikes',eyes:'dots',nose:'curve',mouth:'line',extra:'none'};
   }
 
   function cleanLook(value,slot=0){
-    const base=defaultLook(slot),look=value&&typeof value==='object'?value:{};
-    const migrated=LOOK_PARTS.headStyle.includes(look.headStyle)?look.headStyle:legacyHeadStyle(look.head,look.hair);
+    const base=defaultLook(slot);
+    const look=value&&typeof value==='object'?value:{};
+    const modernHead=LOOK_PARTS.headStyle.includes(look.headStyle)?look.headStyle:null;
+    const legacyHead=legacyHeadStyle(look.head,look.hair);
+    const headStyle=modernHead || legacyHead || base.headStyle;
     return {
       color:/^#[0-9a-f]{6}$/i.test(look.color||'')?look.color:base.color,
-      headStyle:LOOK_PARTS.headStyle.includes(migrated)?migrated:base.headStyle,
+      headStyle,
       eyes:LOOK_PARTS.eyes.includes(look.eyes)?look.eyes:base.eyes,
       nose:LOOK_PARTS.nose.includes(look.nose)?look.nose:base.nose,
       mouth:LOOK_PARTS.mouth.includes(look.mouth)?look.mouth:base.mouth,
