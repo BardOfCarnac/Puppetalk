@@ -22,7 +22,8 @@ const decorators = [
   'special-items.js',
   'segmented-puppet.js',
   'seat-render.js',
-  'depth-assist.js'
+  'depth-assist.js',
+  'voice-layer.js'
 ];
 
 const stubNode = () => ({
@@ -100,7 +101,11 @@ for(const hook of [
   'puppetalkAimProjectPropPoint(prop,prop._throwerSlot)',
   'puppetalkAimProjectPoint(p,qRaw,prop._throwerSlot)',
   'throwerSlot:Number.isInteger(prop._throwerSlot)',
-  'viewScale:depthApi?.scaleForDepth?.(viewDepth)||1'
+  'viewScale:depthApi?.scaleForDepth?.(viewDepth)||1',
+  'window.PuppetalkVoice?.stageJoin(conn,slot)',
+  'window.PuppetalkVoice?.controllerPeer(peer,room)',
+  'live audio + mouth',
+  'window.PuppetalkVoice?.setLocalStream(stream)'
 ]){
   if(!composed.includes(hook)) throw new Error(`Missing live architecture hook: ${hook}`);
 }
@@ -109,4 +114,4 @@ if(composed.includes('splitPuppetBody(')) throw new Error('Runtime body slicing 
 if(composed.includes('PUPPETALK_SEAT_VIEW')) throw new Error('Peer-wrapped seat view should not be in the live composed source.');
 
 new Function(composed);
-console.log('Composed live app + profile items + segmented bodies + seat projection passed.');
+console.log('Composed live app + profile items + segmented bodies + seat projection + voice passed.');
