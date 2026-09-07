@@ -15,6 +15,7 @@ expectedRuntime.push('./translation/character/look-model.js?v=1');
 expectedRuntime.push('./translation/core/runtime-helpers.js?v=1');
 expectedRuntime.push('./translation/core/runtime-route.js?v=1');
 expectedRuntime.push('./translation/core/runtime-config.js?v=1');
+expectedRuntime.push('./translation/controller/device-projection.js?v=1');
 expectedRuntime.push('./translation/render/scene-renderer.js?v=1');
 expectedRuntime.push('./translation/render/seat-projection.js?v=1');
 expectedRuntime.push('./translation/ui/shells.js?v=1');
@@ -73,6 +74,7 @@ assert.ok(actualScripts.includes('./translation/character/look-model.js?v=1'),'E
 assert.ok(actualScripts.includes('./translation/core/runtime-helpers.js?v=1'),'Extracted frozen runtime helpers are missing.');
 assert.ok(actualScripts.includes('./translation/core/runtime-route.js?v=1'),'Extracted frozen runtime route is missing.');
 assert.ok(actualScripts.includes('./translation/core/runtime-config.js?v=1'),'Extracted frozen runtime config is missing.');
+assert.ok(actualScripts.includes('./translation/controller/device-projection.js?v=1'),'Extracted controller device projection is missing.');
 assert.ok(actualScripts.includes('./translation/render/scene-renderer.js?v=1'),'Extracted shared scene renderer is missing.');
 assert.ok(actualScripts.includes('./translation/render/seat-projection.js?v=1'),'Extracted seat projection is missing.');
 assert.ok(actualScripts.includes('./translation/ui/shells.js?v=1'),'Extracted view shells are missing.');
@@ -123,4 +125,4 @@ const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
 assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
 assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
 
-console.log('Translation entry boots extracted character, stage, host-session and prop modules while retaining frozen V1 as control.');
+console.log('Translation entry boots extracted character, projection, stage, host-session and prop modules while retaining frozen V1 as control.');
