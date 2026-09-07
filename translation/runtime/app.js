@@ -294,11 +294,17 @@ function startController(room){
   const talkButton = document.querySelector('#talk');
 
   let centreTimer = null;
-  let cw = 1;
-  let ch = 1;
   const input = {pose:'stand',poseVersion:0,rag:false,mouth:0,grabs:[]};
 
   input.look = savedLook();
+
+  const controllerCanvas = window.PuppetalkControllerCanvas?.create?.({
+    canvas,stageBox,ctx,
+    getDevicePixelRatio:()=>devicePixelRatio || 1,
+    addEventListenerFn:(type,handler,opts)=>addEventListener(type,handler,opts)
+  });
+  if(!controllerCanvas) throw new Error('Puppetalk controller canvas lifecycle failed to load.');
+  const {getDimensions:getCanvasDimensions} = controllerCanvas;
 
   const controllerSession = window.PuppetalkControllerSession?.create?.({
     Peer,room,peerId,NAMES,input,send,savedPlayerName,hint,youChip,status,dot,
@@ -310,7 +316,7 @@ function startController(room){
 
   const puppetInteraction = window.PuppetalkControllerPuppetry?.create?.({
     canvas,ctx,hint,input,clamp,
-    getScene,getPropScene,getSlot,getDimensions:()=>({cw,ch}),
+    getScene,getPropScene,getSlot,getDimensions:getCanvasDimensions,
     drawBackdrop,seatProjection:puppetalkSeatProjection,drawProp,drawAnatomy,transmit,
     cancelCentre:()=>{ if(centreTimer){ clearTimeout(centreTimer); centreTimer = null; } }
   });
@@ -319,25 +325,12 @@ function startController(room){
     activePointers,myPuppet,grabSpots,renderGrabHandles,renderPersonalScene,
     pointerToWorld,pickGrab,describeActiveGrabs
   } = puppetInteraction;
-
-  function resizeCanvas(){
-    const rect = stageBox.getBoundingClientRect();
-    cw = Math.max(280,rect.width);
-    ch = Math.max(250,Math.min(cw*.8,430));
-    const dpr = Math.min(devicePixelRatio || 1,2);
-    canvas.width = Math.round(cw*dpr);
-    canvas.height = Math.round(ch*dpr);
-    canvas.style.width = `${cw}px`;
-    canvas.style.height = `${ch}px`;
-    stageBox.style.minHeight = `${ch}px`;
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    renderPersonalScene();
-  }
+  controllerCanvas.setRender(renderPersonalScene);
 
   const itemInteraction = window.PuppetalkControllerItems?.create?.({
     document,canvas,send,
     getConn,getSlot,getPropScene,getScene,
-    getDimensions:()=>({cw,ch}),getMyPuppet:()=>getScene().find(p=>p.slot === getSlot()),
+    getDimensions:getCanvasDimensions,getMyPuppet:()=>getScene().find(p=>p.slot === getSlot()),
     seatProjection:puppetalkSeatProjection,
     displayPoint:typeof displayPoint === 'function' ? displayPoint : null,
     storage:localStorage
@@ -392,8 +385,7 @@ function startController(room){
   if(!controllerAudio) throw new Error('Puppetalk controller audio failed to load.');
   controllerAudio.install();
 
-  addEventListener('resize',resizeCanvas,{passive:true});
-  resizeCanvas();
+  controllerCanvas.start();
   connect();
 }
 

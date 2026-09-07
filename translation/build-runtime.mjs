@@ -955,6 +955,20 @@ replaceOnce(
   const canvas = document.querySelector('#personal-canvas');`
 );
 
+replaceOnce("embedded controller canvas state","  let centreTimer = null;\n  let cw = 1;\n  let ch = 1;\n  const input = {pose:'stand',poseVersion:0,rag:false,mouth:0,grabs:[]};","  let centreTimer = null;\n  const input = {pose:'stand',poseVersion:0,rag:false,mouth:0,grabs:[]};");
+
+replaceOnce("controller canvas setup point","  input.look = savedLook();\n\n  const controllerSession = window.PuppetalkControllerSession?.create?.({","  input.look = savedLook();\n\n  const controllerCanvas = window.PuppetalkControllerCanvas?.create?.({\n    canvas,stageBox,ctx,\n    getDevicePixelRatio:()=>devicePixelRatio || 1,\n    addEventListenerFn:(type,handler,opts)=>addEventListener(type,handler,opts)\n  });\n  if(!controllerCanvas) throw new Error('Puppetalk controller canvas lifecycle failed to load.');\n  const {getDimensions:getCanvasDimensions} = controllerCanvas;\n\n  const controllerSession = window.PuppetalkControllerSession?.create?.({");
+
+replaceOnce("controller puppet dimensions","    getScene,getPropScene,getSlot,getDimensions:()=>({cw,ch}),","    getScene,getPropScene,getSlot,getDimensions:getCanvasDimensions,");
+
+replaceOnce("embedded controller canvas resize","  function resizeCanvas(){\n    const rect = stageBox.getBoundingClientRect();\n    cw = Math.max(280,rect.width);\n    ch = Math.max(250,Math.min(cw*.8,430));\n    const dpr = Math.min(devicePixelRatio || 1,2);\n    canvas.width = Math.round(cw*dpr);\n    canvas.height = Math.round(ch*dpr);\n    canvas.style.width = `${cw}px`;\n    canvas.style.height = `${ch}px`;\n    stageBox.style.minHeight = `${ch}px`;\n    ctx.setTransform(dpr,0,0,dpr,0,0);\n    renderPersonalScene();\n  }\n\n","");
+
+replaceOnce("controller item dimensions","    getDimensions:()=>({cw,ch}),getMyPuppet:()=>getScene().find(p=>p.slot === getSlot()),","    getDimensions:getCanvasDimensions,getMyPuppet:()=>getScene().find(p=>p.slot === getSlot()),");
+
+replaceOnce("controller canvas render hook","  } = puppetInteraction;\n\n  const itemInteraction = window.PuppetalkControllerItems?.create?.({","  } = puppetInteraction;\n  controllerCanvas.setRender(renderPersonalScene);\n\n  const itemInteraction = window.PuppetalkControllerItems?.create?.({");
+
+replaceOnce("controller canvas startup","  addEventListener('resize',resizeCanvas,{passive:true});\n  resizeCanvas();\n  connect();","  controllerCanvas.start();\n  connect();");
+
 new Function(source);
 fs.mkdirSync('translation/runtime',{recursive:true});
 fs.writeFileSync(output,source.endsWith('\n')?source:`${source}\n`,'utf8');
