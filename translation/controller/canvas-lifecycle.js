@@ -4,6 +4,7 @@
   function create({
     canvas,stageBox,ctx,getDevicePixelRatio,addEventListenerFn,
     getInnerHeight=()=>root.innerHeight,
+    getProjection=()=>root.PuppetalkControllerProjection?.defaultProjection,
     setTimeoutFn=(callback,ms)=>typeof root.setTimeout==='function'?root.setTimeout(callback,ms):null,
     requestFrameFn=callback=>typeof root.requestAnimationFrame==='function'?root.requestAnimationFrame(callback):null,
     visualViewport=root.visualViewport
@@ -19,14 +20,15 @@
     function resizeCanvas(){
       const rect = stageBox.getBoundingClientRect();
       cw = Math.max(280,rect.width);
-      const measuredHeight = rect.height || getInnerHeight() || 0;
-      ch = Math.max(320,measuredHeight);
+      ch = Math.max(320,rect.height || getInnerHeight() || 0);
+      const projection=getProjection?.();
+      projection?.invalidateControllerProjection?.();
+      projection?.rebuildControllerProjection?.(cw,ch);
       const dpr = Math.min(getDevicePixelRatio() || 1,2);
       canvas.width = Math.round(cw*dpr);
       canvas.height = Math.round(ch*dpr);
       canvas.style.width = `${cw}px`;
       canvas.style.height = `${ch}px`;
-      stageBox.style.minHeight = `${ch}px`;
       ctx.setTransform(dpr,0,0,dpr,0,0);
       renderPersonalScene();
     }
