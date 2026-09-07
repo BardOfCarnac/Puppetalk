@@ -1,134 +1,99 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import {styles,scripts,appSourceDecorators} from './manifest.mjs';
+import {styles,appSourceDecorators} from './manifest.mjs';
 
 const html=fs.readFileSync('translation/index.html','utf8');
 const actualStyles=[...html.matchAll(/<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]);
 const actualScripts=[...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/gi)].map(m=>m[1]);
-
-const decoratorSet=new Set(appSourceDecorators.map(file=>`./${file}`));
-const retiredRuntimeScripts=new Set([
-  './fullscreen-controller.js'
-]);
-const expectedRuntime=scripts.filter(src=>{
-  const bare=src.replace(/\?.*$/,'');
-  return !decoratorSet.has(bare) && !retiredRuntimeScripts.has(bare) && bare!=='./boot.js';
-});
-expectedRuntime.push('./translation/character/look-model.js?v=1');
-expectedRuntime.push('./translation/core/runtime-helpers.js?v=1');
-expectedRuntime.push('./translation/core/runtime-route.js?v=1');
-expectedRuntime.push('./translation/core/runtime-config.js?v=1');
-expectedRuntime.push('./translation/controller/device-projection.js?v=1');
-expectedRuntime.push('./translation/render/scene-renderer.js?v=1');
-expectedRuntime.push('./translation/render/seat-projection.js?v=1');
-expectedRuntime.push('./translation/ui/shells.js?v=1');
-expectedRuntime.push('./translation/character/rig-core.js?v=1');
-expectedRuntime.push('./translation/character/grab-geometry.js?v=1');
-expectedRuntime.push('./translation/character/drive-forces.js?v=1');
-expectedRuntime.push('./translation/character/recovery-geometry.js?v=1');
-expectedRuntime.push('./translation/character/rig-factory.js?v=1');
-expectedRuntime.push('./translation/character/recovery-system.js?v=1');
-expectedRuntime.push('./translation/character/scene-state.js?v=1');
-expectedRuntime.push('./translation/character/input-system.js?v=1');
-expectedRuntime.push('./translation/character/puppet-driver.js?v=1');
-expectedRuntime.push('./translation/character/puppet-lifecycle.js?v=1');
-expectedRuntime.push('./translation/stage/stage-loop.js?v=1');
-expectedRuntime.push('./translation/stage/stage-lifecycle.js?v=1');
-expectedRuntime.push('./translation/stage/app.js?v=1');
-expectedRuntime.push('./translation/network/host-session.js?v=1');
-expectedRuntime.push('./translation/props/prop-factory.js?v=1');
-expectedRuntime.push('./translation/props/prop-geometry.js?v=1');
-expectedRuntime.push('./translation/props/prop-state.js?v=1');
-expectedRuntime.push('./translation/props/grip-core.js?v=1');
-expectedRuntime.push('./translation/props/attachment-core.js?v=1');
-expectedRuntime.push('./translation/props/balloon-lift.js?v=1');
-expectedRuntime.push('./translation/props/pump-balloon.js?v=1');
-expectedRuntime.push('./translation/props/balloon-pops.js?v=1');
-expectedRuntime.push('./translation/props/prop-driver.js?v=1');
-expectedRuntime.push('./translation/props/depth-assist.js?v=1');
-expectedRuntime.push('./translation/props/laser-frisbee.js?v=1');
-expectedRuntime.push('./translation/props/prop-input.js?v=1');
-expectedRuntime.push('./translation/props/special-items.js?v=1');
-expectedRuntime.push('./translation/props/dart-impacts.js?v=1');
-expectedRuntime.push('./translation/props/contact-physics.js?v=1');
-expectedRuntime.push('./translation/controller/canvas-lifecycle.js?v=1');
-expectedRuntime.push('./translation/controller/session.js?v=1');
-expectedRuntime.push('./translation/controller/puppet-interaction.js?v=1');
-expectedRuntime.push('./translation/controller/item-interactions.js?v=1');
-expectedRuntime.push('./translation/controller/character-creator.js?v=1');
-expectedRuntime.push('./translation/controller/throw-gesture.js?v=1');
-expectedRuntime.push('./translation/controller/audio-controls.js?v=1');
-expectedRuntime.push('./translation/controller/command-panel.js?v=1');
-expectedRuntime.push('./translation/controller/app.js?v=1');
-expectedRuntime.push('./translation/bootstrap.js?v=2');
+const bare=src=>src.replace(/\?.*$/,'');
 
 assert.match(html,/<title>Puppetalk<\/title>/,'Translation entry changed the product name.');
 assert.match(html,/<main id="app" aria-live="polite"><\/main>/,'Translation entry changed the app mount.');
-assert.match(html,/<base href="\.\.\/"\s*\/>/,'Translation entry must resolve frozen runtime files from repository root.');
-assert.deepEqual(actualStyles,[...styles],'Translation entry styles differ from frozen Puppetalk.');
-assert.deepEqual(actualScripts,expectedRuntime,'Translation entry runtime composition differs from the expected translated stack.');
+assert.match(html,/<base href="\.\.\/"\s*\/>/,'Translation entry must resolve shared assets from repository root.');
+assert.deepEqual(actualStyles,[...styles],'Translation entry styles changed unexpectedly.');
 
-for(const decorator of appSourceDecorators){
-  assert.ok(!actualScripts.some(src=>src.replace(/\?.*$/,'')===`./${decorator}`),`Runtime source decorator survived translation: ${decorator}`);
-}
+const retiredRuntimeScripts=[
+  './fullscreen-controller.js',
+  './look-migration.js'
+];
 for(const retired of retiredRuntimeScripts){
-  assert.ok(!actualScripts.some(src=>src.replace(/\?.*$/,'')===retired),`Retired legacy runtime script survived translation: ${retired}`);
+  assert.ok(!actualScripts.some(src=>bare(src)===retired),`Retired legacy runtime script survived translation: ${retired}`);
 }
-assert.ok(!actualScripts.some(src=>src.replace(/\?.*$/,'')==='./boot.js'),'V1 source-rewriting boot.js survived in translation runtime.');
+for(const decorator of appSourceDecorators){
+  assert.ok(!actualScripts.some(src=>bare(src)===`./${decorator}`),`Runtime source decorator survived translation: ${decorator}`);
+}
+assert.ok(!actualScripts.some(src=>bare(src)==='./boot.js'),'V1 source-rewriting boot.js survived in translation runtime.');
 assert.ok(!actualScripts.some(src=>src.includes('precomposed-fetch.js')),'Preboot fetch adapter survived after final source freeze.');
-assert.ok(actualScripts.includes('./translation/character/look-model.js?v=1'),'Extracted character look model is missing.');
-assert.ok(actualScripts.includes('./translation/core/runtime-helpers.js?v=1'),'Extracted frozen runtime helpers are missing.');
-assert.ok(actualScripts.includes('./translation/core/runtime-route.js?v=1'),'Extracted frozen runtime route is missing.');
-assert.ok(actualScripts.includes('./translation/core/runtime-config.js?v=1'),'Extracted frozen runtime config is missing.');
-assert.ok(actualScripts.includes('./translation/controller/device-projection.js?v=1'),'Extracted controller device projection is missing.');
-assert.ok(actualScripts.includes('./translation/render/scene-renderer.js?v=1'),'Extracted shared scene renderer is missing.');
-assert.ok(actualScripts.includes('./translation/render/seat-projection.js?v=1'),'Extracted seat projection is missing.');
-assert.ok(actualScripts.includes('./translation/ui/shells.js?v=1'),'Extracted view shells are missing.');
-assert.ok(actualScripts.includes('./translation/character/rig-core.js?v=1'),'Extracted character rig core is missing.');
-assert.ok(actualScripts.includes('./translation/character/grab-geometry.js?v=1'),'Extracted grab geometry is missing.');
-assert.ok(actualScripts.includes('./translation/character/drive-forces.js?v=1'),'Extracted drive forces are missing.');
-assert.ok(actualScripts.includes('./translation/character/recovery-geometry.js?v=1'),'Extracted recovery geometry is missing.');
-assert.ok(actualScripts.includes('./translation/character/rig-factory.js?v=1'),'Extracted rig factory is missing.');
-assert.ok(actualScripts.includes('./translation/character/recovery-system.js?v=1'),'Extracted recovery system is missing.');
-assert.ok(actualScripts.includes('./translation/character/scene-state.js?v=1'),'Extracted character scene state is missing.');
-assert.ok(actualScripts.includes('./translation/character/input-system.js?v=1'),'Extracted character input system is missing.');
-assert.ok(actualScripts.includes('./translation/character/puppet-driver.js?v=1'),'Extracted puppet driver is missing.');
-assert.ok(actualScripts.includes('./translation/character/puppet-lifecycle.js?v=1'),'Extracted puppet lifecycle is missing.');
-assert.ok(actualScripts.includes('./translation/stage/stage-loop.js?v=1'),'Extracted stage loop is missing.');
-assert.ok(actualScripts.includes('./translation/stage/stage-lifecycle.js?v=1'),'Extracted stage lifecycle is missing.');
-assert.ok(actualScripts.includes('./translation/stage/app.js?v=1'),'Extracted stage app composition is missing.');
-assert.ok(actualScripts.includes('./translation/network/host-session.js?v=1'),'Extracted host session is missing.');
-assert.ok(actualScripts.includes('./translation/props/prop-factory.js?v=1'),'Extracted prop factory is missing.');
-assert.ok(actualScripts.includes('./translation/props/prop-geometry.js?v=1'),'Extracted prop geometry is missing.');
-assert.ok(actualScripts.includes('./translation/props/prop-state.js?v=1'),'Extracted prop state serializer is missing.');
-assert.ok(actualScripts.includes('./translation/props/grip-core.js?v=1'),'Extracted prop grip core is missing.');
-assert.ok(actualScripts.includes('./translation/props/attachment-core.js?v=1'),'Extracted prop attachment core is missing.');
-assert.ok(actualScripts.includes('./translation/props/balloon-lift.js?v=1'),'Extracted balloon lift module is missing.');
-assert.ok(actualScripts.includes('./translation/props/pump-balloon.js?v=1'),'Extracted pump balloon lifecycle is missing.');
-assert.ok(actualScripts.includes('./translation/props/balloon-pops.js?v=1'),'Extracted balloon pop module is missing.');
-assert.ok(actualScripts.includes('./translation/props/prop-driver.js?v=1'),'Extracted generic prop driver is missing.');
-assert.ok(actualScripts.includes('./translation/props/depth-assist.js?v=1'),'Extracted prop depth assist is missing.');
-assert.ok(actualScripts.includes('./translation/props/laser-frisbee.js?v=1'),'Extracted laser frisbee module is missing.');
-assert.ok(actualScripts.includes('./translation/props/prop-input.js?v=1'),'Extracted prop input is missing.');
-assert.ok(actualScripts.includes('./translation/props/special-items.js?v=1'),'Extracted special item module is missing.');
-assert.ok(actualScripts.includes('./translation/props/dart-impacts.js?v=1'),'Extracted dart impacts are missing.');
-assert.ok(actualScripts.includes('./translation/props/contact-physics.js?v=1'),'Extracted prop contact physics is missing.');
-assert.ok(actualScripts.includes('./translation/controller/canvas-lifecycle.js?v=1'),'Extracted controller canvas lifecycle is missing.');
-assert.ok(actualScripts.includes('./translation/controller/session.js?v=1'),'Extracted controller session is missing.');
-assert.ok(actualScripts.includes('./translation/controller/puppet-interaction.js?v=1'),'Extracted direct puppet interaction is missing.');
-assert.ok(actualScripts.includes('./translation/controller/item-interactions.js?v=1'),'Extracted controller item interactions are missing.');
-assert.ok(actualScripts.includes('./translation/controller/character-creator.js?v=1'),'Extracted character creator controller is missing.');
-assert.ok(actualScripts.includes('./translation/controller/throw-gesture.js?v=1'),'Extracted controller throw gesture is missing.');
-assert.ok(actualScripts.includes('./translation/controller/audio-controls.js?v=1'),'Extracted controller audio system is missing.');
-assert.ok(actualScripts.includes('./translation/controller/command-panel.js?v=1'),'Extracted controller command panel is missing.');
-assert.ok(actualScripts.includes('./translation/controller/app.js?v=1'),'Extracted controller app composition is missing.');
-assert.ok(actualScripts.includes('./translation/bootstrap.js?v=2'),'Translated bootstrap is missing.');
-assert.ok(fs.existsSync('translation/generated/app-preboot.js'),'Frozen preboot source is missing.');
-assert.ok(fs.existsSync('translation/generated/app-final.js'),'Frozen final source is missing.');
+
+const requiredShared=[
+  'https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js',
+  'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js'
+];
+for(const src of requiredShared) assert.ok(actualScripts.includes(src),`Required shared dependency is missing: ${src}`);
+
+const requiredTranslated=[
+  './translation/character/look-model.js?v=1',
+  './translation/core/runtime-helpers.js?v=1',
+  './translation/core/runtime-route.js?v=1',
+  './translation/core/runtime-config.js?v=1',
+  './translation/controller/device-projection.js?v=1',
+  './translation/render/scene-renderer.js?v=1',
+  './translation/render/seat-projection.js?v=1',
+  './translation/ui/shells.js?v=1',
+  './translation/character/rig-core.js?v=1',
+  './translation/character/grab-geometry.js?v=1',
+  './translation/character/drive-forces.js?v=1',
+  './translation/character/recovery-geometry.js?v=1',
+  './translation/character/rig-factory.js?v=1',
+  './translation/character/recovery-system.js?v=1',
+  './translation/character/scene-state.js?v=1',
+  './translation/character/input-system.js?v=1',
+  './translation/character/puppet-driver.js?v=1',
+  './translation/character/puppet-lifecycle.js?v=1',
+  './translation/stage/stage-loop.js?v=1',
+  './translation/stage/stage-lifecycle.js?v=1',
+  './translation/stage/app.js?v=1',
+  './translation/network/host-session.js?v=1',
+  './translation/props/prop-factory.js?v=1',
+  './translation/props/prop-geometry.js?v=1',
+  './translation/props/prop-state.js?v=1',
+  './translation/props/grip-core.js?v=1',
+  './translation/props/attachment-core.js?v=1',
+  './translation/props/balloon-lift.js?v=1',
+  './translation/props/pump-balloon.js?v=1',
+  './translation/props/balloon-pops.js?v=1',
+  './translation/props/prop-driver.js?v=1',
+  './translation/props/depth-assist.js?v=1',
+  './translation/props/laser-frisbee.js?v=1',
+  './translation/props/prop-input.js?v=1',
+  './translation/props/special-items.js?v=1',
+  './translation/props/dart-impacts.js?v=1',
+  './translation/props/contact-physics.js?v=1',
+  './translation/controller/canvas-lifecycle.js?v=1',
+  './translation/controller/session.js?v=1',
+  './translation/controller/puppet-interaction.js?v=1',
+  './translation/controller/item-interactions.js?v=1',
+  './translation/controller/character-creator.js?v=1',
+  './translation/controller/throw-gesture.js?v=1',
+  './translation/controller/audio-controls.js?v=1',
+  './translation/controller/command-panel.js?v=1',
+  './translation/controller/app.js?v=1',
+  './translation/bootstrap.js?v=2'
+];
+for(const src of requiredTranslated) assert.ok(actualScripts.includes(src),`Translated runtime module is missing: ${src}`);
+
+const translatedPositions=requiredTranslated.map(src=>actualScripts.indexOf(src));
+for(let i=1;i<translatedPositions.length;i++){
+  assert.ok(translatedPositions[i]>translatedPositions[i-1],`Translated module order is invalid around ${requiredTranslated[i]}`);
+}
+assert.equal(actualScripts.at(-1),'./translation/bootstrap.js?v=2','Translated bootstrap should remain the final application script.');
+
+assert.ok(fs.existsSync('translation/generated/app-preboot.js'),'Frozen preboot control specimen is missing.');
+assert.ok(fs.existsSync('translation/generated/app-final.js'),'Frozen final control specimen is missing.');
 assert.ok(fs.existsSync('translation/runtime/app.js'),'Translated runtime source is missing.');
 
 const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
 assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
 assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
 
-console.log('Translation entry boots extracted modules while allowing legacy runtime patches to retire as ownership moves into the rebuild.');
+console.log('Translation entry owns its module composition, excludes retired/source-rewriting patches and boots the translated runtime while retaining V1 only as a test specimen.');
