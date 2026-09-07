@@ -13,11 +13,8 @@ assert.match(html,/<base href="\.\.\/"\s*\/>/,'Translation entry must resolve sh
 assert.deepEqual(actualStyles,[...styles],'Translation entry styles changed unexpectedly.');
 
 const retiredRuntimeScripts=[
-  './fullscreen-controller.js',
-  './look-migration.js',
-  './scene-camera.js',
-  './device-projection.js',
-  './foreground-tuning.js'
+  './fullscreen-controller.js','./look-migration.js','./scene-camera.js','./device-projection.js','./foreground-tuning.js',
+  './stability.js','./pose-tuning.js','./locomotion.js','./segmented-stance-compat.js','./jump-feel.js','./control-feel.js'
 ];
 for(const retired of retiredRuntimeScripts){
   assert.ok(!actualScripts.some(src=>bare(src)===retired),`Retired legacy runtime script survived translation: ${retired}`);
@@ -35,6 +32,9 @@ const requiredShared=[
 for(const src of requiredShared) assert.ok(actualScripts.includes(src),`Required shared dependency is missing: ${src}`);
 
 const requiredTranslated=[
+  './translation/character/stability-runtime.js?v=1',
+  './translation/character/pose-runtime.js?v=1',
+  './translation/character/locomotion-runtime.js?v=1',
   './translation/character/look-model.js?v=1',
   './translation/core/runtime-helpers.js?v=1',
   './translation/core/runtime-route.js?v=1',
@@ -101,4 +101,4 @@ const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
 assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
 assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
 
-console.log('Translation entry owns its module composition, excludes retired/source-rewriting patches and boots the translated runtime while retaining V1 only as a test specimen.');
+console.log('Translation entry owns all Puppetalk behavior modules, excludes retired/source-rewriting patches and boots the translated runtime while retaining V1 only as a test specimen.');
