@@ -1,18 +1,25 @@
-# Character translation boundary
+# Character runtime
 
-The frozen reference remains `translation/generated/app-final.js`.
+Puppetalk's rebuilt character stack now lives under `translation/character/`.
 
-The first live extraction is deliberately small and behaviour-neutral:
+The runtime owns:
 
-- pose tables
-- legal grab-part names
-- rig session/pin state creation
-- pose pin reset
-- initial anti-tangle target guidance
-- root-follow weighting for grabbed parts
+- rig construction and segmented body geometry
+- pose/grab state and input normalization
+- dragging, anti-tangle guidance and root following
+- standing/balance/servo drive
+- recover vs stand semantics and severed-joint recovery
+- stability/runaway damping and joint limits
+- readable pose reinforcement for segmented limbs
+- torso-drag walking and foot stepping
+- scene serialization and lifecycle cleanup
 
-These now live in `rig-core.js`. The large `drivePuppet()` force, spring, balance and servo routine remains byte-for-byte inherited from the frozen final program except for calls into those extracted helpers.
+The active stability, pose and locomotion layers are `stability-runtime.js`, `pose-runtime.js` and `locomotion-runtime.js`. They are translation-owned runtime code; the rebuilt entry point does not load the old root `stability.js`, `pose-tuning.js`, `locomotion.js`, `segmented-stance-compat.js`, `jump-feel.js` or `control-feel.js` scripts.
 
-`translation/build-runtime.mjs` builds `translation/runtime/app.js` from the frozen reference and refuses to proceed if any expected V1 block cannot be found exactly. This keeps the migration mechanical while the runtime is being decomposed.
+`translation/generated/app-final.js` remains only as a frozen reference specimen for migration/tests. It is not a runtime dependency.
 
-Do not tune values in `rig-core.js` during extraction. Behaviour changes belong after parity for the translated character stack is established.
+## Tuning after the rebuild
+
+Exact V1 coordinates and forces are not the product contract. Future changes can tune figure scale, standing posture, balance, pose authority, walking and control feel provided Puppetalk's interaction semantics and deliberately loose physical character remain recognisable.
+
+The current known tuning note is standing posture: the segmented figure can look slightly sloppy at rest. Treat that as normal character tuning, not unfinished migration architecture.
