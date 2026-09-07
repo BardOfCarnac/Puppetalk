@@ -186,6 +186,28 @@ body.puppetalk-fullscreen .you-chip{
   background:rgba(6,7,9,.46);
 }
 
+body.puppetalk-fullscreen .depth-gesture-guide{
+  position:fixed;
+  left:50%;
+  bottom:16px;
+  transform:translateX(-50%);
+  z-index:38;
+  padding:7px 10px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:999px;
+  background:rgba(5,6,8,.48);
+  backdrop-filter:blur(9px);
+  -webkit-backdrop-filter:blur(9px);
+  color:rgba(255,255,255,.72);
+  font:700 9px/1 system-ui,sans-serif;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  pointer-events:none;
+  animation:puppetalk-depth-guide-fade .45s ease 5.2s forwards;
+}
+@keyframes puppetalk-depth-guide-fade{to{opacity:.18}}
+
 .depth-rim{
   position:fixed;
   z-index:28;
