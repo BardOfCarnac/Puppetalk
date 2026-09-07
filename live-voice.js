@@ -53,9 +53,9 @@
   function stageData(conn, slot, msg) {
     const member = stageMembers.get(slot);
     if (!member || member.conn !== conn || msg?.type !== 'voice-state') return;
-    const next = !!msg.enabled;
-    if (member.voice === next) return;
-    member.voice = next;
+    const enabled = !!msg.enabled;
+    if (member.voice === enabled) return;
+    member.voice = enabled;
     broadcastRoster();
   }
 
@@ -93,8 +93,7 @@
 
   function retryBlockedAudio() {
     for (const audio of remoteAudio.values()) {
-      if (!audio.paused) continue;
-      audio.play().catch(() => {});
+      if (audio.paused) audio.play().catch(() => {});
     }
   }
 
@@ -115,7 +114,7 @@
     document.body.appendChild(audio);
     remoteAudio.set(peerId, audio);
     const play = audio.play();
-    if (play?.catch) play.catch(() => bindPlaybackRetry());
+    if (play?.catch) play.catch(bindPlaybackRetry);
   }
 
   function attachCall(call, incoming) {
@@ -126,8 +125,7 @@
     calls.set(peerId, { call, incoming: !!incoming });
     call.on('stream', stream => attachRemoteAudio(peerId, stream));
     const finish = () => {
-      const current = calls.get(peerId);
-      if (current?.call === call) calls.delete(peerId);
+      if (calls.get(peerId)?.call === call) calls.delete(peerId);
       destroyAudio(peerId);
     };
     call.on('close', finish);
@@ -144,6 +142,7 @@
       try { call.close(); } catch {}
       return;
     }
+
     const remote = roster.find(item => item.peerId === call.peer);
     if (remote && shouldInitiate(remote)) {
       const existing = calls.get(call.peer);
@@ -152,6 +151,7 @@
         return;
       }
     }
+
     try {
       if (hasLiveMic()) call.answer(localStream);
       else call.answer();
@@ -166,11 +166,11 @@
     reconcileTimer = null;
     if (!controllerPeer?.id || controllerPeer.destroyed) return;
     const selfVoice = hasLiveMic();
+
     for (const remote of roster) {
       if (!remote?.peerId || remote.peerId === controllerPeer.id) continue;
       if (!selfVoice && !remote.voice) continue;
-      if (!shouldInitiate(remote)) continue;
-      if (calls.has(remote.peerId) || !selfVoice) continue;
+      if (!shouldInitiate(remote) || calls.has(remote.peerId) || !selfVoice) continue;
       try {
         const call = controllerPeer.call(remote.peerId, localStream, {
           metadata: { puppetalkRoom: controllerRoom, slot: controllerSlot },
@@ -236,54 +236,75 @@
   }
 
   function transformSource(source) {
-    const replace = (needle, replacement, label) => {
+    function replaceText(needle, replacement, label) {
       if (!source.includes(needle)) {
         console.warn(`Puppetalk live voice patch missed ${label}`);
         return;
       }
       source = source.replace(needle, replacement);
-    };
+    }
 
-    replace(
-      "      send(conn,{type:'scene',puppets:[...puppets.values()].map(anatomy)});\n      updateStatus();",
-      "      send(conn,{type:'scene',puppets:[...puppets.values()].map(anatomy)});\n      window.PuppetalkLiveVoice?.stageJoin(conn,slot);\n      updateStatus();",
+    function replacePattern(pattern, replacement, label) {
+      if (!pattern.test(source)) {
+        console.warn(`Puppetalk live voice patch missed ${label}`);
+        return;
+      }
+      source = source.replace(pattern, replacement);
+    }
+
+    // Other rebuild decorators can add scene/prop payloads between welcome and
+    // updateStatus, so hook the stable stage connection block structurally.
+    replacePattern(
+      /(send\(conn,\{type:'welcome',slot,name:NAMES\[slot\][^\n]*\);[\s\S]*?)(\n\s*updateStatus\(\);)/,
+      (_, before, after) => `${before}\n      window.PuppetalkLiveVoice?.stageJoin(conn,slot);${after}`,
       'stage join'
     );
-    replace(
+
+    replaceText(
       "    conn.on('data',msg=>applyInput(slot,msg));",
       "    conn.on('data',msg=>{ window.PuppetalkLiveVoice?.stageData(conn,slot,msg); applyInput(slot,msg); });",
       'stage data'
     );
-    replace(
+
+    replaceText(
       "      conns.delete(slot);\n      removePuppet(slot);",
       "      window.PuppetalkLiveVoice?.stageLeave(slot);\n      conns.delete(slot);\n      removePuppet(slot);",
       'stage leave'
     );
-    replace(
+
+    replaceText(
       "    peer = new Peer();\n    peer.on('open',()=>{",
       "    peer = new Peer();\n    window.PuppetalkLiveVoice?.controllerPeer(peer,room);\n    peer.on('open',()=>{",
       'controller peer'
     );
-    replace(
+
+    replaceText(
       "      conn.on('data',msg=>{\n        if(msg?.type === 'welcome'){\n",
       "      conn.on('data',msg=>{\n        window.PuppetalkLiveVoice?.controllerData(msg);\n        if(msg?.type === 'welcome'){\n",
       'controller data'
     );
-    replace(
-      "          slot = msg.slot;\n          setStatus(`you are ${NAMES[slot] || msg.name}`,'live');",
-      "          slot = msg.slot;\n          window.PuppetalkLiveVoice?.controllerWelcome(conn,slot);\n          setStatus(`you are ${NAMES[slot] || msg.name}`,'live');",
+
+    // Character/profile decorators can insert work after slot assignment, so
+    // attach immediately after the stable assignment rather than matching the
+    // next line of UI text.
+    replacePattern(
+      /(if\(msg\?\.type === 'welcome'\)\{[\s\S]*?\n\s*slot = msg\.slot;)/,
+      match => `${match}\n          window.PuppetalkLiveVoice?.controllerWelcome(conn,slot);`,
       'controller welcome'
     );
-    replace(
+
+    replaceText(
       "      const stream = await navigator.mediaDevices.getUserMedia({audio:true});",
       "      const stream = await navigator.mediaDevices.getUserMedia({audio:true});\n      window.PuppetalkLiveVoice?.setLocalStream(stream);",
       'microphone stream'
     );
-    replace(
+
+    replaceText(
       "      micStop = ()=>{\n        cancelAnimationFrame(raf);",
       "      micStop = ()=>{\n        window.PuppetalkLiveVoice?.clearLocalStream(stream);\n        cancelAnimationFrame(raf);",
       'microphone stop'
     );
+
     return source;
   }
 
