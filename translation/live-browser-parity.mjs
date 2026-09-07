@@ -169,7 +169,17 @@ class Cdp{
   async call(method,params={}){
     await this.ready;
     const id=this.next++;
-    const promise=new Promise((resolve,reject)=>this.pending.set(id,{resolve,reject}));
+    let timer;
+    const promise=new Promise((resolve,reject)=>{
+      timer=setTimeout(()=>{
+        if(!this.pending.delete(id))return;
+        reject(new Error(`CDP call timed out: ${method}`));
+      },12000);
+      this.pending.set(id,{
+        resolve:value=>{clearTimeout(timer);resolve(value);},
+        reject:error=>{clearTimeout(timer);reject(error);}
+      });
+    });
     this.ws.send(JSON.stringify({id,method,params}));
     return promise;
   }
