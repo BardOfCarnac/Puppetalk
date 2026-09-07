@@ -295,7 +295,7 @@
 
     replaceText(
       "      const stream = await navigator.mediaDevices.getUserMedia({audio:true});",
-      "      const stream = await navigator.mediaDevices.getUserMedia({audio:true});\n      window.PuppetalkLiveVoice?.setLocalStream(stream);",
+      "      const stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});\n      window.PuppetalkLiveVoice?.setLocalStream(stream);",
       'microphone stream'
     );
 
