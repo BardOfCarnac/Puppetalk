@@ -116,8 +116,11 @@
 
     function drawAnatomy(ctx,p,w,h,highlight=false,alpha=1){
       if(!p?.torso || !p?.head) return;
-      const scale = Math.min(w/900,h/650);
-      const point = q=>({x:q.x*w,y:q.y*h});
+      const displayPoint=getDisplayPoint();
+      const projectionRenderScale=getProjectionRenderScale();
+      const baseScale = typeof projectionRenderScale === 'function' ? projectionRenderScale(w,h) : Math.min(w/900,h/650);
+      const scale = baseScale*(p.visualScale || 1);
+      const point = q=>typeof displayPoint === 'function' ? displayPoint(q,w,h) : {x:q.x*w,y:q.y*h};
       const chain = (items,color,width)=>{
         const pts = items.map(point);
         ctx.beginPath();
@@ -135,8 +138,9 @@
       ctx.save();
       ctx.globalAlpha = alpha;
       if(highlight){
-        const tx = p.torso.x*w;
-        const ty = p.torso.y*h;
+        const torsoPoint = point(p.torso);
+        const tx = torsoPoint.x;
+        const ty = torsoPoint.y;
         ctx.beginPath();
         ctx.arc(tx,ty,Math.max(38,58*scale),0,Math.PI*2);
         ctx.strokeStyle = 'rgba(255,255,255,.34)';
@@ -163,7 +167,7 @@
 
       const drawSegmentRect = (q,pw,ph,radius)=>{
         if(!q) return;
-        const x=q.x*w,y=q.y*h,sw=Math.max(8,pw*scale),sh=Math.max(8,ph*scale);
+        const projected=point(q),x=projected.x,y=projected.y,sw=Math.max(8,pw*scale),sh=Math.max(8,ph*scale);
         ctx.save();ctx.translate(x,y);ctx.rotate(q.a||0);
         ctx.fillStyle='#08090a';roundRect(ctx,-sw/2-3,-sh/2-3,sw+6,sh+6,Math.max(4,radius*scale));ctx.fill();
         ctx.fillStyle=p.color;roundRect(ctx,-sw/2,-sh/2,sw,sh,Math.max(3,(radius-2)*scale));ctx.fill();ctx.restore();
@@ -174,8 +178,9 @@
         drawSegmentRect(p.torso,40,26,7);
         drawSegmentRect(p.segTorsoBottom,40,26,7);
       }else{
-        const tx = p.torso.x*w;
-        const ty = p.torso.y*h;
+        const torsoPoint = point(p.torso);
+        const tx = torsoPoint.x;
+        const ty = torsoPoint.y;
         ctx.save();
         ctx.translate(tx,ty);
         ctx.rotate(p.torso.a || 0);
@@ -197,8 +202,9 @@
         return;
       }
 
-      const hx = p.head.x*w;
-      const hy = p.head.y*h;
+      const headPoint = point(p.head);
+      const hx = headPoint.x;
+      const hy = headPoint.y;
       const hr = Math.max(12,23.5*scale);
       const look = cleanLook(p.look,p.slot||0);
       ctx.save();
