@@ -20,6 +20,11 @@ const listeners=[];
 const viewportListeners=[];
 const timers=[];
 const frames=[];
+const projectionCalls=[];
+const projection={
+  invalidateControllerProjection(){projectionCalls.push(['invalidate']);},
+  rebuildControllerProjection(w,h){projectionCalls.push(['rebuild',w,h]);}
+};
 let innerHeight=650;
 let dpr=3;
 let renders=0;
@@ -27,6 +32,7 @@ const lifecycle=api.create({
   canvas,stageBox,ctx,
   getDevicePixelRatio:()=>dpr,
   getInnerHeight:()=>innerHeight,
+  getProjection:()=>projection,
   addEventListenerFn:(type,handler,opts)=>listeners.push({type,handler,opts}),
   setTimeoutFn:(handler,ms)=>{timers.push({handler,ms});return timers.length;},
   requestFrameFn:handler=>{frames.push(handler);return frames.length;},
@@ -50,7 +56,7 @@ assert.equal(canvas.width,1000,'DPR must remain capped at 2.');
 assert.equal(canvas.height,1400);
 assert.equal(canvas.style.width,'500px');
 assert.equal(canvas.style.height,'700px');
-assert.equal(stageBox.style.minHeight,'700px');
+assert.deepEqual(projectionCalls,[['invalidate'],['rebuild',500,700]],'Projection must be rebound to the logical canvas before drawing.');
 assert.deepEqual(transforms.at(-1),[2,0,0,2,0,0]);
 assert.equal(renders,1,'Initial resize must redraw the personal scene once.');
 
@@ -62,6 +68,7 @@ listeners.find(listener=>listener.type==='resize').handler();
 assert.deepEqual(JSON.parse(JSON.stringify(lifecycle.getDimensions())),{cw:280,ch:600},'Fullscreen controller must fall back to viewport height when the stage has not settled.');
 assert.equal(canvas.width,280);
 assert.equal(canvas.height,600);
+assert.deepEqual(projectionCalls.slice(-2),[['invalidate'],['rebuild',280,600]]);
 assert.equal(renders,2);
 
 stageBox.width=900;
@@ -70,15 +77,16 @@ lifecycle.resizeCanvas();
 assert.deepEqual(JSON.parse(JSON.stringify(lifecycle.getDimensions())),{cw:900,ch:320},'Frozen fullscreen controller minimum height changed.');
 assert.equal(canvas.style.width,'900px');
 assert.equal(canvas.style.height,'320px');
-assert.equal(stageBox.style.minHeight,'320px');
+assert.deepEqual(projectionCalls.slice(-2),[['invalidate'],['rebuild',900,320]]);
 assert.equal(renders,3);
 
 stageBox.height=681;
 lifecycle.settleProjection();
 assert.deepEqual(JSON.parse(JSON.stringify(lifecycle.getDimensions())),{cw:900,ch:681},'Controller logical height must follow the visible fullscreen stage rather than the pre-patch 430px cap.');
+assert.deepEqual(projectionCalls.slice(-2),[['invalidate'],['rebuild',900,681]]);
 assert.equal(renders,4);
 
 listeners.find(listener=>listener.type==='orientationchange').handler();
 assert.equal(timers.at(-1).ms,90,'Orientation settle delay drifted from frozen V1.');
 
-console.log('Controller canvas lifecycle preserves effective V1 fullscreen sizing, DPR cap and projection-settle hooks.');
+console.log('Controller canvas lifecycle preserves effective V1 fullscreen sizing, DPR cap, projection rebinding and settle hooks.');
