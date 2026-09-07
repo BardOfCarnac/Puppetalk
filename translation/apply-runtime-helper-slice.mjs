@@ -10,8 +10,8 @@ function replaceOnce(source,label,from,to){
 const buildPath='translation/build-runtime.mjs';
 let build=fs.readFileSync(buildPath,'utf8');
 
-const setupAnchor="replaceOnce('pose/grab constants',`const POSES = {";
-const setup =
+const transformAnchor="replaceOnce(\n  'view shell setup point',";
+const helperTransforms =
 "replaceOnce(\n"+
 "  'runtime helper setup point',\n"+
 "  `function savedLook(){try{return cleanLook(JSON.parse(localStorage.getItem('puppetalk-look')||'null'));}catch{return defaultLook();}}\n"+
@@ -21,13 +21,8 @@ const setup =
 "});\n"+
 "if(!runtimeHelpers) throw new Error('Puppetalk runtime helpers failed to load.');\n"+
 "const {clamp,clean,peerId,send,cleanPlayerName,savedPlayerName,savedLook,saveLook,roomCode,angleDelta} = runtimeHelpers;`\n"+
-");\n\n";
-if(!build.includes(setupAnchor)) throw new Error('Missing pose/grab transform anchor.');
-build=build.replace(setupAnchor,setup+setupAnchor);
-
-const helperAnchor="\n\nreplaceOnce('character helper factory point'";
-const utilityRemovals =
-"\n\nremoveBetweenOnce(\n"+
+");\n\n"+
+"removeBetweenOnce(\n"+
 "  'embedded shared runtime helpers',\n"+
 "  `const clamp = (v,a,b) => Math.max(a,Math.min(b,v));`,\n"+
 "  `function roomCode(){`\n"+
@@ -46,9 +41,9 @@ const utilityRemovals =
 "}\n"+
 "`,\n"+
 "  ``\n"+
-");";
-if(!build.includes(helperAnchor)) throw new Error('Missing character helper transform anchor.');
-build=build.replace(helperAnchor,utilityRemovals+helperAnchor);
+");\n\n";
+if(!build.includes(transformAnchor)) throw new Error('Missing post-renderer transform anchor.');
+build=build.replace(transformAnchor,helperTransforms+transformAnchor);
 fs.writeFileSync(buildPath,build);
 
 const indexPath='translation/index.html';
@@ -71,4 +66,4 @@ smoke=replaceOnce(smoke,'runtime helper assertion anchor',
 );
 fs.writeFileSync(smokePath,smoke);
 
-console.log('Wired frozen runtime helpers into the translated runtime build.');
+console.log('Wired frozen runtime helpers after renderer carve dependencies are consumed.');
