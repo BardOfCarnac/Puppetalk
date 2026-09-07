@@ -9,6 +9,7 @@ on:
       - 'translation/runtime/app.js'
       - 'translation/index.html'
       - 'translation/entry-smoke.mjs'
+      - 'translation/runtime-parity-smoke.mjs'
       - '.github/workflows/translation-core.yml'
 
 jobs:
@@ -21,6 +22,8 @@ jobs:
           node-version: 24
       - name: Runtime helper contract
         run: node translation/core/runtime-helpers-smoke.mjs
+      - name: Runtime route/config contract
+        run: node translation/core/runtime-route-smoke.mjs
       - name: Translation entry smoke
         run: node translation/entry-smoke.mjs
       - name: Runtime parity
