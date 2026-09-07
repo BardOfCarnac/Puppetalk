@@ -153,6 +153,27 @@ const fakePeerSource=String.raw`(()=>{
   window.__PUPPETALK_PARITY_FAKE_PEER__=true;
 })();`;
 
+const controllerItemsProbeSource=String.raw`(()=>{
+  let value;
+  Object.defineProperty(window,'PuppetalkControllerItems',{
+    configurable:true,enumerable:true,
+    get(){return value;},
+    set(next){
+      if(next?.create&&typeof next.create==='function'&&!next.create.__puppetalkParityProbe){
+        const raw=next.create;
+        const wrapped=function(...args){
+          const instance=raw.apply(this,args);
+          window.__PUPPETALK_PARITY_ITEMS__=instance;
+          return instance;
+        };
+        wrapped.__puppetalkParityProbe=true;
+        next={...next,create:wrapped};
+      }
+      value=next;
+    }
+  });
+})();`;
+
 const stageWalkingProbeSource="(()=>{\n  if(window.__PUPPETALK_PARITY_ENGINE_PROBE_BOOT__)return;\n  window.__PUPPETALK_PARITY_ENGINE_PROBE_BOOT__=true;\n  let matterValue;\n  Object.defineProperty(window,'Matter',{\n    configurable:true,\n    enumerable:true,\n    get(){return matterValue;},\n    set(value){\n      matterValue=value;\n      const raw=value?.Engine?.update;\n      if(typeof raw==='function'&&!raw.__puppetalkParityProbe){\n        const wrapped=function(engine,...args){\n          window.__PUPPETALK_PARITY_ENGINE__=engine;\n          return raw.call(this,engine,...args);\n        };\n        wrapped.__puppetalkParityProbe=true;\n        value.Engine.update=wrapped;\n      }\n      Object.defineProperty(window,'Matter',{configurable:true,enumerable:true,writable:true,value});\n    }\n  });\n})();";
 
 class Cdp{
@@ -206,6 +227,7 @@ async function target(url,{stageProbe=false}={}){
   await cdp.call('Page.enable');
   await cdp.call('Runtime.enable');
   await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:fakePeerSource});
+  await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:controllerItemsProbeSource});
   if(stageProbe)await cdp.call('Page.addScriptToEvaluateOnNewDocument',{source:stageWalkingProbeSource});
   await cdp.call('Page.navigate',{url});
   return cdp;
@@ -731,8 +753,10 @@ async function exercisePropPickupThrow(controller,label,propId){
 
   const pickupStart=await traceLength(controller);
   let pickupSend=null;
+  let lastPickupGeometry=null;
   for(let attempt=0;attempt<4&&!pickupSend;attempt++){
     const geometry=await latestPropAndCanvas(controller,propId);
+    lastPickupGeometry=geometry;
     if(!geometry)throw new Error(`${label} could not resolve frisbee/canvas geometry.`);
     const px=geometry.point.x;
     const py=geometry.point.y;
@@ -746,7 +770,21 @@ async function exercisePropPickupThrow(controller,label,propId){
       return e?{action:e.action,propId:e.propId,hand:e.hand}:null;
     })()`);
   }
-  if(!pickupSend)throw new Error(`${label} frisbee pickup command was not emitted after refreshed moving-prop clicks.`);
+  if(!pickupSend){
+    const diagnostic=await evaluate(controller,`(()=>{
+      const api=window.__PUPPETALK_PARITY_ITEMS__;
+      const event={clientX:${Number(lastPickupGeometry?.point?.x)},clientY:${Number(lastPickupGeometry?.point?.y)}};
+      if(!api)return {api:false,event};
+      const picked=api.pickTappedProp?.(event)||null;
+      const hand=picked?api.nearestPropHand?.(picked)||null:null;
+      return {
+        api:true,event,hand,
+        picked:picked?{id:picked.id,type:picked.type,x:Number(picked.x),y:Number(picked.y),heldBy:picked.heldBy||null}:null,
+        lastGeometry:${JSON.stringify(lastPickupGeometry)}
+      };
+    })()`);
+    throw new Error(`${label} frisbee pickup command was not emitted after refreshed moving-prop clicks. DIAGNOSTIC ${JSON.stringify(diagnostic)}`);
+  }
   const pickupReply=await waitEval(controller,`(()=>{
     const entries=(window.__PUPPETALK_PARITY_TRACE__||[]).slice(${pickupStart});
     const e=entries.find(e=>e.event==='recv'&&e.type==='prop-result'&&e.propId===${JSON.stringify(propId)}&&e.ok===true&&String(e.message||'').startsWith('Picked up '));
