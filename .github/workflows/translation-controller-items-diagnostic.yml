@@ -1,0 +1,37 @@
+name: Apply controller item diagnostics
+
+on:
+  push:
+    branches: [puppetalk-translation]
+    paths:
+      - translation/apply-controller-items-diagnostic.mjs
+      - .github/workflows/translation-controller-items-diagnostic.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check diagnostic patcher syntax
+        run: node --check translation/apply-controller-items-diagnostic.mjs
+      - name: Apply controller item diagnostic patch
+        run: node translation/apply-controller-items-diagnostic.mjs
+      - name: Check parity syntax
+        run: node --check translation/live-browser-parity.mjs
+      - name: Commit generated diagnostic
+        run: |
+          if git diff --quiet -- translation/live-browser-parity.mjs; then
+            echo 'No parity diagnostic change produced.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add translation/live-browser-parity.mjs
+          git commit -m 'Expose controller item parity diagnostics'
+          git push
