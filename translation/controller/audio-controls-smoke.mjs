@@ -42,13 +42,21 @@ const audio={
 };
 const fakeStream={getTracks(){return [track];}};
 const errors=[];
+const voiceEvents=[];
+const liveVoice={
+  setLocalStream:stream=>voiceEvents.push(['set',stream]),
+  clearLocalStream:stream=>voiceEvents.push(['clear',stream])
+};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 const controller=api.create({
-  micButton,level,talkButton,input,clamp,
+  micButton,level,talkButton,input,clamp,liveVoice,
   transmit:force=>transmissions.push([input.mouth,force]),
   setStatus:(...args)=>statuses.push(args),
-  getUserMedia:async constraints=>{assert.deepEqual(JSON.parse(JSON.stringify(constraints)),{audio:true});return fakeStream;},
+  getUserMedia:async constraints=>{
+    assert.deepEqual(JSON.parse(JSON.stringify(constraints)),{audio:{echoCancellation:true,noiseSuppression:true}});
+    return fakeStream;
+  },
   createAudioContext:()=>audio,
   requestFrame:callback=>{const id=++frameId;frames.set(id,callback);return id;},
   cancelFrame:id=>cancelledFrames.push(id),
@@ -87,6 +95,7 @@ assert.equal(micButton.textContent,'Disable microphone');
 assert.equal(analyser.fftSize,512);
 assert.equal(analyser.smoothingTimeConstant,.45);
 assert.equal(source.connected,analyser);
+assert.deepEqual(voiceEvents,[['set',fakeStream]],'The microphone stream should also become the live call stream.');
 assert.equal(frames.size,1,'Enabling microphone must schedule the first animation frame.');
 let sample=frames.get(1);
 sample(100);
@@ -119,6 +128,7 @@ assert.equal(level.style.width,'0%');
 assert.equal(track.stopped,true);
 assert.equal(audio.closed,true);
 assert.equal(cancelledFrames.at(-1),5,'Disabling microphone must cancel the latest scheduled frame.');
+assert.deepEqual(voiceEvents.at(-1),['clear',fakeStream],'Disabling the microphone should remove the live call stream before stopping tracks.');
 assert.deepEqual(transmissions.at(-1),[0,true]);
 
 const failingMic=new FakeTarget(),failingLevel=new FakeTarget(),failingTalk=new FakeTarget();
@@ -131,4 +141,4 @@ await failed.enableMic();
 assert.equal(errors.at(-1),boom);
 assert.deepEqual(statuses.at(-1),['microphone unavailable','bad']);
 
-console.log('Controller audio candidate preserves V1 microphone setup, RMS meter/mouth thresholds, 45ms mouth gate, teardown and 95ms manual-talk fallback semantics.');
+console.log('Controller audio preserves mouth analysis and manual talk while sharing the same echo-cancelled, noise-suppressed microphone stream with translated live voice.');
