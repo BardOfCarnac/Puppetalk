@@ -19,6 +19,10 @@
       const crouched = p.pose === 'crouch';
       const standingY = floorY-(crouched ? 112 : 145);
       const poseVersion = p.poseVersion || 0;
+      // The old fixed 70px root margin was almost a fifth of a narrow phone
+      // stage. Keep enough room for the body without making a huge dead strip at
+      // either edge; on large stages retain a modest cap for stability.
+      const rootMargin = clamp(W*.055,24,52);
 
       if(rig.lastPose !== p.pose || rig.lastPoseVersion !== poseVersion){
         rig.lastPose = p.pose;
@@ -54,14 +58,14 @@
           ? desired.x
           : session.startRootX+(desired.x-session.startDesired.x)*follow;
         const weight = grab.part === 'torso' ? 2 : grab.part === 'pelvis' ? 1.7 : follow;
-        rootSum += clamp(rootX,70,W-70)*weight;
+        rootSum += clamp(rootX,rootMargin,W-rootMargin)*weight;
         rootWeight += weight;
         if(grab.part === 'torso' || grab.part === 'pelvis') torsoDesired = desired;
         prepared.push({grab,desired,guided,session});
       }
 
-      if(rootWeight) p.target.x = clamp(rootSum/rootWeight,70,W-70)/W;
-      const anchorX = clamp(p.target.x*W,70,W-70);
+      if(rootWeight) p.target.x = clamp(rootSum/rootWeight,rootMargin,W-rootMargin)/W;
+      const anchorX = clamp(p.target.x*W,rootMargin,W-rootMargin);
       const coreGrab = grabs.some(g=>g.part==='torso'||g.part==='pelvis'||g.part.includes('Shoulder'));
       const limbGrab = grabs.some(g=>!['torso','pelvis','leftShoulder','rightShoulder'].includes(g.part));
 
