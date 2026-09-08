@@ -244,9 +244,66 @@ body.depth-edge-bottom .depth-rim-bottom{opacity:.88;filter:brightness(1.5)}
 body.depth-edge-top .depth-rim-bottom,
 body.depth-edge-bottom .depth-rim-top{opacity:.07}
 
+/* Portrait is primarily a direct-manipulation surface. Do not reserve an
+   entire vertical strip on the left for controls: that made the character
+   unreachable anywhere underneath the stacked buttons. Keep utilities in
+   two shallow top rows instead so both horizontal stage edges remain usable. */
+@media (orientation:portrait){
+  body.puppetalk-fullscreen .controller-footer{
+    left:50%;
+    right:auto;
+    top:max(52px,calc(env(safe-area-inset-top) + 44px));
+    transform:translateX(-50%);
+    width:min(88vw,340px);
+    display:flex;
+    grid-template-columns:none;
+    gap:5px;
+  }
+  body.puppetalk-fullscreen .controller-footer button{
+    flex:1 1 0;
+    min-width:0;
+    min-height:34px;
+    padding:5px 6px;
+    font-size:9px;
+    line-height:1.05;
+  }
+  body.puppetalk-fullscreen .voice-card{
+    left:50%;
+    right:auto;
+    top:max(94px,calc(env(safe-area-inset-top) + 86px));
+    bottom:auto;
+    transform:translateX(-50%);
+    width:min(70vw,250px);
+    display:block;
+  }
+  body.puppetalk-fullscreen .voice-actions{
+    display:flex;
+    grid-template-columns:none;
+    gap:6px;
+  }
+  body.puppetalk-fullscreen .voice-actions button{
+    flex:1 1 0;
+    min-width:0;
+    min-height:32px;
+    padding:5px 7px;
+    font-size:9px;
+  }
+  body.puppetalk-fullscreen .voice-meter{display:none}
+}
+
 @media (max-height:600px){
   body.puppetalk-fullscreen .pose-strip{gap:4px}
   body.puppetalk-fullscreen .pose-strip button{min-height:35px}
   body.puppetalk-fullscreen .controller-footer{top:48px}
   body.puppetalk-fullscreen .voice-card{bottom:46px}
+}
+
+@media (orientation:portrait) and (max-height:600px){
+  body.puppetalk-fullscreen .controller-footer{
+    top:max(48px,calc(env(safe-area-inset-top) + 40px));
+  }
+  body.puppetalk-fullscreen .voice-card{
+    top:max(88px,calc(env(safe-area-inset-top) + 80px));
+    bottom:auto;
+  }
 }
