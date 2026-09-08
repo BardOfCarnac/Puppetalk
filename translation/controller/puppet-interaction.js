@@ -73,6 +73,10 @@
       const slot=getSlot();
       drawBackdrop(ctx,cw,ch);
       const view=seatProjection(scene,propScene,slot);
+      // Device projection now frames the live ensemble rather than blindly fitting
+      // the host's entire viewport. It only changes framing when the slot set changes,
+      // so ordinary movement does not make the camera chase the puppets.
+      root.PuppetalkControllerProjection?.defaultProjection?.observeScene?.(view.puppets);
       view.props.forEach(prop=>drawProp(ctx,prop,cw,ch));
       if(!view.puppets.length) return;
       view.puppets.filter(p=>p.slot!==slot).forEach(p=>drawAnatomy(ctx,p,cw,ch,false,.48));
