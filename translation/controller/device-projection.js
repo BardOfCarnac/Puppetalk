@@ -99,9 +99,30 @@
 
         const ensembleHeight=Math.max(120,(bounds.floorY-bounds.minY)*source.height);
         const fitHeight=Math.max(.35,(floorY-topPad)/ensembleHeight);
-        const comfortableScale=1.12;
+
+        // Camera scale is relative to the source-stage width, not an absolute
+        // magic number. Portrait deliberately shows a little more horizontal
+        // context; landscape keeps the closer framing that works well there.
+        const stageFitScale=usableW/source.width;
+        const profile=camera?.profile||'standard';
+        const cameraZoom=profile==='tall'?.94:profile==='wide'?1.12:1.03;
+        const comfortableScale=Math.max(.35,stageFitScale*cameraZoom);
         scale=Math.max(.35,Math.min(comfortableScale,fitX,fitHeight));
-        offsetX=floorCenter-sceneCenterX*scale;
+
+        const displayW=source.width*scale;
+        const ensembleOffset=floorCenter-sceneCenterX*scale;
+        if(displayW>=usableW){
+          // Ensemble centring used to move the stage's x=0 edge well inside the
+          // screen for slot 0, creating an apparently dead left-hand region.
+          // Keep both playable stage edges covering the visible floor instead.
+          const minOffset=floorRight-displayW;
+          const maxOffset=floorLeft;
+          offsetX=clamp(ensembleOffset,Math.min(minOffset,maxOffset),Math.max(minOffset,maxOffset));
+        }else{
+          // When portrait intentionally zooms far enough out to show the whole
+          // stage, centre that stage rather than centring one particular puppet.
+          offsetX=floorCenter-displayW*.5;
+        }
         offsetY=floorY-bounds.floorY*source.height*scale;
       }else{
         // Before the first scene arrives, retain the conservative whole-stage fit.
