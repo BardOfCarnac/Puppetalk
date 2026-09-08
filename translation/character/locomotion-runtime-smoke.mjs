@@ -23,8 +23,9 @@ const window={
 
 vm.runInNewContext(source,{window,performance:{now:()=>0},console,Math,Map,Number,Object,Array});
 
-const {rawTorsoFromScene}=window.PuppetalkLocomotion;
+const {rawTorsoFromScene,partsOf}=window.PuppetalkLocomotion;
 assert.equal(typeof rawTorsoFromScene,'function');
+assert.equal(typeof partsOf,'function');
 
 const near=(actual,expected,message)=>assert.ok(Math.abs(actual-expected)<1e-9,`${message}: expected ${expected}, got ${actual}`);
 
@@ -56,4 +57,14 @@ const near=(actual,expected,message)=>assert.ok(Math.abs(actual-expected)<1e-9,`
   near(raw.y,.61,'neutral y');
 }
 
-console.log('locomotion runtime depth-feedback smoke passed');
+// The visible/grabbable foot lives on the distal shin segment. Walking must own
+// that same body instead of planting the midpoint of the two-piece shin.
+{
+  const primary={plugin:{puppetalkPart:'shL'}};
+  const distal={plugin:{puppetalkSegmentPart:'shL',puppetalkSegment:'distal'}};
+  const mapped=partsOf([primary,distal]);
+  assert.equal(mapped.shL,primary);
+  assert.equal(mapped.shL2,distal,'Walking should expose the distal shin as the actual ankle/foot body.');
+}
+
+console.log('locomotion runtime depth-feedback and distal-ankle smoke passed');
