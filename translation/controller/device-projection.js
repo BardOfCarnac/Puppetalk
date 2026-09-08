@@ -38,13 +38,18 @@
         }
       }
       if(!xs.length||!ys.length) return null;
+      const rawMinX=Math.min(...xs);
+      const rawMaxX=Math.max(...xs);
+      const rawMinY=Math.min(...ys);
+      const rawMaxY=Math.max(...ys);
       const marginX=58/Math.max(1,source.width);
       const marginY=42/Math.max(1,source.height);
       return {
-        minX:Math.min(...xs)-marginX,
-        maxX:Math.max(...xs)+marginX,
-        minY:Math.min(...ys)-marginY,
-        maxY:Math.max(...ys)+marginY
+        minX:rawMinX-marginX,
+        maxX:rawMaxX+marginX,
+        minY:rawMinY-marginY,
+        maxY:rawMaxY+marginY,
+        floorY:rawMaxY
       };
     }
 
@@ -84,21 +89,20 @@
       let offsetY;
       const bounds=sceneBounds;
       if(bounds){
-        // Frame the characters, not the entire host canvas. The lowest point in
-        // the captured ensemble becomes the visual floor anchor. This matters in
-        // landscape: forcing the original host's arbitrary .90 floor line into
-        // the small strip below the photographic baseline made characters shrink
-        // dramatically even when there was ample room above them.
+        // Frame the characters, not the entire host canvas. The lowest actual
+        // character point becomes the visual floor anchor; the padded bounds are
+        // still used for fitting. This prevents landscape from shrinking a puppet
+        // merely to preserve unused host-stage space below its feet.
         const sceneW=Math.max(120,(bounds.maxX-bounds.minX)*source.width);
         const sceneCenterX=(bounds.minX+bounds.maxX)*.5*source.width;
         const fitX=Math.max(.35,(usableW-Math.max(20,w*.05))/sceneW);
 
-        const ensembleHeight=Math.max(120,(bounds.maxY-bounds.minY)*source.height);
+        const ensembleHeight=Math.max(120,(bounds.floorY-bounds.minY)*source.height);
         const fitHeight=Math.max(.35,(floorY-topPad)/ensembleHeight);
         const comfortableScale=1.12;
         scale=Math.max(.35,Math.min(comfortableScale,fitX,fitHeight));
         offsetX=floorCenter-sceneCenterX*scale;
-        offsetY=floorY-bounds.maxY*source.height*scale;
+        offsetY=floorY-bounds.floorY*source.height*scale;
       }else{
         // Before the first scene arrives, retain the conservative whole-stage fit.
         const scaleByWidth=usableW/source.width;
