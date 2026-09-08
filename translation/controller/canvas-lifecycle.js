@@ -14,6 +14,8 @@
     let cw = 1;
     let ch = 1;
     let renderPersonalScene = ()=>{};
+    let running=false;
+    let frameId=null;
 
     function getDimensions(){ return {cw,ch}; }
     function setRender(fn){ renderPersonalScene = typeof fn === 'function' ? fn : ()=>{}; }
@@ -33,6 +35,20 @@
       renderPersonalScene();
     }
     function settleProjection(){ resizeCanvas(); }
+    function renderFrame(){
+      if(!running) return;
+      renderPersonalScene();
+      frameId=requestFrameFn(renderFrame);
+    }
+    function startRenderLoop(){
+      if(running || typeof requestFrameFn!=='function') return;
+      running=true;
+      frameId=requestFrameFn(renderFrame);
+    }
+    function stopRenderLoop(){
+      running=false;
+      frameId=null;
+    }
     function start(){
       addEventListenerFn('resize',settleProjection,{passive:true});
       addEventListenerFn('orientationchange',()=>setTimeoutFn(settleProjection,90),{passive:true});
@@ -42,9 +58,13 @@
       resizeCanvas();
       requestFrameFn(()=>requestFrameFn(settleProjection));
       setTimeoutFn(settleProjection,160);
+      startRenderLoop();
     }
 
-    return {getDimensions,setRender,resizeCanvas,settleProjection,start};
+    return {
+      getDimensions,setRender,resizeCanvas,settleProjection,start,
+      renderFrame,startRenderLoop,stopRenderLoop,isRenderLoopRunning:()=>running,getFrameId:()=>frameId
+    };
   }
 
   root.PuppetalkControllerCanvas={create};
