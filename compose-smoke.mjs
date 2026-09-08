@@ -24,6 +24,7 @@ const decorators = [
   'item-polish.js',
   'special-items.js',
   'segmented-puppet.js',
+  'upright-posture.js',
   'seat-render.js',
   'depth-assist.js',
   'visual-thickness.js',
@@ -86,6 +87,7 @@ for(const marker of [
   'PUPPETALK_ITEM_POLISH_V1',
   'PUPPETALK_SPECIAL_ITEMS_V1',
   'PUPPETALK_SEGMENTED_PUPPET_V1',
+  'PUPPETALK_UPRIGHT_POSTURE_V1',
   'PUPPETALK_SEAT_RENDER_V1',
   'PUPPETALK_DEPTH_ASSIST_V1',
   'PUPPETALK_VISUAL_THICKNESS_V1',
@@ -112,6 +114,9 @@ for(const hook of [
   'throwerSlot:Number.isInteger(prop._throwerSlot)',
   'viewScale:depthApi?.scaleForDepth?.(viewDepth)||1',
   'PUPPETALK_LAST_LOOK_SENT',
+  'servo(p.torsoTop,0,.014*muscle)',
+  'servo(p.torsoBottom,0,.0125*muscle)',
+  'servo(p.head,0,.0068*muscle)',
   'puppetalkLiveHeadPath = function(ctx,style,r)',
   'const tw = Math.max(16,34.5*scale);',
   'const hr = Math.max(11,22*scale);',
@@ -130,4 +135,4 @@ if(composed.includes('splitPuppetBody(')) throw new Error('Runtime body slicing 
 if(composed.includes('PUPPETALK_SEAT_VIEW')) throw new Error('Peer-wrapped seat view should not be in the live composed source.');
 
 new Function(composed);
-console.log('Composed live app + synced canonical slim character + profile items + segmented bodies + seat projection + minimal voice passed.');
+console.log('Composed live app + synced canonical slim character + upright neutral core + profile items + segmented bodies + seat projection + minimal voice passed.');
