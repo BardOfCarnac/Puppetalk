@@ -16,6 +16,7 @@ jobs:
       - run: node --check translation/character/stability-runtime.js
       - run: node --check translation/character/pose-runtime.js
       - run: node --check translation/character/locomotion-runtime.js
+      - run: node translation/character/locomotion-runtime-smoke.mjs
       - run: node --check translation/character/look-model.js
       - run: node translation/character/look-model-smoke.mjs
       - run: node --check translation/character/rig-core.js
