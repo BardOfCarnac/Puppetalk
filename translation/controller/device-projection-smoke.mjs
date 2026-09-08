@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const sourceStage={width:1024,height:681};
-const camera={stageFrame:()=>({sceneId:'default',profile:'wide',floorY:599.28,floorLeft:0,floorRight:1024})};
+const camera={stageFrame:(w,h)=>({sceneId:'default',profile:w/h>1.42?'wide':'tall',floorY:h*.88,floorLeft:0,floorRight:w})};
 const window={
   URLSearchParams,
   location:{search:'?mode=controller'},
@@ -22,21 +22,48 @@ assert.equal(typeof window.projectionRenderScale,'function');
 
 let mode='controller';
 const projection=api.create({getMode:()=>mode,getSourceStage:()=>sourceStage,getSceneCamera:()=>camera});
-const frame=projection.projectionFor(1024,681);
-assert.equal(frame.sourceW,1024);
-assert.equal(frame.sourceH,681);
-assert.ok(Math.abs(frame.scale-.9577777777777777)<1e-12,'Projection scale drifted from frozen V1 geometry.');
-assert.ok(Math.abs(frame.offsetX-21.617777777777803)<1e-9);
-assert.ok(Math.abs(frame.offsetY-12.258)<1e-9);
 
-const prop={x:.4924579765564263,y:.9223294756620465};
-const point=projection.displayPoint(prop,1024,681);
-assert.ok(Math.abs(point.x-504.6030515673765)<1e-9,'Projected frisbee X no longer matches the live parity specimen.');
-assert.ok(Math.abs(point.y-613.8443260689843)<1e-9,'Projected frisbee Y no longer matches the live parity specimen.');
-const roundTrip=projection.displayNorm(point.x,point.y,1024,681);
+// Before any scene arrives, retain a conservative whole-stage fit.
+const fallbackFrame=projection.projectionFor(1024,681);
+assert.equal(fallbackFrame.sourceW,1024);
+assert.equal(fallbackFrame.sourceH,681);
+assert.ok(fallbackFrame.scale>0&&fallbackFrame.scale<=1,'Pre-scene projection should still fit the source stage.');
+
+const puppet=(slot,x)=>({
+  slot,
+  head:{x,y:.57},torso:{x,y:.66},
+  sl:{x:x-.035,y:.62},sr:{x:x+.035,y:.62},
+  wl:{x:x-.06,y:.72},wr:{x:x+.06,y:.72},
+  al:{x:x-.025,y:.89},ar:{x:x+.025,y:.89}
+});
+
+// With one live puppet, controller framing should stop fitting the entire host
+// canvas and present the character at the comfortable near-1:1 scale.
+projection.observeScene([puppet(0,.5)]);
+const solo=projection.projectionFor(1024,681);
+assert.ok(Math.abs(solo.scale-1.12)<1e-12,'Solo ensemble should use the comfortable puppet scale.');
+const soloTorso=projection.displayPoint({x:.5,y:.66},1024,681);
+assert.ok(soloTorso.x>400&&soloTorso.x<624,'Solo puppet should be centred in the visible stage.');
+
+// A membership change must reframe the current ensemble. On a narrow portrait
+// controller this is allowed to zoom out, but both players must remain visible.
+const group=[puppet(0,.18),puppet(1,.82)];
+assert.equal(projection.observeScene(group),true,'Adding a slot should invalidate ensemble framing.');
+projection.invalidateControllerProjection();
+const portrait=projection.projectionFor(480,900);
+assert.ok(portrait.scale<1.12,'A genuinely wide ensemble should zoom out on a narrow controller.');
+for(const p of group){
+  const point=projection.displayPoint(p.torso,480,900);
+  assert.ok(point.x>=0&&point.x<=480,`Joined slot ${p.slot} should be inside the portrait viewport.`);
+}
+assert.equal(projection.observeScene(group),false,'Ordinary movement with the same slots must not make the camera chase every packet.');
+
+const prop={x:.4924579765564263,y:.8223294756620465};
+const point=projection.displayPoint(prop,480,900);
+const roundTrip=projection.displayNorm(point.x,point.y,480,900);
 assert.ok(Math.abs(roundTrip.x-prop.x)<1e-12);
 assert.ok(Math.abs(roundTrip.y-prop.y)<1e-12);
-assert.ok(Math.abs(projection.projectionRenderScale(1024,681)-frame.scale)<1e-12);
+assert.ok(Math.abs(projection.projectionRenderScale(480,900)-portrait.scale)<1e-12);
 
 // Objects returned from vm.runInNewContext have a different Object prototype, so
 // compare values rather than realm identity here.
@@ -55,4 +82,4 @@ const fallback=projection.sourceStageSize();
 assert.equal(fallback.width,320,'Invalid source-stage width must preserve V1 fallback size.');
 assert.equal(fallback.height,360,'Invalid source-stage height must preserve V1 fallback size.');
 
-console.log('Controller projection preserves V1 source-stage fit, live frisbee screen coordinates, inverse pointer mapping and stage passthrough.');
+console.log('Controller projection frames the live ensemble, keeps new slots visible, preserves inverse pointer mapping and retains stage passthrough.');
