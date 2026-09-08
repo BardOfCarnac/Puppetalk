@@ -6,7 +6,8 @@
       Peer,room,peerId,NAMES,input,send,savedPlayerName,
       hint,youChip,status,dot,
       setTimeoutFn=(callback,ms)=>setTimeout(callback,ms),
-      clearTimeoutFn=id=>clearTimeout(id)
+      clearTimeoutFn=id=>clearTimeout(id),
+      now=()=>root.performance?.now?.()||Date.now()
     }=options;
     if(!Peer || !room || !peerId || !NAMES || !input || !send || !savedPlayerName || !hint || !youChip || !status || !dot) return null;
 
@@ -18,6 +19,7 @@
     let lastSent='';
     let reconnectTimer=null;
     let connectGeneration=0;
+    const sceneSmoothing=root.PuppetalkControllerSceneSmoothing?.create?.({now})||null;
     const liveVoice=root.PuppetalkLiveVoice?.createController?.({
       documentRef:root.document,
       setTimer:setTimeoutFn,
@@ -70,8 +72,8 @@
         root.PuppetalkDepthController?.updateSourceStage?.(msg);
         scene=Array.isArray(msg.puppets)?msg.puppets:[];
         propScene=Array.isArray(msg.props)?msg.props:[];
+        sceneSmoothing?.pushScene?.({puppets:scene,props:propScene});
         hooks.updateGripButtons();
-        hooks.renderPersonalScene();
       }
       if(msg?.type==='prop-result'){
         hint.classList.remove('quiet');
@@ -88,6 +90,10 @@
         setStatus('table is full','bad');
         hint.textContent='This table already has six puppeteers.';
       }
+    }
+
+    function presentation(){
+      return sceneSmoothing?.sample?.() || {puppets:scene,props:propScene};
     }
 
     function connect(){
@@ -117,7 +123,10 @@
 
     return {
       setHooks,setStatus,transmit,handleData,connect,
-      getPeer:()=>peer,getConn:()=>conn,getSlot:()=>slot,getScene:()=>scene,getPropScene:()=>propScene,getLiveVoice:()=>liveVoice,
+      getPeer:()=>peer,getConn:()=>conn,getSlot:()=>slot,
+      getScene:()=>presentation().puppets,getPropScene:()=>presentation().props,
+      getRawScene:()=>scene,getRawPropScene:()=>propScene,getSceneSmoothing:()=>sceneSmoothing,
+      getLiveVoice:()=>liveVoice,
       getReconnectTimer:()=>reconnectTimer,getConnectGeneration:()=>connectGeneration
     };
   }
