@@ -34,16 +34,20 @@ const puppet=(slot,x)=>({
   head:{x,y:.57},torso:{x,y:.66},
   sl:{x:x-.035,y:.62},sr:{x:x+.035,y:.62},
   wl:{x:x-.06,y:.72},wr:{x:x+.06,y:.72},
-  al:{x:x-.025,y:.89},ar:{x:x+.025,y:.89}
+  // Real segmented puppets can extend well below the old .90 host-stage floor.
+  // That must not force a landscape controller to zoom the entire character out.
+  al:{x:x-.025,y:.96},ar:{x:x+.025,y:.96}
 });
 
 // With one live puppet, controller framing should stop fitting the entire host
 // canvas and present the character at the comfortable near-1:1 scale.
 projection.observeScene([puppet(0,.5)]);
 const solo=projection.projectionFor(1024,681);
-assert.ok(Math.abs(solo.scale-1.12)<1e-12,'Solo ensemble should use the comfortable puppet scale.');
+assert.ok(Math.abs(solo.scale-1.12)<1e-12,'Solo ensemble should use the comfortable puppet scale even when its feet extend below the old host floor.');
 const soloTorso=projection.displayPoint({x:.5,y:.66},1024,681);
 assert.ok(soloTorso.x>400&&soloTorso.x<624,'Solo puppet should be centred in the visible stage.');
+const soloFoot=projection.displayPoint({x:.5,y:.96},1024,681);
+assert.ok(Math.abs(soloFoot.y-camera.stageFrame(1024,681).floorY)<1e-9,'Lowest character point should land on the photographic floor instead of creating unused space below it.');
 
 // A membership change must reframe the current ensemble. On a narrow portrait
 // controller this is allowed to zoom out, but both players must remain visible.
@@ -82,4 +86,4 @@ const fallback=projection.sourceStageSize();
 assert.equal(fallback.width,320,'Invalid source-stage width must preserve V1 fallback size.');
 assert.equal(fallback.height,360,'Invalid source-stage height must preserve V1 fallback size.');
 
-console.log('Controller projection frames the live ensemble, keeps new slots visible, preserves inverse pointer mapping and retains stage passthrough.');
+console.log('Controller projection frames the live ensemble at useful landscape scale, anchors feet to the scene floor, keeps new slots visible and preserves inverse pointer mapping.');
