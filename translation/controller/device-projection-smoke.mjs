@@ -40,14 +40,23 @@ const puppet=(slot,x)=>({
 });
 
 // With one live puppet, controller framing should stop fitting the entire host
-// canvas and present the character at the comfortable near-1:1 scale.
+// canvas and present the character at the comfortable near-1:1 landscape scale.
 projection.observeScene([puppet(0,.5)]);
 const solo=projection.projectionFor(1024,681);
-assert.ok(Math.abs(solo.scale-1.12)<1e-12,'Solo ensemble should use the comfortable puppet scale even when its feet extend below the old host floor.');
+assert.ok(Math.abs(solo.scale-1.12)<1e-12,'Solo landscape ensemble should retain the useful closer scale.');
 const soloTorso=projection.displayPoint({x:.5,y:.66},1024,681);
-assert.ok(soloTorso.x>400&&soloTorso.x<624,'Solo puppet should be centred in the visible stage.');
+assert.ok(soloTorso.x>400&&soloTorso.x<624,'Centred solo puppet should remain near the middle of the visible stage.');
 const soloFoot=projection.displayPoint({x:.5,y:.96},1024,681);
 assert.ok(Math.abs(soloFoot.y-camera.stageFrame(1024,681).floorY)<1e-9,'Lowest character point should land on the photographic floor instead of creating unused space below it.');
+
+// A slot-0 puppet starts left of centre. Ensemble centring must never push the
+// world's actual left edge into the viewport and create a fake dead region.
+const edgeProjection=api.create({getMode:()=>mode,getSourceStage:()=>sourceStage,getSceneCamera:()=>camera});
+edgeProjection.observeScene([puppet(0,.18)]);
+const edgeFrame=edgeProjection.projectionFor(1024,681);
+const worldLeft=edgeProjection.displayPoint({x:0,y:.66},1024,681).x;
+assert.ok(worldLeft<=1,'Playable x=0 must remain at or beyond the visible left edge, not drift inside the screen.');
+assert.ok(edgeFrame.offsetX<=1,'Slot-biased ensemble framing must not create an unreachable left-hand screen strip.');
 
 // A membership change must reframe the current ensemble. On a narrow portrait
 // controller this is allowed to zoom out, but both players must remain visible.
@@ -55,7 +64,9 @@ const group=[puppet(0,.18),puppet(1,.82)];
 assert.equal(projection.observeScene(group),true,'Adding a slot should invalidate ensemble framing.');
 projection.invalidateControllerProjection();
 const portrait=projection.projectionFor(480,900);
-assert.ok(portrait.scale<1.12,'A genuinely wide ensemble should zoom out on a narrow controller.');
+const portraitStageFit=480/sourceStage.width;
+assert.ok(portrait.scale<=portraitStageFit*.94+1e-12,'Portrait should deliberately show a wider slice of the playable stage.');
+assert.ok(portrait.displayW<=480+1e-9,'Portrait zoom-out should be able to show the whole source-stage width rather than cropping it.');
 for(const p of group){
   const point=projection.displayPoint(p.torso,480,900);
   assert.ok(point.x>=0&&point.x<=480,`Joined slot ${p.slot} should be inside the portrait viewport.`);
@@ -86,4 +97,4 @@ const fallback=projection.sourceStageSize();
 assert.equal(fallback.width,320,'Invalid source-stage width must preserve V1 fallback size.');
 assert.equal(fallback.height,360,'Invalid source-stage height must preserve V1 fallback size.');
 
-console.log('Controller projection frames the live ensemble at useful landscape scale, anchors feet to the scene floor, keeps new slots visible and preserves inverse pointer mapping.');
+console.log('Controller projection keeps playable stage edges reachable, preserves useful landscape scale, widens portrait context, anchors feet to the scene floor and preserves inverse pointer mapping.');
