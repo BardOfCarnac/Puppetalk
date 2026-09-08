@@ -43,6 +43,17 @@
   function depthScale(depth){ return window.PuppetalkDepthState?.scaleForDepth?.(depth) || 1; }
   function depthShift(depth){ return window.PuppetalkDepthState?.shiftForDepth?.(depth) || 0; }
 
+  function rawTorsoFromScene(puppet){
+    if(!puppet?.torso) return null;
+    // scenePayload() is depth-tuned for display. The torso is the projection centre,
+    // so scaling does not move it; only the depth Y shift does. Remove that shift
+    // before remembering the torso as a physics-space anchor, otherwise each scene
+    // broadcast feeds the visual depth offset back into the next torso drag.
+    const depth=Number.isFinite(puppet.depth)?puppet.depth:depthForSlot(puppet.slot);
+    const shift=depthShift(depth);
+    return {x:puppet.torso.x,y:clamp(puppet.torso.y-shift,.02,.98)};
+  }
+
   function inverseProjectedGrab(state,grab){
     if(!grab || !Number.isFinite(grab.x) || !Number.isFinite(grab.y)) return {...grab};
     const center=state.rawTorso || {x:.5,y:.6};
@@ -71,7 +82,8 @@
     for(const puppet of data.puppets){
       const group=slotToGroup.get(puppet.slot);
       if(!group || !puppet?.torso) continue;
-      stateFor(group).rawTorso={x:puppet.torso.x,y:puppet.torso.y};
+      const rawTorso=rawTorsoFromScene(puppet);
+      if(rawTorso) stateFor(group).rawTorso=rawTorso;
     }
   }
 
@@ -241,5 +253,5 @@
     return rawEngineUpdate(engine,delta,correction);
   };
 
-  window.PuppetalkLocomotion={version:32,owner:'translation'};
+  window.PuppetalkLocomotion={version:33,owner:'translation',rawTorsoFromScene};
 })();
