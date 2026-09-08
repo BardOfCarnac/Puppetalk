@@ -72,6 +72,10 @@
         root.PuppetalkDepthController?.updateSourceStage?.(msg);
         scene=Array.isArray(msg.puppets)?msg.puppets:[];
         propScene=Array.isArray(msg.props)?msg.props:[];
+        // Device projection owns one-off ensemble reframing. It deliberately
+        // watches membership rather than every moving coordinate so normal
+        // puppetry never turns into a camera that chases the characters.
+        root.PuppetalkControllerProjection?.defaultProjection?.observeScene?.(scene);
         sceneSmoothing?.pushScene?.({puppets:scene,props:propScene});
         hooks.updateGripButtons();
       }
