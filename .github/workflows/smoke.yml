@@ -18,6 +18,9 @@ jobs:
       - run: node --check app.js
       - run: node --check boot.js
       - run: node --check lobby-routing.js
+      - run: node --check scene-camera.js
+      - run: node --check scene-library.js
+      - run: node scene-library-smoke.mjs
       - run: node --check profile-name-patch.js
       - run: node --check look-sync-patch.js
       - run: node --check live-face-render-patch.js
