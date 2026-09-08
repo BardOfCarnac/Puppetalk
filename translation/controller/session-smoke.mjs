@@ -2,7 +2,12 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
-const context={window:{}};
+const observedScenes=[];
+const context={window:{
+  PuppetalkControllerProjection:{
+    defaultProjection:{observeScene:scene=>observedScenes.push(scene)}
+  }
+}};
 context.globalThis=context;
 vm.runInNewContext(fs.readFileSync(new URL('./session.js',import.meta.url),'utf8'),context,{filename:'session.js'});
 const api=context.window.PuppetalkControllerSession;
@@ -90,10 +95,12 @@ assert.equal(sent.at(-1).type,'input');
 conn.emit('data',{type:'scene',puppets:[{slot:2}],props:[{id:1}]});
 assert.deepEqual(JSON.parse(JSON.stringify(controller.getScene())),[{slot:2}]);
 assert.deepEqual(JSON.parse(JSON.stringify(controller.getPropScene())),[{id:1}]);
+assert.deepEqual(JSON.parse(JSON.stringify(observedScenes.shift())),[{slot:2}],'Every accepted scene packet must feed controller membership framing.');
 assert.deepEqual(hookCalls.splice(0),[['grips']],'Scene packets update state but must not synchronously redraw the invited canvas.');
 conn.emit('data',{type:'scene',puppets:'bad',props:null});
 assert.deepEqual(JSON.parse(JSON.stringify(controller.getScene())),[]);
 assert.deepEqual(JSON.parse(JSON.stringify(controller.getPropScene())),[]);
+assert.deepEqual(JSON.parse(JSON.stringify(observedScenes.shift())),[],'Invalid puppet payloads normalize to an empty framing scene.');
 hookCalls.splice(0);
 
 hint.classList.add('quiet');
@@ -145,6 +152,7 @@ assert.equal(status.textContent,'table not found');
 assert.equal(dot.className,'status-dot bad');
 secondPeer.emit('error',{type:'network'});
 assert.equal(status.textContent,'network error: network');
+assert.equal(dot.className,'status-dot bad');
 secondPeer.emit('error',{});
 assert.equal(status.textContent,'network error: unknown');
 
@@ -159,4 +167,4 @@ assert.ok(cleared.includes(pending));
 assert.equal(controller.getReconnectTimer(),null);
 assert.equal(secondPeer.destroyCalls,1);
 
-console.log('Controller session preserves peer lifecycle and scene ownership while scene packets remain state-only for independent invitee rendering.');
+console.log('Controller session preserves peer lifecycle and scene ownership while live scene packets also drive one-off ensemble framing.');
