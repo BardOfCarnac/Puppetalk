@@ -144,7 +144,15 @@
 
   function partsOf(bodies){
     const parts={};
-    for(const body of bodies){ const name=body.plugin?.puppetalkPart; if(name) parts[name]=body; }
+    for(const body of bodies){
+      const name=body.plugin?.puppetalkPart;
+      if(name) parts[name]=body;
+      // Segmented limbs keep their distal halves deliberately hidden from the
+      // high-level part map. Walking is the exception: the planted point must be
+      // the same distal shin/ankle that the renderer and grab system call a foot.
+      const segmentPart=body.plugin?.puppetalkSegmentPart;
+      if(segmentPart && body.plugin?.puppetalkSegment==='distal') parts[`${segmentPart}2`]=body;
+    }
     return parts;
   }
 
@@ -199,8 +207,10 @@
     if(!locomoting){ state.feet=null; return; }
 
     const metrics=stageMetrics(engine);
-    const leftPoint=endPoint(parts.shL,25);
-    const rightPoint=endPoint(parts.shR,25);
+    const leftFootBody=parts.shL2||parts.shL;
+    const rightFootBody=parts.shR2||parts.shR;
+    const leftPoint=endPoint(leftFootBody,parts.shL2?13.5:25);
+    const rightPoint=endPoint(rightFootBody,parts.shR2?13.5:25);
     if(!state.feet){
       state.feet={left:{x:leftPoint.x,y:leftPoint.y},right:{x:rightPoint.x,y:rightPoint.y}};
       state.nextFoot=leftPoint.x<=rightPoint.x?'left':'right';
@@ -215,7 +225,13 @@
         const rightBehind=(torso.position.x-state.feet.right.x)*dir;
         const trailing=leftBehind>rightBehind?'left':'right';
         const stretch=Math.max(leftBehind,rightBehind);
-        if(stretch>58&&!footHeld(input,trailing)) beginStep(state,trailing,torso.position.x+dir*27,metrics.floorY-2,now);
+        if(stretch>58&&!footHeld(input,trailing)){
+          // Keep the requested ankle point inside the actual stage wall. Previously
+          // the gait could remember a target beyond the wall and spend the rest of
+          // the drag pulling the visible foot against an impossible anchor.
+          const endX=clamp(torso.position.x+dir*27,10,metrics.width-10);
+          beginStep(state,trailing,endX,metrics.floorY-2,now);
+        }
       }
     }
 
@@ -239,11 +255,11 @@
     const rightHeld=footHeld(input,'right');
     if(!leftHeld){
       const target=steppingSide==='left'&&stepTarget?stepTarget:state.feet.left;
-      pullPoint(parts.shL,endPoint(parts.shL,25),target,steppingSide==='left'?.00024:.00017,.0105,steppingSide==='left'?.021:.017);
+      pullPoint(leftFootBody,endPoint(leftFootBody,parts.shL2?13.5:25),target,steppingSide==='left'?.00024:.00017,.0105,steppingSide==='left'?.021:.017);
     }
     if(!rightHeld){
       const target=steppingSide==='right'&&stepTarget?stepTarget:state.feet.right;
-      pullPoint(parts.shR,endPoint(parts.shR,25),target,steppingSide==='right'?.00024:.00017,.0105,steppingSide==='right'?.021:.017);
+      pullPoint(rightFootBody,endPoint(rightFootBody,parts.shR2?13.5:25),target,steppingSide==='right'?.00024:.00017,.0105,steppingSide==='right'?.021:.017);
     }
   }
 
@@ -253,5 +269,5 @@
     return rawEngineUpdate(engine,delta,correction);
   };
 
-  window.PuppetalkLocomotion={version:33,owner:'translation',rawTorsoFromScene};
+  window.PuppetalkLocomotion={version:34,owner:'translation',rawTorsoFromScene,partsOf};
 })();
