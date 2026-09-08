@@ -10,7 +10,7 @@
     if (source.includes('PUPPETALK_UPRIGHT_POSTURE_V1')) return source;
 
     const needle = `    servo(t,base,.008*muscle);\n    servo(p.head,base*.35,.0045*muscle);`;
-    const replacement = `    // PUPPETALK_UPRIGHT_POSTURE_V1\n    // Stand should read as a person balancing over their hips, not a torso slung\n    // from them. Keep this as muscle/torque, never a position or angle teleport.\n    if(p.pose === 'stand'){\n      servo(t,0,.0115*muscle);\n      if(p.torsoBottom) servo(p.torsoBottom,0,.0125*muscle);\n      if(p.torsoTop) servo(p.torsoTop,0,.014*muscle);\n      if(!(p.grabbing && p.grabPart === 'head')){\n        servo(p.head,0,.0068*muscle);\n        if(p.headTop) servo(p.headTop,0,.008*muscle);\n      }\n    }else{\n      servo(t,base,.008*muscle);\n      servo(p.head,base*.35,.0045*muscle);\n    }`;
+    const replacement = `    // PUPPETALK_UPRIGHT_POSTURE_V1\n    // Stand should read as a person balancing over their hips, not a torso slung\n    // from them. Keep this as muscle/torque, never a position or angle teleport.\n    if(p.pose === 'stand'){\n      servo(t,0,.0145*muscle);\n      if(p.torsoBottom) servo(p.torsoBottom,0,.016*muscle);\n      if(p.torsoTop) servo(p.torsoTop,0,.018*muscle);\n      if(!(p.grabbing && p.grabPart === 'head')){\n        servo(p.head,0,.0085*muscle);\n        if(p.headTop) servo(p.headTop,0,.010*muscle);\n      }\n    }else{\n      servo(t,base,.008*muscle);\n      servo(p.head,base*.35,.0045*muscle);\n    }`;
 
     if (!source.includes(needle)) {
       console.warn('Puppetalk upright posture could not find the core servo hook.');
@@ -31,5 +31,5 @@
     });
   };
 
-  window.PuppetalkUprightPosture = { version: 1 };
+  window.PuppetalkUprightPosture = { version: 2 };
 })();
