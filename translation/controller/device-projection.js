@@ -81,24 +81,24 @@
 
       let scale;
       let offsetX;
+      let offsetY;
       const bounds=sceneBounds;
       if(bounds){
-        // The old projection fitted the entire host viewport into every controller.
-        // A landscape host therefore made the puppets tiny on every invited phone,
-        // and a narrow controller could still place a newly projected seat offscreen.
-        // Frame the actual ensemble instead. One or two puppets stay at a comfortable
-        // near-1:1 scale; only a genuinely spread-out group makes the view zoom out.
+        // Frame the characters, not the entire host canvas. The lowest point in
+        // the captured ensemble becomes the visual floor anchor. This matters in
+        // landscape: forcing the original host's arbitrary .90 floor line into
+        // the small strip below the photographic baseline made characters shrink
+        // dramatically even when there was ample room above them.
         const sceneW=Math.max(120,(bounds.maxX-bounds.minX)*source.width);
         const sceneCenterX=(bounds.minX+bounds.maxX)*.5*source.width;
         const fitX=Math.max(.35,(usableW-Math.max(20,w*.05))/sceneW);
 
-        const above=Math.max(70,(sourceFloor-bounds.minY)*source.height);
-        const below=Math.max(1,(bounds.maxY-sourceFloor)*source.height);
-        const fitTop=Math.max(.35,(floorY-topPad)/above);
-        const fitBottom=below>1?Math.max(.35,(h-bottomPad-floorY)/below):99;
+        const ensembleHeight=Math.max(120,(bounds.maxY-bounds.minY)*source.height);
+        const fitHeight=Math.max(.35,(floorY-topPad)/ensembleHeight);
         const comfortableScale=1.12;
-        scale=Math.max(.35,Math.min(comfortableScale,fitX,fitTop,fitBottom));
+        scale=Math.max(.35,Math.min(comfortableScale,fitX,fitHeight));
         offsetX=floorCenter-sceneCenterX*scale;
+        offsetY=floorY-bounds.maxY*source.height*scale;
       }else{
         // Before the first scene arrives, retain the conservative whole-stage fit.
         const scaleByWidth=usableW/source.width;
@@ -107,11 +107,11 @@
         scale=Math.max(.35,Math.min(scaleByWidth,scaleByTop,scaleByBottom));
         const displayW=source.width*scale;
         offsetX=floorCenter-displayW*.5;
+        offsetY=floorY-source.height*sourceFloor*scale;
       }
 
       const displayW=source.width*scale;
       const displayH=source.height*scale;
-      const offsetY=floorY-source.height*sourceFloor*scale;
       controllerProjection={
         w,h,sourceW:source.width,sourceH:source.height,scale,displayW,displayH,offsetX,offsetY,
         floorY,floorLeft,floorRight,profile:camera?.profile||'standard',sceneId:camera?.sceneId||'default',
