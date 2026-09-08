@@ -6,12 +6,14 @@ const html=fs.readFileSync('translation/index.html','utf8');
 const actualStyles=[...html.matchAll(/<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]);
 const actualScripts=[...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/gi)].map(m=>m[1]);
 const bare=src=>src.replace(/\?.*$/,'');
+const actualBareStyles=actualStyles.map(bare);
+const expectedBareStyles=[...styles].map(bare);
 const actualBareScripts=actualScripts.map(bare);
 
 assert.match(html,/<title>Puppetalk<\/title>/,'Translation entry changed the product name.');
 assert.match(html,/<main id="app" aria-live="polite"><\/main>/,'Translation entry changed the app mount.');
 assert.match(html,/<base href="\.\.\/"\s*\/>/,'Translation entry must resolve shared assets from repository root.');
-assert.deepEqual(actualStyles,[...styles],'Translation entry styles changed unexpectedly.');
+assert.deepEqual(actualBareStyles,expectedBareStyles,'Translation entry stylesheet ownership/order changed unexpectedly.');
 
 const retiredRuntimeScripts=[
   './fullscreen-controller.js','./look-migration.js','./scene-camera.js','./device-projection.js','./foreground-tuning.js',
@@ -106,4 +108,4 @@ const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
 assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
 assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
 
-console.log('Translation entry owns all Puppetalk behavior modules, including invitee scene smoothing and live voice, excludes retired/source-rewriting patches and boots the translated runtime while retaining V1 only as a test specimen.');
+console.log('Translation entry owns all Puppetalk behavior modules and stylesheet order independent of cache-buster versions, excludes retired/source-rewriting patches and boots the translated runtime while retaining V1 only as a test specimen.');
