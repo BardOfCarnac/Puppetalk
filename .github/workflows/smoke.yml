@@ -55,6 +55,7 @@ jobs:
       - run: node --check special-items.js
       - run: node special-items-smoke.mjs
       - run: node --check segmented-puppet.js
+      - run: node --check upright-posture.js
       - run: node --check seat-render.js
       - run: node --check depth-assist.js
       - run: node --check body-slicing.js
