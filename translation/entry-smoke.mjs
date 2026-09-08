@@ -79,6 +79,7 @@ const requiredTranslated=[
   './translation/props/dart-impacts.js',
   './translation/props/contact-physics.js',
   './translation/controller/canvas-lifecycle.js',
+  './translation/controller/scene-smoothing.js',
   './translation/controller/session.js',
   './translation/controller/puppet-interaction.js',
   './translation/controller/item-interactions.js',
@@ -105,4 +106,4 @@ const bootstrap=fs.readFileSync('translation/bootstrap.js','utf8');
 assert.match(bootstrap,/translation\/runtime\/app\.js/,'Bootstrap is not loading the translated runtime.');
 assert.doesNotMatch(bootstrap,/translation\/generated\/app-final\.js/,'Bootstrap still loads the frozen control specimen.');
 
-console.log('Translation entry owns all Puppetalk behavior modules, including live voice, excludes retired/source-rewriting patches and boots the translated runtime while retaining V1 only as a test specimen.');
+console.log('Translation entry owns all Puppetalk behavior modules, including invitee scene smoothing and live voice, excludes retired/source-rewriting patches and boots the translated runtime while retaining V1 only as a test specimen.');
