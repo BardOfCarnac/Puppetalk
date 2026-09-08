@@ -90,7 +90,7 @@ assert.equal(sent.at(-1).type,'input');
 conn.emit('data',{type:'scene',puppets:[{slot:2}],props:[{id:1}]});
 assert.deepEqual(JSON.parse(JSON.stringify(controller.getScene())),[{slot:2}]);
 assert.deepEqual(JSON.parse(JSON.stringify(controller.getPropScene())),[{id:1}]);
-assert.deepEqual(hookCalls.splice(0),[['grips'],['render']]);
+assert.deepEqual(hookCalls.splice(0),[['grips']],'Scene packets update state but must not synchronously redraw the invited canvas.');
 conn.emit('data',{type:'scene',puppets:'bad',props:null});
 assert.deepEqual(JSON.parse(JSON.stringify(controller.getScene())),[]);
 assert.deepEqual(JSON.parse(JSON.stringify(controller.getPropScene())),[]);
@@ -159,4 +159,4 @@ assert.ok(cleared.includes(pending));
 assert.equal(controller.getReconnectTimer(),null);
 assert.equal(secondPeer.destroyCalls,1);
 
-console.log('Controller session candidate preserves V1 peer/connection lifecycle, slot and scene ownership, input dedupe, result messaging, reconnect generation guards and network status semantics.');
+console.log('Controller session preserves peer lifecycle and scene ownership while scene packets remain state-only for independent invitee rendering.');
