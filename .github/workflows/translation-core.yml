@@ -34,6 +34,8 @@ jobs:
           node translation/core/shared-hex-space-smoke.mjs
           node --check translation/core/shared-hex-integration.js
           node translation/core/shared-hex-integration-smoke.mjs
+          node --check translation/core/shared-hex-tuning.js
+          node translation/core/shared-hex-tuning-smoke.mjs
       - name: Translation entry smoke
         run: node translation/entry-smoke.mjs
       - name: Runtime parity
