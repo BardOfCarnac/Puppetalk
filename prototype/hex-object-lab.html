@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Hex Object Lab</title>
+<style>
+:root{color-scheme:dark;--bg:#0d1014;--panel:#151a20;--text:#f3f5f7;--muted:#9ca5b0;--green:#64f08a;--blue:#7da9ff;--a:#ffd56b;--b:#cb8cff;--disc:#f7f7f7;--hit:#ff6868}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;touch-action:none}
+#app{height:100%;display:grid;grid-template-rows:auto minmax(0,42vh) minmax(0,1fr);gap:8px;padding:8px}
+header{display:flex;align-items:center;gap:8px;overflow-x:auto;white-space:nowrap}.brand{font-size:13px;font-weight:800;letter-spacing:.08em}.pill,button{border:1px solid #39414b;background:#1a1f26;color:var(--text);border-radius:999px;padding:8px 12px;font:inherit;font-size:13px}.pill input{vertical-align:-1px}.panel{position:relative;border:1px solid #293039;border-radius:16px;overflow:hidden;background:var(--panel)}canvas{display:block;width:100%;height:100%;touch-action:none}.hint{position:absolute;left:10px;bottom:8px;background:#090b0ecc;padding:5px 8px;border-radius:8px;color:#c8ced6;font-size:11px;pointer-events:none}.views{display:flex;gap:5px}.views button{padding:7px 10px}.views .active{outline:2px solid #8fd3ff}.status{margin-left:auto;color:var(--muted);font-size:12px;padding-right:4px}.hit{color:var(--hit)!important;font-weight:800}
+@media(orientation:portrait){#app{grid-template-rows:auto minmax(0,38vh) minmax(0,1fr)}header{flex-wrap:wrap;overflow:visible}.status{width:100%;margin-left:0}.views{order:3;width:100%;justify-content:space-between}.views button{flex:1;padding:7px 4px}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <div class="brand">HEX OBJECT LAB</div>
+  <div class="views" id="views"></div>
+  <button id="reset">reset frisbee</button>
+  <label class="pill"><input id="trail" type="checkbox" checked> trail</label>
+  <span class="status" id="status">drag the frisbee in the lower view</span>
+</header>
+<section class="panel"><canvas id="world"></canvas><div class="hint">Shared hex · one canonical world trajectory</div></section>
+<section class="panel"><canvas id="flat"></canvas><div class="hint">2D control surface · drag the frisbee and release · switch views while it flies</div></section>
+</div>
+<script>
+(()=>{'use strict';
+const world=document.querySelector('#world'),flat=document.querySelector('#flat'),status=document.querySelector('#status'),trailToggle=document.querySelector('#trail');
+const WG=world.getContext('2d'),FG=flat.getContext('2d');
+const TAU=Math.PI*2, SQ=Math.sqrt(3);
+const V=Array.from({length:6},(_,i)=>{const a=-Math.PI/2+i*Math.PI/3;return{x:Math.cos(a),y:Math.sin(a)}});
+let viewer=0,last=performance.now(),drag=null;
+const chars=[{id:'A',x:-.42,y:.28,color:'#ffd56b'},{id:'B',x:.42,y:-.08,color:'#cb8cff'}];
+const disc={x:chars[0].x+.12,y:chars[0].y,vx:0,vy:0,flying:false,spin:0,curve:.62,trail:[],hit:null};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function side(v=viewer){const d=V[v];return{d,r:{x:-d.y,y:d.x}}}
+function project(p,v=viewer){const {d,r}=side(v);return{x:p.x*r.x+p.y*r.y,z:p.x*d.x+p.y*d.y}}
+function unproject(x,z,v=viewer){const {d,r}=side(v);return{x:r.x*x+d.x*z,y:r.y*x+d.y*z}}
+function insideHex(p){return Math.abs(p.x)<=SQ/2+1e-6 && Math.abs(.5*p.x+SQ/2*p.y)<=SQ/2+1e-6 && Math.abs(.5*p.x-SQ/2*p.y)<=SQ/2+1e-6}
+function dprCanvas(c,ctx){const r=c.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),w=Math.max(1,Math.round(r.width*d)),h=Math.max(1,Math.round(r.height*d));if(c.width!==w||c.height!==h){c.width=w;c.height=h}ctx.setTransform(d,0,0,d,0,0);return{w:r.width,h:r.height}}
+function worldMap(p,m){const s=Math.min(m.w,m.h)*.39;return{x:m.w/2+p.x*s,y:m.h/2+p.y*s}}
+function flatMap(p,m){const q=project(p),pad=34;const x=pad+(q.x+.93)/1.86*(m.w-pad*2);const depth=(q.z+1)/2;const floor=m.h-42-depth*(m.h*.48);return{x,y:floor,scale:.66+depth*.8,depth}}
+function line(ctx,a,b,color,width=1,alpha=1){ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.restore()}
+function drawWorld(){const m=dprCanvas(world,WG);WG.clearRect(0,0,m.w,m.h);WG.fillStyle='#11161c';WG.fillRect(0,0,m.w,m.h);
+  const pv=V.map(p=>worldMap(p,m));WG.strokeStyle='#e8edf2';WG.lineWidth=2;WG.beginPath();pv.forEach((p,i)=>i?WG.lineTo(p.x,p.y):WG.moveTo(p.x,p.y));WG.closePath();WG.stroke();
+  const {d}=side();const ctr={x:m.w/2,y:m.h/2},tip=worldMap({x:d.x*.92,y:d.y*.92},m);line(WG,ctr,tip,'#64f08a',3,.75);
+  if(trailToggle.checked&&disc.trail.length>1){for(let i=1;i<disc.trail.length;i++)line(WG,worldMap(disc.trail[i-1],m),worldMap(disc.trail[i],m),'#f7f7f7',2,i/disc.trail.length*.65)}
+  chars.forEach(c=>{const p=worldMap(c,m);WG.fillStyle=c.color;WG.beginPath();WG.arc(p.x,p.y,16,0,TAU);WG.fill();WG.strokeStyle='#111';WG.lineWidth=3;WG.stroke();WG.fillStyle='#111';WG.font='800 13px system-ui';WG.textAlign='center';WG.textBaseline='middle';WG.fillText(c.id,p.x,p.y)});
+  const p=worldMap(disc,m);WG.save();WG.translate(p.x,p.y);WG.rotate(disc.spin);WG.strokeStyle=disc.hit?'#ff6868':'#fff';WG.fillStyle='#cfd7df';WG.lineWidth=3;WG.beginPath();WG.ellipse(0,0,18,6,0,0,TAU);WG.fill();WG.stroke();WG.restore();
+}
+function drawStick(ctx,c,p){ctx.save();ctx.translate(p.x,p.y);ctx.scale(p.scale,p.scale);ctx.strokeStyle='#0c0d10';ctx.lineWidth=7;ctx.lineCap='round';ctx.fillStyle=c.color;ctx.beginPath();ctx.arc(0,-72,23,0,TAU);ctx.fill();ctx.stroke();line(ctx,{x:0,y:-48},{x:0,y:18},'#0c0d10',7);line(ctx,{x:0,y:-28},{x:-40,y:6},'#0c0d10',7);line(ctx,{x:0,y:-28},{x:40,y:6},'#0c0d10',7);line(ctx,{x:0,y:18},{x:-28,y:68},'#0c0d10',7);line(ctx,{x:0,y:18},{x:28,y:68},'#0c0d10',7);ctx.fillStyle='#0c0d10';ctx.font='800 16px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(c.id,0,-72);ctx.restore()}
+function drawFlat(){const m=dprCanvas(flat,FG);FG.clearRect(0,0,m.w,m.h);FG.fillStyle='#11161c';FG.fillRect(0,0,m.w,m.h);
+  for(let i=0;i<7;i++){const y=28+i*(m.h-80)/6;line(FG,{x:22,y},{x:m.w-22,y},'#64f08a',1,.10)}
+  const ordered=[...chars].sort((a,b)=>project(a).z-project(b).z);ordered.forEach(c=>drawStick(FG,c,flatMap(c,m)));
+  if(trailToggle.checked&&disc.trail.length>1){for(let i=1;i<disc.trail.length;i++){const a=flatMap(disc.trail[i-1],m),b=flatMap(disc.trail[i],m);line(FG,a,b,'#f7f7f7',2,i/disc.trail.length*.45)}}
+  const p=flatMap(disc,m);FG.save();FG.translate(p.x,p.y-54*p.scale);FG.scale(p.scale,p.scale);FG.rotate(disc.spin);FG.fillStyle='#d9e1e8';FG.strokeStyle=disc.hit?'#ff6868':'#fff';FG.lineWidth=3;FG.beginPath();FG.ellipse(0,0,22,7,0,0,TAU);FG.fill();FG.stroke();FG.restore();
+  if(drag){line(FG,drag.start,drag.now,'#8fd3ff',4,.8)}
+  FG.fillStyle='#dce2e8';FG.font='700 14px system-ui';FG.textAlign='left';FG.fillText(`VIEW ${viewer+1}`,18,24);
+}
+function render(){drawWorld();drawFlat()}
+function reset(){disc.x=chars[0].x+.12;disc.y=chars[0].y;disc.vx=disc.vy=0;disc.flying=false;disc.spin=0;disc.trail=[];disc.hit=null;drag=null;status.textContent='drag the frisbee in the lower view';status.classList.remove('hit');render()}
+function hitTest(){if(disc.hit)return;for(const c of chars){if(c.id==='A'&&!disc.flying)continue;const dx=disc.x-c.x,dy=disc.y-c.y;if(Math.hypot(dx,dy)<.18){disc.hit=c.id;disc.flying=false;disc.vx=disc.vy=0;status.textContent=`HIT ${c.id} — same event in every view`;status.classList.add('hit');break}}}
+function tick(t){const dt=Math.min(.032,(t-last)/1000);last=t;if(disc.flying){const speed=Math.hypot(disc.vx,disc.vy);if(speed>.01){const ang=disc.curve*dt;const c=Math.cos(ang),s=Math.sin(ang),vx=disc.vx*c-disc.vy*s,vy=disc.vx*s+disc.vy*c;disc.vx=vx*.996;disc.vy=vy*.996;disc.x+=disc.vx*dt;disc.y+=disc.vy*dt;disc.spin+=speed*dt*8;disc.trail.push({x:disc.x,y:disc.y});if(disc.trail.length>90)disc.trail.shift();hitTest();if(!insideHex(disc)){disc.flying=false;status.textContent='frisbee left the shared hex — reset to throw again'}}else disc.flying=false}render();requestAnimationFrame(tick)}
+function screenPoint(e,c){const r=c.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+flat.addEventListener('pointerdown',e=>{if(disc.flying)return;const m=dprCanvas(flat,FG),p=flatMap(disc,m),s=screenPoint(e,flat),dy=(p.y-54*p.scale)-s.y;if(Math.hypot(p.x-s.x,dy)>55)return;drag={id:e.pointerId,start:s,now:s};flat.setPointerCapture(e.pointerId);status.textContent='release to throw';});
+flat.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;drag.now=screenPoint(e,flat)});
+flat.addEventListener('pointerup',e=>{if(!drag||drag.id!==e.pointerId)return;const end=screenPoint(e,flat),dx=end.x-drag.start.x,dy=end.y-drag.start.y,mag=Math.hypot(dx,dy);if(mag>12){const {d,r}=side();const lateral=dx/Math.max(220,flat.clientWidth)*3.4;const depth=-dy/Math.max(220,flat.clientHeight)*2.15;disc.vx=(r.x*lateral+d.x*depth)*2.15;disc.vy=(r.y*lateral+d.y*depth)*2.15;disc.flying=true;disc.hit=null;disc.trail=[{x:disc.x,y:disc.y}];status.textContent='flying — switch views now'}drag=null;});flat.addEventListener('pointercancel',()=>drag=null);
+document.querySelector('#reset').onclick=reset;trailToggle.onchange=render;
+const views=document.querySelector('#views');for(let i=0;i<6;i++){const b=document.createElement('button');b.textContent=i+1;b.onclick=()=>{viewer=i;[...views.children].forEach((x,j)=>x.classList.toggle('active',j===viewer));render()};views.appendChild(b)}views.children[0].classList.add('active');
+addEventListener('resize',render);reset();requestAnimationFrame(tick);
+})();
+</script>
+</body></html>
