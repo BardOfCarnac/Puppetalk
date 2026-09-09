@@ -31,7 +31,7 @@ const TAU=Math.PI*2, SQ=Math.sqrt(3);
 const V=Array.from({length:6},(_,i)=>{const a=-Math.PI/2+i*Math.PI/3;return{x:Math.cos(a),y:Math.sin(a)}});
 let viewer=0,last=performance.now(),drag=null;
 const chars=[{id:'A',x:-.42,y:.28,color:'#ffd56b'},{id:'B',x:.42,y:-.08,color:'#cb8cff'}];
-const disc={x:chars[0].x+.12,y:chars[0].y,vx:0,vy:0,flying:false,spin:0,curve:.62,trail:[],hit:null};
+const disc={x:chars[0].x+.22,y:chars[0].y,vx:0,vy:0,flying:false,spin:0,curve:.62,trail:[],hit:null};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function side(v=viewer){const d=V[v];return{d,r:{x:-d.y,y:d.x}}}
 function project(p,v=viewer){const {d,r}=side(v);return{x:p.x*r.x+p.y*r.y,z:p.x*d.x+p.y*d.y}}
@@ -58,7 +58,7 @@ function drawFlat(){const m=dprCanvas(flat,FG);FG.clearRect(0,0,m.w,m.h);FG.fill
   FG.fillStyle='#dce2e8';FG.font='700 14px system-ui';FG.textAlign='left';FG.fillText(`VIEW ${viewer+1}`,18,24);
 }
 function render(){drawWorld();drawFlat()}
-function reset(){disc.x=chars[0].x+.12;disc.y=chars[0].y;disc.vx=disc.vy=0;disc.flying=false;disc.spin=0;disc.trail=[];disc.hit=null;drag=null;status.textContent='drag the frisbee in the lower view';status.classList.remove('hit');render()}
+function reset(){disc.x=chars[0].x+.22;disc.y=chars[0].y;disc.vx=disc.vy=0;disc.flying=false;disc.spin=0;disc.trail=[];disc.hit=null;drag=null;status.textContent='drag the frisbee in the lower view';status.classList.remove('hit');render()}
 function hitTest(){if(disc.hit)return;for(const c of chars){if(c.id==='A'&&!disc.flying)continue;const dx=disc.x-c.x,dy=disc.y-c.y;if(Math.hypot(dx,dy)<.18){disc.hit=c.id;disc.flying=false;disc.vx=disc.vy=0;status.textContent=`HIT ${c.id} — same event in every view`;status.classList.add('hit');break}}}
 function tick(t){const dt=Math.min(.032,(t-last)/1000);last=t;if(disc.flying){const speed=Math.hypot(disc.vx,disc.vy);if(speed>.01){const ang=disc.curve*dt;const c=Math.cos(ang),s=Math.sin(ang),vx=disc.vx*c-disc.vy*s,vy=disc.vx*s+disc.vy*c;disc.vx=vx*.996;disc.vy=vy*.996;disc.x+=disc.vx*dt;disc.y+=disc.vy*dt;disc.spin+=speed*dt*8;disc.trail.push({x:disc.x,y:disc.y});if(disc.trail.length>90)disc.trail.shift();hitTest();if(!insideHex(disc)){disc.flying=false;status.textContent='frisbee left the shared hex — reset to throw again'}}else disc.flying=false}render();requestAnimationFrame(tick)}
 function screenPoint(e,c){const r=c.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
