@@ -3,17 +3,17 @@
 // between authoritative scene packets so a ~15Hz network stream does not look like ~15fps.
 // No client physics or collision prediction is performed here.
 (()=>{
-  const NativeBlob = window.Blob;
-  if(!NativeBlob || window.PuppetalkInviteeSmoothing) return;
+  if(window.PuppetalkInviteeSmoothing || typeof window.fetch !== 'function') return;
+  const decoratedFetch = window.fetch.bind(window);
 
   function patchSource(source){
     if(typeof source !== 'string' || !source.includes('function startController(room)')) return source;
-    if(source.includes('PUPPETALK_INVITEE_SMOOTHING_V2')) return source;
+    if(source.includes('PUPPETALK_INVITEE_SMOOTHING_V3')) return source;
 
     const stateNeedle = `  let scene = [];
   let micStop = null;`;
     const stateCode = `  let scene = [];
-  // PUPPETALK_INVITEE_SMOOTHING_V2
+  // PUPPETALK_INVITEE_SMOOTHING_V3
   const smoothInviteeScene = new URLSearchParams(location.search).get('host') !== '1';
   let sceneBlendFrom = null;
   let sceneBlendTo = null;
@@ -126,20 +126,20 @@
     return source;
   }
 
-  function InviteeSmoothingBlob(parts=[],options={}){
-    let nextParts = parts;
-    if(options?.type === 'text/javascript' && parts.length === 1 && typeof parts[0] === 'string'){
-      const patched = patchSource(parts[0]);
-      if(patched !== parts[0]) nextParts = [patched];
-    }
-    return new NativeBlob(nextParts,options);
-  }
+  window.fetch = async (...args) => {
+    const response = await decoratedFetch(...args);
+    const target = String(args[0]?.url || args[0] || '');
+    if(!/app\.js(?:\?|$)/.test(target)) return response;
+    const text = await response.text();
+    return new Response(patchSource(text),{
+      status:response.status,
+      statusText:response.statusText,
+      headers:response.headers
+    });
+  };
 
-  InviteeSmoothingBlob.prototype = NativeBlob.prototype;
-  Object.setPrototypeOf(InviteeSmoothingBlob,NativeBlob);
-  window.Blob = InviteeSmoothingBlob;
   window.PuppetalkInviteeSmoothing = {
-    version:2,
+    version:3,
     hostUnaffected:true,
     authoritativePhysics:true,
     remoteBlendRangeMs:[34,62],
