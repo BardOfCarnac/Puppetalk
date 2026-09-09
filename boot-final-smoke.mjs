@@ -121,7 +121,7 @@ for(const hook of [
   'PUPPETALK_SEGMENTED_PUPPET_V1',
   'PUPPETALK_SEAT_RENDER_V1',
   'PUPPETALK_DEPTH_ASSIST_V1',
-  'PUPPETALK_INVITEE_SMOOTHING_V3',
+  'PUPPETALK_INVITEE_SMOOTHING_V4',
   'queueAuthoritativeScene(msg.puppets)',
   'requestAnimationFrame(tickSmoothedScene)',
   'brokenSeams:new Set()',
