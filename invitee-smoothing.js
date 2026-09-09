@@ -8,12 +8,14 @@
 
   function patchSource(source){
     if(typeof source !== 'string' || !source.includes('function startController(room)')) return source;
-    if(source.includes('PUPPETALK_INVITEE_SMOOTHING_V3')) return source;
+    if(source.includes('PUPPETALK_INVITEE_SMOOTHING_V4')) return source;
 
-    const stateNeedle = `  let scene = [];
-  let micStop = null;`;
-    const stateCode = `  let scene = [];
-  // PUPPETALK_INVITEE_SMOOTHING_V3
+    const sceneState = `  let scene = [];\n`;
+    const stateAt = source.indexOf(sceneState,source.indexOf('function startController(room)'));
+    if(stateAt < 0) throw new Error('Invitee smoothing patch failed: controller scene state');
+
+    const smoothingState = `  let scene = [];
+  // PUPPETALK_INVITEE_SMOOTHING_V4
   const smoothInviteeScene = new URLSearchParams(location.search).get('host') !== '1';
   let sceneBlendFrom = null;
   let sceneBlendTo = null;
@@ -108,20 +110,18 @@
     sceneBlendStartedAt = now;
     sceneBlendActive = true;
   }
+`;
+    source = source.slice(0,stateAt)+smoothingState+source.slice(stateAt+sceneState.length);
 
-  let micStop = null;`;
-    if(!source.includes(stateNeedle)) throw new Error('Invitee smoothing patch failed: controller scene state');
-    source = source.replace(stateNeedle,stateCode);
-
-    const receiveNeedle = `        if(msg?.type === 'scene'){
-          scene = Array.isArray(msg.puppets) ? msg.puppets : [];
-          renderPersonalScene();
-        }`;
-    const receiveCode = `        if(msg?.type === 'scene'){
-          queueAuthoritativeScene(msg.puppets);
-        }`;
-    if(!source.includes(receiveNeedle)) throw new Error('Invitee smoothing patch failed: scene receive hook');
-    source = source.replace(receiveNeedle,receiveCode);
+    const sceneBlockPattern = /        if\(msg\?\.type === 'scene'\)\{\n([\s\S]*?)        \}/;
+    const match = source.match(sceneBlockPattern);
+    if(!match || !match[1].includes("scene = Array.isArray(msg.puppets) ? msg.puppets : [];") || !match[1].includes('renderPersonalScene();')){
+      throw new Error('Invitee smoothing patch failed: scene receive hook');
+    }
+    const preserved = match[1]
+      .replace(/          scene = Array\.isArray\(msg\.puppets\) \? msg\.puppets : \[\];\n/,'')
+      .replace(/          renderPersonalScene\(\);\n?/,'          queueAuthoritativeScene(msg.puppets);\n');
+    source = source.replace(sceneBlockPattern,`        if(msg?.type === 'scene'){\n${preserved}        }`);
 
     return source;
   }
@@ -139,7 +139,7 @@
   };
 
   window.PuppetalkInviteeSmoothing = {
-    version:3,
+    version:4,
     hostUnaffected:true,
     authoritativePhysics:true,
     remoteBlendRangeMs:[34,62],
