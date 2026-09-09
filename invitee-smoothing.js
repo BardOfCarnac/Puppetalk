@@ -8,12 +8,12 @@
 
   function patchSource(source){
     if(typeof source !== 'string' || !source.includes('function startController(room)')) return source;
-    if(source.includes('PUPPETALK_INVITEE_SMOOTHING_V1')) return source;
+    if(source.includes('PUPPETALK_INVITEE_SMOOTHING_V2')) return source;
 
     const stateNeedle = `  let scene = [];
   let micStop = null;`;
     const stateCode = `  let scene = [];
-  // PUPPETALK_INVITEE_SMOOTHING_V1
+  // PUPPETALK_INVITEE_SMOOTHING_V2
   const smoothInviteeScene = new URLSearchParams(location.search).get('host') !== '1';
   let sceneBlendFrom = null;
   let sceneBlendTo = null;
@@ -67,6 +67,18 @@
     if(!smoothInviteeScene || !sceneBlendTo) return scene;
     return blendSceneArrays(sceneBlendFrom,sceneBlendTo,now);
   }
+  function tickSmoothedScene(now){
+    sceneSmoothingRaf = requestAnimationFrame(tickSmoothedScene);
+    if(!smoothInviteeScene || !sceneBlendTo || !sceneBlendActive) return;
+    scene = currentSmoothedScene(now);
+    renderPersonalScene();
+    if(now-sceneBlendStartedAt >= sceneBlendDuration){
+      scene = sceneBlendTo;
+      sceneBlendFrom = sceneBlendTo;
+      sceneBlendActive = false;
+      renderPersonalScene();
+    }
+  }
   function queueAuthoritativeScene(nextScene){
     const incoming = Array.isArray(nextScene) ? nextScene : [];
     if(!smoothInviteeScene){
@@ -74,6 +86,7 @@
       renderPersonalScene();
       return;
     }
+    if(!sceneSmoothingRaf) sceneSmoothingRaf = requestAnimationFrame(tickSmoothedScene);
     const now = performance.now();
     if(!sceneBlendTo){
       scene = incoming;
@@ -95,18 +108,6 @@
     sceneBlendStartedAt = now;
     sceneBlendActive = true;
   }
-  function tickSmoothedScene(now){
-    sceneSmoothingRaf = requestAnimationFrame(tickSmoothedScene);
-    if(!smoothInviteeScene || !sceneBlendTo || !sceneBlendActive) return;
-    scene = currentSmoothedScene(now);
-    renderPersonalScene();
-    if(now-sceneBlendStartedAt >= sceneBlendDuration){
-      scene = sceneBlendTo;
-      sceneBlendFrom = sceneBlendTo;
-      sceneBlendActive = false;
-      renderPersonalScene();
-    }
-  }
 
   let micStop = null;`;
     if(!source.includes(stateNeedle)) throw new Error('Invitee smoothing patch failed: controller scene state');
@@ -121,16 +122,6 @@
         }`;
     if(!source.includes(receiveNeedle)) throw new Error('Invitee smoothing patch failed: scene receive hook');
     source = source.replace(receiveNeedle,receiveCode);
-
-    const bootNeedle = `  resizeCanvas();
-  connect();
-}`;
-    const bootCode = `  resizeCanvas();
-  if(!sceneSmoothingRaf) sceneSmoothingRaf = requestAnimationFrame(tickSmoothedScene);
-  connect();
-}`;
-    if(!source.includes(bootNeedle)) throw new Error('Invitee smoothing patch failed: render loop hook');
-    source = source.replace(bootNeedle,bootCode);
 
     return source;
   }
@@ -148,7 +139,7 @@
   Object.setPrototypeOf(InviteeSmoothingBlob,NativeBlob);
   window.Blob = InviteeSmoothingBlob;
   window.PuppetalkInviteeSmoothing = {
-    version:1,
+    version:2,
     hostUnaffected:true,
     authoritativePhysics:true,
     remoteBlendRangeMs:[34,62],
