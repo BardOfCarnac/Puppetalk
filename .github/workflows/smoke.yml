@@ -58,6 +58,7 @@ jobs:
       - run: node --check segmented-puppet.js
       - run: node --check upright-posture.js
       - run: node --check motion-mapper.js
+      - run: node --check invitee-smoothing.js
       - run: node --check seat-render.js
       - run: node --check depth-assist.js
       - run: node --check body-slicing.js
