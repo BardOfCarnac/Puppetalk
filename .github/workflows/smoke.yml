@@ -36,6 +36,7 @@ jobs:
       - run: node segmented-stance-smoke.mjs
       - run: node --check jump-feel.js
       - run: node --check control-feel.js
+      - run: node --check torso-drag-anchor.js
       - run: node --check fullscreen-controller.js
       - run: node --check look-migration.js
       - run: node --check line-face-mouths-patch.js
