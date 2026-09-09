@@ -2,7 +2,7 @@ name: Translation Core
 
 on:
   push:
-    branches: [puppetalk-translation]
+    branches: [puppetalk-translation, puppetalk-shared-hex-space]
     paths:
       - 'translation/core/**'
       - 'translation/build-runtime.mjs'
@@ -28,6 +28,12 @@ jobs:
         run: |
           node --check translation/core/depth-system.js
           node translation/core/depth-system-smoke.mjs
+      - name: Shared hex geometry contract
+        run: |
+          node --check translation/core/shared-hex-space.js
+          node translation/core/shared-hex-space-smoke.mjs
+          node --check translation/core/shared-hex-integration.js
+          node translation/core/shared-hex-integration-smoke.mjs
       - name: Translation entry smoke
         run: node translation/entry-smoke.mjs
       - name: Runtime parity
