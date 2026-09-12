@@ -11,6 +11,12 @@
   const enteringController = mode === 'controller' && !!room;
   if(!freshAppOpen && !enteringController) return;
 
+  // The landing-screen reroll is one use per fresh trip through the pre-show,
+  // not one use forever on this browser. Keep the flag while a player remains
+  // on the same pre-show (so refresh is not another reroll), but clear it when
+  // Puppetalk deliberately starts a new host/join flow.
+  try { localStorage.removeItem('puppetalk-profile-randomized-v1'); } catch {}
+
   const lobby = new URL('./load.html', location.href);
   lobby.search = '';
   if(room) lobby.searchParams.set('room', room);
