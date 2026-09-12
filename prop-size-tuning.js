@@ -6,11 +6,11 @@
   if(window.PuppetalkPropSizeTuning) return;
 
   function patch(source){
-    if(typeof source !== 'string' || !source.includes('PUPPETALK_EXPANDED_ITEMS_V1') || source.includes('PUPPETALK_PROP_SIZE_TUNING_V1')) return source;
+    if(typeof source !== 'string' || !source.includes('PUPPETALK_EXPANDED_ITEMS_V1') || source.includes('PUPPETALK_PROP_SIZE_TUNING_V2')) return source;
 
     source = source.replace(
       '  // PUPPETALK_EXPANDED_ITEMS_V1',
-      '  // PUPPETALK_EXPANDED_ITEMS_V1\n  // PUPPETALK_PROP_SIZE_TUNING_V1'
+      '  // PUPPETALK_EXPANDED_ITEMS_V1\n  // PUPPETALK_PROP_SIZE_TUNING_V2'
     );
 
     // Laser frisbee: ~17% smaller. Match the physical disc, grip point,
@@ -20,11 +20,25 @@
     source = source.split("gripPoint = {x:-15,y:0};").join("gripPoint = {x:-12,y:0};");
     source = source.split('linear+spin*23').join('linear+spin*19');
     source = source.split('distance <= 13').join('distance <= 11');
-    source = source.split("ctx.arc(0,0,24*s,0,Math.PI*2)").join("ctx.arc(0,0,20*s,0,Math.PI*2)");
-    source = source.split("ctx.arc(0,0,20*s,0,Math.PI*2)").join("ctx.arc(0,0,17*s,0,Math.PI*2)");
-    source = source.split("ctx.arc(0,0,11*s,0,Math.PI*2)").join("ctx.arc(0,0,9*s,0,Math.PI*2)");
-    source = source.split("ctx.arc(0,0,18*s,0,Math.PI*2)").join("ctx.arc(0,0,15*s,0,Math.PI*2)");
-    source = source.split("ctx.moveTo(-15*s,0);ctx.lineTo(15*s,0)").join("ctx.moveTo(-12*s,0);ctx.lineTo(12*s,0)");
+
+    const frisbeeDraw = `  }else if(p.type === 'frisbee'){
+    ctx.fillStyle='#08090a';ctx.beginPath();ctx.arc(0,0,24*s,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#d7dce2';ctx.beginPath();ctx.arc(0,0,20*s,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#111317';ctx.beginPath();ctx.arc(0,0,11*s,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=p.armed?'#ff4b5c':'rgba(255,255,255,.46)';
+    ctx.lineWidth=Math.max(2,2.7*s);ctx.beginPath();ctx.arc(0,0,18*s,0,Math.PI*2);ctx.stroke();
+    ctx.strokeStyle=p.armed?'#ff7b86':'rgba(20,20,20,.62)';ctx.lineWidth=Math.max(1,1.3*s);
+    ctx.beginPath();ctx.moveTo(-15*s,0);ctx.lineTo(15*s,0);ctx.stroke();`;
+    const frisbeeDrawSmall = `  }else if(p.type === 'frisbee'){
+    ctx.fillStyle='#08090a';ctx.beginPath();ctx.arc(0,0,20*s,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#d7dce2';ctx.beginPath();ctx.arc(0,0,17*s,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#111317';ctx.beginPath();ctx.arc(0,0,9*s,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=p.armed?'#ff4b5c':'rgba(255,255,255,.46)';
+    ctx.lineWidth=Math.max(2,2.4*s);ctx.beginPath();ctx.arc(0,0,15*s,0,Math.PI*2);ctx.stroke();
+    ctx.strokeStyle=p.armed?'#ff7b86':'rgba(20,20,20,.62)';ctx.lineWidth=Math.max(1,1.2*s);
+    ctx.beginPath();ctx.moveTo(-12*s,0);ctx.lineTo(12*s,0);ctx.stroke();`;
+    if(source.includes(frisbeeDraw)) source = source.replace(frisbeeDraw,frisbeeDrawSmall);
+    else console.warn('Prop size tuning: frisbee renderer block not found.');
 
     // Huge sword: still deliberately cumbersome, but no longer almost as long as
     // the puppet's whole body. Physics and renderer are reduced together.
@@ -52,5 +66,5 @@
     });
   };
 
-  window.PuppetalkPropSizeTuning = {version:1,frisbeeRadius:19,swordLength:88};
+  window.PuppetalkPropSizeTuning = {version:2,frisbeeRadius:19,swordLength:88};
 })();
