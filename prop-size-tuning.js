@@ -1,17 +1,22 @@
 // Puppetalk prop size tuning.
-// Keeps interaction reach generous, but makes the laser frisbee and huge sword
-// physically/visually smaller so they sit better beside the puppet.
+// Keeps interaction reach generous, makes the laser frisbee and huge sword
+// physically/visually smaller, and keeps all props on the puppet projection scale.
 (() => {
   const decoratedFetch = window.fetch.bind(window);
   if(window.PuppetalkPropSizeTuning) return;
 
   function patch(source){
-    if(typeof source !== 'string' || !source.includes('PUPPETALK_EXPANDED_ITEMS_V1') || source.includes('PUPPETALK_PROP_SIZE_TUNING_V2')) return source;
+    if(typeof source !== 'string' || !source.includes('PUPPETALK_EXPANDED_ITEMS_V1') || source.includes('PUPPETALK_PROP_SIZE_TUNING_V3')) return source;
 
     source = source.replace(
       '  // PUPPETALK_EXPANDED_ITEMS_V1',
-      '  // PUPPETALK_EXPANDED_ITEMS_V1\n  // PUPPETALK_PROP_SIZE_TUNING_V2'
+      '  // PUPPETALK_EXPANDED_ITEMS_V1\n  // PUPPETALK_PROP_SIZE_TUNING_V3'
     );
+
+    // Props live in the same source-world coordinate system as the puppet. The
+    // legacy drawProp multiplier made them nearly twice as large on controllers.
+    source = source.split('  const s = Math.max(.72,scale*1.9);')
+      .join('  const s = Math.max(.52,scale);');
 
     // Laser frisbee: ~17% smaller. Match the physical disc, grip point,
     // edge-speed radius and painted disc so cuts still feel spatially honest.
@@ -66,5 +71,5 @@
     });
   };
 
-  window.PuppetalkPropSizeTuning = {version:2,frisbeeRadius:19,swordLength:88};
+  window.PuppetalkPropSizeTuning = {version:3,frisbeeRadius:19,swordLength:88,projectionScale:true};
 })();
