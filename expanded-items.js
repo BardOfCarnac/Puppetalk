@@ -149,7 +149,7 @@
     props.delete(boots.id);
     p._moonBoots=true;
     p._moonBootsSince=performance.now();
-    specialItems.set(slot,`equipped-moonboots-${slot}`);
+    specialItems.set(slot,'equipped-moonboots-'+slot);
     return {ok:true,propId:propId,message:'Moon boots equipped.'};
   }
   function driveExpandedItems(now){
