@@ -59,9 +59,9 @@ document.querySelector('#room-label').textContent=isHost?`room ${room}`:`joining
 
 const palette=['#cf6c63','#d0a950','#7089b9','#729d78','#a879b2','#67a7a8','#d79b75','#8a6d5b','#d9c3a7','#7e8794','#d65050','#5b8fd1'];
 const parts={headStyle:['spikes','tallSpikes','burst','scallop','tufts','swept','fringe','smooth'],eyes:['closed','dots','happy','mismatch','sleepy','unevenDots','wink','winkRight'],nose:['angular','bow','curve','hook','long','slant'],mouth:['frown','line','pleased','shy','smile','smirk','soft','wavy'],extra:['none','glasses','moustache','freckles','eyepatch']};
-const itemTypes=['frisbee','pump','ball','dart'];
-const itemLabels={frisbee:'Laser frisbee',pump:'Balloon pump',ball:'Ball',dart:'Sticky darts'};
-const itemGlyphs={frisbee:'◉',pump:'⤴',ball:'●',dart:'➶'};
+const itemTypes=['frisbee','pump','ball','dart','boomerang','dartgun','moonboots','sword'];
+const itemLabels={frisbee:'Laser frisbee',pump:'Balloon pump',ball:'Ball',dart:'Sticky darts',boomerang:'Boomerang',dartgun:'Dart blaster',moonboots:'Moon boots',sword:'Huge sword'};
+const itemGlyphs={frisbee:'◉',pump:'⤴',ball:'●',dart:'➶',boomerang:'⌁',dartgun:'⌐',moonboots:'▰',sword:'†'};
 const names=['Mara','Ivo','Nix','Odo','Vale','Pip','Juno','Kit','Rook','Tess','Moth','Bo','Remy','Zed','Nell','Ash','Lux','Milo','Vera','Sol','Etta','Finn','Nori','Cass'];
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const randomLook=()=>({color:pick(palette),headStyle:pick(parts.headStyle),eyes:pick(parts.eyes),nose:pick(parts.nose),mouth:pick(parts.mouth),extra:pick(parts.extra)});
