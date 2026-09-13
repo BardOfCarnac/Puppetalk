@@ -340,7 +340,7 @@
   const scale = typeof projectionRenderScale === 'function' ? projectionRenderScale(w,h) : Math.min(w/900,h/650);
   const x = projected.x;
   const y = projected.y;
-  const s = Math.max(.72,scale*1.9);
+  const s = Math.max(.52,scale);
   ctx.save();
   ctx.translate(x,y);
   ctx.rotate(p.a || 0);
