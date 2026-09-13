@@ -170,11 +170,11 @@
 
     const drawNeedle = `  const x = projected.x;
   const y = projected.y;
-  const s = Math.max(.52,scale);
+  const s = Math.max(.72,scale*1.9);
   ctx.save();`;
     const drawCode = `  const x = projected.x;
   const y = projected.y;
-  const s = Math.max(.52,scale);
+  const s = Math.max(.72,scale*1.9);
   if(p.type === 'balloon' && p.attachedTo?.mode === 'balloon' && p.attachedTo.anchor){
     const anchor = typeof displayPoint === 'function' ? displayPoint(p.attachedTo.anchor,w,h) : {x:p.attachedTo.anchor.x*w,y:p.attachedTo.anchor.y*h};
     ctx.save();
