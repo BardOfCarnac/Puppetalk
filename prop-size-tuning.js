@@ -24,6 +24,15 @@
     if(source.includes(propArtworkScaleNeedle)) source = source.replace(propArtworkScaleNeedle,propArtworkScaleCode);
     else throw new Error('Prop size tuning failed: prop artwork transform');
 
+    // The controller projection deliberately shows substantial sky above source
+    // y=0. Put the collision underside near the visual top of a phone instead of
+    // halfway down that sky, and make the off-screen slab deep enough that even a
+    // hard-thrown prop cannot tunnel through and settle on its far side.
+    const ceilingNeedle = `      Bodies.rectangle(W/2,-22,W+160,44,{isStatic:true,friction:.65}),`;
+    const ceilingCode = `      Bodies.rectangle(W/2,-H*.42-110,W+240,220,{isStatic:true,friction:.65}),`;
+    if(source.includes(ceilingNeedle)) source = source.replace(ceilingNeedle,ceilingCode);
+    else throw new Error('Prop size tuning failed: ceiling boundary');
+
     // Laser frisbee: ~17% smaller. Match the physical disc, grip point,
     // edge-speed radius and painted disc so cuts still feel spatially honest.
     source = source.split("Bodies.circle(x,y,23,{density:.00062,restitution:.72,friction:.18,frictionAir:.004})")
