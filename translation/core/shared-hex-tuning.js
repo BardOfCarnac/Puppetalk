@@ -11,11 +11,19 @@
   // inset playable centres so entering field 1/7 never traps the puppet.
   const PLAYABLE_DEPTHS=Object.freeze([-.84,-.5,-.25,0,.25,.5,.84]);
   const NEUTRAL=3;
+  // Perspective is intentionally shallow enough that the nearest field still
+  // reads as one of seven useful lateral/depth positions from another viewpoint.
+  // Seven equal proportional size steps keep neutral at exactly 1x while giving
+  // the nearest field a clear but restrained 1.45x close-up.
+  const MAX_SCALE=1.45;
+  const SCALE_RATIO=Math.pow(MAX_SCALE,1/3);
   const TUNING=Object.freeze({
     minDepth:-1,maxDepth:1,
     planes:Object.freeze(PLANES),
     playableDepths:PLAYABLE_DEPTHS,
     neutralPlane:NEUTRAL,
+    maxScale:MAX_SCALE,
+    scaleRatio:SCALE_RATIO,
     quickTapCount:3,quickTapMaxMs:180,longTapMinMs:235,longTapMaxMs:410,
     quickTapWindowMs:760,maxGestureTravel:.045,
     sharedHex:true,flattenedPerspective:true
@@ -35,10 +43,10 @@
     return NEUTRAL;
   }
 
-  // Equal visual increments per logical field, deliberately very flat.
-  // Anchors: .90, .933, .967, 1.0, 1.033, 1.067, 1.10.
+  // Equal proportional increments per logical field. This is visually more even
+  // than equal additive increments: about 0.69, 0.78, 0.88, 1, 1.13, 1.28, 1.45.
   function scaleForDepth(depth){
-    return .90+(planeCoordinate(depth)/6)*.20;
+    return Math.pow(SCALE_RATIO,planeCoordinate(depth)-NEUTRAL);
   }
 
   // Depth no longer moves the puppet's physical/visual root down the screen.
@@ -189,5 +197,5 @@
   root.PuppetalkForegroundTuning=TUNING;
   root.PuppetalkDepthState=createStage();
   root.PuppetalkDepthController=createController();
-  root.PuppetalkSharedHexTuning=Object.freeze({version:1,active:true,playableDepths:PLAYABLE_DEPTHS});
+  root.PuppetalkSharedHexTuning=Object.freeze({version:2,active:true,playableDepths:PLAYABLE_DEPTHS,maxScale:MAX_SCALE,scaleRatio:SCALE_RATIO});
 })(typeof window!=='undefined'?window:globalThis);
