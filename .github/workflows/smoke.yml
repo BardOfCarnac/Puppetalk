@@ -56,6 +56,8 @@ jobs:
       - run: node --check special-items.js
       - run: node special-items-smoke.mjs
       - run: node --check segmented-puppet.js
+      - run: node --check expanded-items.js
+      - run: node --check prop-size-tuning.js
       - run: node --check upright-posture.js
       - run: node --check motion-mapper.js
       - run: node --check invitee-smoothing.js
@@ -71,6 +73,22 @@ jobs:
       - run: node compose-smoke.mjs
       - run: node --check boot-final-smoke.mjs
       - run: node boot-final-smoke.mjs
+      - run: node --check live-chain-smoke.mjs
+      - run: node live-chain-smoke.mjs
+      - name: Main Puppetalk browser boot smoke
+        run: |
+          python3 -m http.server 8080 >/tmp/puppetalk-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid || true' EXIT
+          sleep 1
+          google-chrome --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --dump-dom 'http://127.0.0.1:8080/?mode=controller&room=SMOKE&lobby=done' >/tmp/puppetalk-dom.html 2>/tmp/puppetalk-chrome.log || true
+          if ! grep -q 'aria-label="Your Puppetalk scene"' /tmp/puppetalk-dom.html; then
+            echo 'Main Puppetalk controller did not finish browser initialization.'
+            cat /tmp/puppetalk-chrome.log || true
+            echo '--- DOM ---'
+            cat /tmp/puppetalk-dom.html || true
+            exit 1
+          fi
       - run: node --check hollerday/src/config.js
       - run: node --check hollerday/src/camera.js
       - run: node --check hollerday/src/network.js
