@@ -35,7 +35,7 @@ function rebuildControllerProjection(w,h){
   // source-stage fit allows. Keep the same floor anchor, but let the whole playable
   // world occupy more of the backdrop so the actual floor-to-ceiling span reads
   // as the stage rather than a small strip in the middle of the photo.
-  const widePhotoBoost = sceneHasPhoto && camera?.profile === 'wide' ? 1.32 : 1;
+  const widePhotoBoost = sceneHasPhoto && camera?.profile === 'wide' ? 1.52 : 1;
   const scale = fittedScale*widePhotoBoost;
   const displayW = source.width*scale;
   const displayH = source.height*scale;
@@ -116,5 +116,5 @@ function drawBackdrop`
   DeviceProjectionBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(DeviceProjectionBlob,NativeBlob);
   window.Blob = DeviceProjectionBlob;
-  window.PuppetalkDeviceProjection = {version:38};
+  window.PuppetalkDeviceProjection = {version:39};
 })();
