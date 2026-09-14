@@ -13,12 +13,16 @@
       '  // PUPPETALK_EXPANDED_ITEMS_V1\n  // PUPPETALK_PROP_SIZE_TUNING_V2'
     );
 
-    // Props and puppets share the same source-world coordinate system. The old
-    // renderer multiplied prop projection by 1.9, making hand props look almost
-    // twice their physical size on phones. Keep the existing interaction reach,
-    // but draw the props on the same projection scale as the puppet.
-    source = source.split('  const s = Math.max(.72,scale*1.9);')
-      .join('  const s = Math.max(.52,scale);');
+    // Keep the legacy drawProp scale expression intact because depth-assist.js
+    // deliberately patches that exact line later. Shrink the artwork at the canvas
+    // transform instead, preserving all depth projection and interaction geometry.
+    const propArtworkScaleNeedle = `  ctx.save();\n  ctx.translate(x,y);\n  ctx.rotate(p.a || 0);`;
+    const propArtworkScaleCode = `  ctx.save();
+  ctx.translate(x,y);
+  ctx.scale(.58,.58);
+  ctx.rotate(p.a || 0);`;
+    if(source.includes(propArtworkScaleNeedle)) source = source.replace(propArtworkScaleNeedle,propArtworkScaleCode);
+    else throw new Error('Prop size tuning failed: prop artwork transform');
 
     // Laser frisbee: ~17% smaller. Match the physical disc, grip point,
     // edge-speed radius and painted disc so cuts still feel spatially honest.
