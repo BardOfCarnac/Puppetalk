@@ -13,6 +13,13 @@
       '  // PUPPETALK_EXPANDED_ITEMS_V1\n  // PUPPETALK_PROP_SIZE_TUNING_V2'
     );
 
+    // Props and puppets share the same source-world coordinate system. The old
+    // renderer multiplied prop projection by 1.9, making hand props look almost
+    // twice their physical size on phones. Keep the existing interaction reach,
+    // but draw the props on the same projection scale as the puppet.
+    source = source.split('  const s = Math.max(.72,scale*1.9);')
+      .join('  const s = Math.max(.52,scale);');
+
     // Laser frisbee: ~17% smaller. Match the physical disc, grip point,
     // edge-speed radius and painted disc so cuts still feel spatially honest.
     source = source.split("Bodies.circle(x,y,23,{density:.00062,restitution:.72,friction:.18,frictionAir:.004})")
