@@ -33,6 +33,18 @@
       "springPull(p.shR2 || p.shR,grabWorldPoint(p,'rightFoot'),{x:anchorX+legSpread,y:footY},crouched?.00017:.00023,crouched?.0059:.0065);"
     );
 
+    // Torso-drag walking already plants and steps the feet in locomotion.js.
+    // Do not let the standing rig simultaneously reel the legs under the moving
+    // torso: the two controllers fight and eventually fold the legs into the body.
+    patched = patched.replace(
+      "    if(!activeParts.has('leftFoot') && !rig.pins.leftFoot",
+      "    const torsoWalking = grabs.some(g=>g.part==='torso');\n    if(!torsoWalking && !activeParts.has('leftFoot') && !rig.pins.leftFoot"
+    );
+    patched = patched.replace(
+      "    if(!activeParts.has('rightFoot') && !rig.pins.rightFoot",
+      "    if(!torsoWalking && !activeParts.has('rightFoot') && !rig.pins.rightFoot"
+    );
+
     // jump-feel has already rewritten this support by the time this Blob wrapper
     // runs. Keep the rendered/virtual head centred at the old -65 position by
     // targeting the lower physical half 12px lower.
@@ -114,5 +126,5 @@
   SegmentedStanceBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(SegmentedStanceBlob, NativeBlob);
   window.Blob = SegmentedStanceBlob;
-  window.PuppetalkSegmentedStanceCompat = { version: 4 };
+  window.PuppetalkSegmentedStanceCompat = { version: 5 };
 })();
