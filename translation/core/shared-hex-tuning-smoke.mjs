@@ -24,12 +24,15 @@ assert.equal(root.PuppetalkDepthSystem.shiftForDepth(-.84),0);
 assert.equal(root.PuppetalkDepthSystem.shiftForDepth(.84),0);
 
 const scales=root.PuppetalkDepthSystem.playableDepths.map(d=>root.PuppetalkDepthSystem.scaleForDepth(d));
-assert.ok(Math.abs(scales[0]-.90)<1e-9);
-assert.ok(Math.abs(scales[3]-1)<1e-9);
-assert.ok(Math.abs(scales[6]-1.10)<1e-9);
-for(let i=1;i<scales.length;i++){
-  assert.ok(Math.abs((scales[i]-scales[i-1])-(.20/6))<1e-9,'Each logical depth field should change size by the same amount.');
+assert.ok(Math.abs(scales[3]-1)<1e-9,'Neutral field must remain exactly 1x.');
+assert.ok(Math.abs(scales[6]-1.45)<1e-9,'Nearest field should use the seven-position constrained 1.45x maximum.');
+assert.ok(scales[0]>.68&&scales[0]<.70,'Furthest field should be the reciprocal proportional counterpart of the nearest field.');
+const ratios=[];
+for(let i=1;i<scales.length;i++) ratios.push(scales[i]/scales[i-1]);
+for(let i=1;i<ratios.length;i++){
+  assert.ok(Math.abs(ratios[i]-ratios[0])<1e-9,'Each logical depth field should change apparent size by the same proportion.');
 }
+assert.ok(scales.every((s,i)=>i===0||s>scales[i-1]),'Depth scale must increase monotonically field by field.');
 
 const stage=root.PuppetalkDepthSystem.createStage({now:()=>clock});
 for(let i=0;i<3;i++) assert.equal(stage.stepDepth(0,1),true);
@@ -59,4 +62,4 @@ for(const x of [.08,.5,.92]){
   assert.ok(Math.abs(own.torso.x-x)<1e-7,'Far extreme field must retain lateral owner-screen movement.');
 }
 
-console.log('Shared hex tuning keeps both extreme fields horizontally playable, uses even shallow scale increments, and removes vertical depth feedback from the torso.');
+console.log('Shared hex tuning keeps both extreme fields horizontally playable, uses seven equal proportional scale steps up to 1.45x, and removes vertical depth feedback from the torso.');
