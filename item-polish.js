@@ -55,7 +55,10 @@
 
     const helperNeedle = `  function driveProps(){`;
     const helperCode = `  function pumpNozzleOffset(scale){
-    return {x:0,y:-34-18*Math.max(.34,scale||.34)};
+    const balloonScale = Math.max(.34,scale||.34);
+    // The drawn pump's diagonal nozzle ends at local (31,-29). Keep the
+    // balloon's bottom knot on that tip as the balloon grows upward.
+    return {x:31,y:-29-22*balloonScale};
   }
   function ensurePumpBalloon(pump){
     if(!pump || pump.type !== 'pump') return null;
