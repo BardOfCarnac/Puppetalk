@@ -30,7 +30,13 @@ function rebuildControllerProjection(w,h){
   const scaleByWidth = usableW/source.width;
   const scaleByTop = Math.max(.35,(floorY-topPad)/(source.height*sourceFloor));
   const scaleByBottom = Math.max(.35,(h-bottomPad-floorY)/(source.height*(1-sourceFloor)));
-  const scale = Math.max(.35,Math.min(scaleByWidth,scaleByTop,scaleByBottom));
+  const fittedScale = Math.max(.35,Math.min(scaleByWidth,scaleByTop,scaleByBottom));
+  // Wide photographic scenes have much more visual room than the conservative
+  // source-stage fit allows. Keep the same floor anchor, but let the whole playable
+  // world occupy more of the backdrop so the actual floor-to-ceiling span reads
+  // as the stage rather than a small strip in the middle of the photo.
+  const widePhotoBoost = sceneHasPhoto && camera?.profile === 'wide' ? 1.32 : 1;
+  const scale = fittedScale*widePhotoBoost;
   const displayW = source.width*scale;
   const displayH = source.height*scale;
   const floorCenter = sceneHasPhoto ? (floorLeft+floorRight)*.5 : w*.5;
@@ -110,5 +116,5 @@ function drawBackdrop`
   DeviceProjectionBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(DeviceProjectionBlob,NativeBlob);
   window.Blob = DeviceProjectionBlob;
-  window.PuppetalkDeviceProjection = {version:35};
+  window.PuppetalkDeviceProjection = {version:38};
 })();
