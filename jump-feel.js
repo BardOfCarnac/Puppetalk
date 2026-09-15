@@ -12,6 +12,14 @@
     return [p.torso,p.head,p.uaL,p.faL,p.uaR,p.faR,p.thL,p.shL,p.thR,p.shR].filter(Boolean);
   }
 
+  function legCanSupport(p,side){
+    const prefix = side === 'left' ? 'left' : 'right';
+    if(p.severedJoints?.has(prefix+'Hip') || p.severedJoints?.has(prefix+'Knee')) return false;
+    if(p.brokenSeams?.has(prefix+'Thigh') || p.brokenSeams?.has(prefix+'Shin')) return false;
+    if(p.brokenSeams?.has('torsoLower')) return false;
+    return true;
+  }
+
   function drivePuppet(p){`
     );
 
@@ -19,49 +27,16 @@
 `    const now = performance.now();
     const prepared = [];`,
 `    const now = performance.now();
-    const air = rig.air || (rig.air = {
-      active:false,
-      wasPelvis:false,
-      startedAt:0,
-      until:0,
-      lastTorsoVy:0
-    });
-    const pelvisGrab = grabs.find(g=>g.part === 'pelvis');
-
-    if(p.rag){
-      air.active = false;
-      air.wasPelvis = false;
-    }else if(pelvisGrab){
-      air.wasPelvis = true;
-      air.active = false;
-      air.lastTorsoVy = t.velocity.y;
-    }else if(air.wasPelvis){
-      air.wasPelvis = false;
-      const lift = standingY-t.position.y;
-      if(lift > 10){
-        air.active = true;
-        air.startedAt = now;
-        air.until = now+720;
-        const carry = clamp(air.lastTorsoVy,-5.4,1.1);
-        if(carry < -.25){
-          Body.setVelocity(t,{x:t.velocity.x,y:Math.min(t.velocity.y,carry)});
-        }
-      }
-    }
-
-    if(air.active){
-      const age = now-air.startedAt;
-      const landed = age > 180 && t.position.y >= standingY-1 && t.velocity.y >= 0;
-      if(now >= air.until || landed){
-        air.active = false;
-      }else{
-        const floatFade = 1-clamp(age/620,0,1);
-        const counterGravity = .00038+.00020*floatFade;
-        for(const body of airborneBodies(p)){
-          Body.applyForce(body,body.position,{x:0,y:-body.mass*counterGravity});
-        }
-      }
-    }
+    const air = rig.air || (rig.air = {active:false,grounded:false});
+    const leftSupport = grabWorldPoint(p,'leftFoot');
+    const rightSupport = grabWorldPoint(p,'rightFoot');
+    const contactSlack = 11;
+    const leftGrounded = legCanSupport(p,'left') && leftSupport.y >= floorY-contactSlack;
+    const rightGrounded = legCanSupport(p,'right') && rightSupport.y >= floorY-contactSlack;
+    air.grounded = leftGrounded || rightGrounded;
+    // Airborne is now a physical state, not a timed float effect. There is no
+    // counter-gravity: once both feet leave the floor, normal Matter gravity owns Y.
+    air.active = !p.rag && !air.grounded;
 
     const prepared = [];`
     );
@@ -105,5 +80,5 @@
   JumpFeelBlob.prototype = NativeBlob.prototype;
   Object.setPrototypeOf(JumpFeelBlob,NativeBlob);
   window.Blob = JumpFeelBlob;
-  window.PuppetalkJumpFeel = {version:35};
+  window.PuppetalkJumpFeel = {version:36};
 })();
