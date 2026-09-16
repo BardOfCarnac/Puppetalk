@@ -1,6 +1,7 @@
-// Puppetalk six-seat view pass.
-// Physics/network state stays canonical. Only each controller's drawing/hit-testing
-// rotates other players' sideways/depth displacement into that viewer's seat frame.
+// Puppetalk six-seat shared-floor view pass.
+// Physics/network state stays canonical. Each player's lateral position and seven
+// depth stages describe one shared 2D floor; controllers rotate that floor into
+// their own seat frame for drawing and hit-testing.
 (() => {
   const decoratedFetch = window.fetch.bind(window);
 
@@ -13,7 +14,7 @@
 
     const controllerNeedle = `function startController(room){`;
     const helpers = `const PUPPETALK_SEAT_ORDER = [0,3,1,4,2,5];
-const PUPPETALK_DEPTH_X = .28;
+const PUPPETALK_DEPTH_HALF_SPAN = 1/Math.sqrt(3);
 const PUPPETALK_FOREGROUND_TUNED_KEYS = new Set(['torso','head','sl','sr','el','er','wl','wr','hl','hr','kl','kr','al','ar']);
 const puppetalkPropOwners = new Map();
 
@@ -21,7 +22,32 @@ function puppetalkSeatAngle(slot){
   const seat=PUPPETALK_SEAT_ORDER[slot] ?? slot ?? 0;
   return seat*Math.PI/3;
 }
-function puppetalkHomeX(slot){ return .16+slot*.135; }
+function puppetalkHomeX(slot){ return .5; }
+function puppetalkDepthPlanes(){
+  const planes=window.PuppetalkForegroundTuning?.planes;
+  return Array.isArray(planes) && planes.length>1 ? planes : [-.48,-.32,-.16,0,.33,.66,1];
+}
+function puppetalkDepthToFloor(depth){
+  const planes=puppetalkDepthPlanes();
+  const last=planes.length-1;
+  if(depth<=planes[0]) return -PUPPETALK_DEPTH_HALF_SPAN;
+  if(depth>=planes[last]) return PUPPETALK_DEPTH_HALF_SPAN;
+  let i=0;
+  while(i<last-1 && depth>planes[i+1]) i++;
+  const a=planes[i],b=planes[i+1];
+  const mix=Math.abs(b-a)>.000001 ? (depth-a)/(b-a) : 0;
+  const index=i+Math.max(0,Math.min(1,mix));
+  return ((index/last)*2-1)*PUPPETALK_DEPTH_HALF_SPAN;
+}
+function puppetalkFloorToDepth(forward){
+  const planes=puppetalkDepthPlanes();
+  const last=planes.length-1;
+  const norm=Math.max(0,Math.min(1,(forward+PUPPETALK_DEPTH_HALF_SPAN)/(PUPPETALK_DEPTH_HALF_SPAN*2)));
+  const index=norm*last;
+  const i=Math.min(last-1,Math.floor(index));
+  const mix=index-i;
+  return planes[i]+(planes[i+1]-planes[i])*mix;
+}
 function puppetalkRawPoint(point,center,scale,shift){
   if(!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return point;
   const safe=Math.max(.0001,scale||1);
@@ -34,7 +60,6 @@ function puppetalkViewPoint(point,rawCenter,targetCenter,targetScale,targetShift
 function puppetalkProjectPuppet(p,viewerSlot){
   if(!p?.torso || !Number.isInteger(p.slot) || !Number.isInteger(viewerSlot)) return {puppet:p,meta:null};
   const depthApi=window.PuppetalkDepthState;
-  const tuning=window.PuppetalkForegroundTuning;
   const rawDepth=Number.isFinite(p.depth)?p.depth:0;
   const rawScale=Number.isFinite(p.visualScale)?p.visualScale:(depthApi?.scaleForDepth?.(rawDepth)||1);
   const rawShift=depthApi?.shiftForDepth?.(rawDepth)||0;
@@ -43,16 +68,17 @@ function puppetalkProjectPuppet(p,viewerSlot){
   while(delta>Math.PI) delta-=Math.PI*2;
   while(delta< -Math.PI) delta+=Math.PI*2;
   const c=Math.cos(delta),s=Math.sin(delta);
-  const localSide=rawCenter.x-puppetalkHomeX(p.slot);
-  const localForward=rawDepth*PUPPETALK_DEPTH_X;
+
+  // Shared floor coordinates. A player's normal screen X is their lateral floor
+  // coordinate; the seven depth stages are seven equally spaced cross-stage planes.
+  const localSide=rawCenter.x-.5;
+  const localForward=puppetalkDepthToFloor(rawDepth);
   const viewSide=localSide*c+localForward*s;
   const viewForward=localForward*c-localSide*s;
-  const minDepth=Number.isFinite(tuning?.minDepth)?tuning.minDepth:-.48;
-  const maxDepth=Number.isFinite(tuning?.maxDepth)?tuning.maxDepth:1;
-  const viewDepth=Math.max(minDepth,Math.min(maxDepth,viewForward/PUPPETALK_DEPTH_X));
+  const viewDepth=puppetalkFloorToDepth(viewForward);
   const targetScale=depthApi?.scaleForDepth?.(viewDepth)||1;
   const targetShift=depthApi?.shiftForDepth?.(viewDepth)||0;
-  const targetCenter={x:puppetalkHomeX(p.slot)+viewSide,y:rawCenter.y};
+  const targetCenter={x:.5+viewSide,y:rawCenter.y};
   const out={...p,depth:viewDepth,visualScale:targetScale};
   for(const [key,value] of Object.entries(p)){
     if(!value || Array.isArray(value) || typeof value!=='object') continue;
