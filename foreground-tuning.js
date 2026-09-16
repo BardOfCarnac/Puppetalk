@@ -5,10 +5,10 @@
   const rawConnect = Peer.prototype.connect;
   const rawPeerOn = Peer.prototype.on;
 
-  // Explicit planes: four behind neutral, then nine steps toward the camera.
-  // Gestures move exactly one index at a time; interpolation is only the visual travel
-  // between neighbouring planes, never the source of the destination itself.
-  const DEPTH_PLANES = [-.48,-.36,-.24,-.12,0,.11,.22,.33,.44,.55,.66,.77,.88,1.0];
+  // Seven explicit stage depths: three behind neutral, neutral, then three
+  // toward the camera. Gestures move exactly one stage at a time; interpolation
+  // is only the visual travel between neighbouring stages.
+  const DEPTH_PLANES = [-.48,-.32,-.16,0,.33,.66,1.0];
   const NEUTRAL_PLANE = DEPTH_PLANES.indexOf(0);
   const DEPTH_MIN = DEPTH_PLANES[0];
   const DEPTH_MAX = DEPTH_PLANES[DEPTH_PLANES.length-1];
@@ -241,7 +241,7 @@
     shiftForDepth:targetShift
   };
   window.PuppetalkForegroundTuning = {
-    version:36,
+    version:37,
     minDepth:DEPTH_MIN,
     maxDepth:DEPTH_MAX,
     planes:[...DEPTH_PLANES],
