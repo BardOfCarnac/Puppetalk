@@ -170,6 +170,13 @@
     for(const body of bodies){
       const name=body.plugin?.puppetalkPart;
       if(name) parts[name]=body;
+
+      // Pre-segmented puppets keep the canonical control body on the proximal
+      // half and mark the hidden lower half separately. Walking must act on the
+      // real distal shin/foot, not a point projected beyond the proximal body.
+      const segmentPart=body.plugin?.puppetalkSegmentPart;
+      const segment=body.plugin?.puppetalkSegment;
+      if(segmentPart && segment==='distal') parts[`${segmentPart}2`]=body;
     }
     return parts;
   }
@@ -180,6 +187,18 @@
       x:body.position.x-Math.sin(body.angle)*length,
       y:body.position.y+Math.cos(body.angle)*length
     };
+  }
+
+  function footBody(parts,side){
+    const key=side==='left'?'shL':'shR';
+    return parts[`${key}2`] || parts[key] || null;
+  }
+
+  function footPoint(parts,side){
+    const key=side==='left'?'shL':'shR';
+    const body=footBody(parts,side);
+    if(!body) return {x:0,y:0};
+    return endPoint(body,parts[`${key}2`]===body?13.5:25);
   }
 
   function stageMetrics(engine){
@@ -198,28 +217,30 @@
     };
   }
 
-  function pullPoint(body,point,target,stiffness=.00018,damping=.0095,cap=.020){
+  function pullStep(body,point,target,stiffness=.00015,damping=.0095,cap=.013){
     if(!body) return;
     const mass=Math.max(.2,body.mass||1);
     let fx=((target.x-point.x)*stiffness-body.velocity.x*damping)*mass;
     let fy=((target.y-point.y)*stiffness-body.velocity.y*damping)*mass;
     const mag=Math.hypot(fx,fy);
     if(mag>cap){fx*=cap/mag;fy*=cap/mag;}
-    Body.applyForce(body,point,{x:fx,y:fy});
+
+    // Apply at the segment centre. Applying a strong lateral correction at the
+    // foot point itself turns the lower leg into a lever and can catapult it.
+    Body.applyForce(body,body.position,{x:fx,y:fy});
   }
 
   function footHeld(input,side){
     return normalizedGrabs(input).some(g=>g.part===`${side}Foot`);
   }
 
-  function beginStep(state,side,endX,floorY,now){
+  function beginStep(state,side,fromX,endX,floorY,now){
     if(!state.feet||state.step||now<state.stepCooldownUntil) return;
-    const anchor=state.feet[side];
     state.step={
       side,
       startedAt:now,
-      duration:420,
-      fromX:anchor.x,
+      duration:360,
+      fromX,
       toX:endX,
       floorY
     };
@@ -243,7 +264,7 @@
     }
 
     const torsoGrab=normalizedGrabs(input).find(g=>g.part==='torso');
-    if(torsoGrab) state.walkUntil=now+180;
+    if(torsoGrab) state.walkUntil=now+140;
     const locomoting=!!torsoGrab||!!state.step||now<state.walkUntil;
     if(!locomoting){
       state.feet=null;
@@ -251,29 +272,41 @@
     }
 
     const metrics=stageMetrics(engine);
-    const leftPoint=endPoint(parts.shL,25);
-    const rightPoint=endPoint(parts.shR,25);
+    const floorY=metrics.floorY-2;
+    const leftPoint=footPoint(parts,'left');
+    const rightPoint=footPoint(parts,'right');
 
     if(!state.feet){
       state.feet={
-        left:{x:leftPoint.x,y:leftPoint.y},
-        right:{x:rightPoint.x,y:rightPoint.y}
+        left:{x:leftPoint.x,y:floorY},
+        right:{x:rightPoint.x,y:floorY}
       };
       state.nextFoot=leftPoint.x<=rightPoint.x?'left':'right';
+    }
+
+    // The non-stepping foot is not nailed to an old world coordinate. Record its
+    // real ground position and let Matter friction/gravity provide the plant.
+    // This avoids storing spring energy while the torso is dragged sideways.
+    if(!state.step || state.step.side!=='left'){
+      if(Math.abs(leftPoint.y-floorY)<24) state.feet.left={x:leftPoint.x,y:floorY};
+    }
+    if(!state.step || state.step.side!=='right'){
+      if(Math.abs(rightPoint.y-floorY)<24) state.feet.right={x:rightPoint.x,y:floorY};
     }
 
     if(torsoGrab&&Number.isFinite(torsoGrab.x)){
       const desiredX=torsoGrab.x*metrics.width;
       const deltaX=desiredX-torso.position.x;
-      const dir=Math.abs(deltaX)>14?Math.sign(deltaX):0;
+      const dir=Math.abs(deltaX)>12?Math.sign(deltaX):0;
 
       if(!state.step&&dir&&now>=state.stepCooldownUntil){
-        const leftBehind=(torso.position.x-state.feet.left.x)*dir;
-        const rightBehind=(torso.position.x-state.feet.right.x)*dir;
+        const leftBehind=(torso.position.x-leftPoint.x)*dir;
+        const rightBehind=(torso.position.x-rightPoint.x)*dir;
         const trailing=leftBehind>rightBehind?'left':'right';
         const stretch=Math.max(leftBehind,rightBehind);
-        if(stretch>58&&!footHeld(input,trailing)){
-          beginStep(state,trailing,torso.position.x+dir*27,metrics.floorY-2,now);
+        if(stretch>42&&!footHeld(input,trailing)){
+          const from=trailing==='left'?leftPoint:rightPoint;
+          beginStep(state,trailing,from.x,torso.position.x+dir*25,floorY,now);
         }
       }
     }
@@ -286,27 +319,24 @@
       steppingSide=state.step.side;
       stepTarget={
         x:lerp(state.step.fromX,state.step.toX,eased),
-        y:state.step.floorY-Math.sin(Math.PI*t)*16
+        y:state.step.floorY-Math.sin(Math.PI*t)*12
       };
       if(t>=1){
         state.feet[steppingSide]={x:state.step.toX,y:state.step.floorY};
         state.step=null;
-        state.stepCooldownUntil=now+190;
+        state.stepCooldownUntil=now+120;
         steppingSide=null;
         stepTarget=null;
       }
     }
 
-    const leftHeld=footHeld(input,'left');
-    const rightHeld=footHeld(input,'right');
-
-    if(!leftHeld){
-      const target=steppingSide==='left'&&stepTarget?stepTarget:state.feet.left;
-      pullPoint(parts.shL,endPoint(parts.shL,25),target,steppingSide==='left'?.00024:.00017,.0105,steppingSide==='left'?.021:.017);
-    }
-    if(!rightHeld){
-      const target=steppingSide==='right'&&stepTarget?stepTarget:state.feet.right;
-      pullPoint(parts.shR,endPoint(parts.shR,25),target,steppingSide==='right'?.00024:.00017,.0105,steppingSide==='right'?.021:.017);
+    // Only the foot that is actually taking a step gets an active positional
+    // assist. A planted foot receives no spring force at all: gravity + floor
+    // collision hold it down, so there is nothing here that can launch a leg.
+    if(steppingSide&&stepTarget&&!footHeld(input,steppingSide)){
+      const body=footBody(parts,steppingSide);
+      const point=footPoint(parts,steppingSide);
+      pullStep(body,point,stepTarget,.00015,.0095,.013);
     }
   }
 
@@ -316,5 +346,5 @@
     return rawEngineUpdate(engine,delta,correction);
   };
 
-  window.PuppetalkLocomotion={version:32};
+  window.PuppetalkLocomotion={version:33};
 })();
