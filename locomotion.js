@@ -170,10 +170,6 @@
     for(const body of bodies){
       const name=body.plugin?.puppetalkPart;
       if(name) parts[name]=body;
-
-      // Pre-segmented puppets keep the canonical control body on the proximal
-      // half and mark the hidden lower half separately. Walking must act on the
-      // real distal shin/foot, not a point projected beyond the proximal body.
       const segmentPart=body.plugin?.puppetalkSegmentPart;
       const segment=body.plugin?.puppetalkSegment;
       if(segmentPart && segment==='distal') parts[`${segmentPart}2`]=body;
@@ -217,17 +213,15 @@
     };
   }
 
-  function pullStep(body,point,target,stiffness=.00015,damping=.0095,cap=.013){
+  function pullStep(body,point,target,stiffness=.00008,damping=.0125,cap=.006){
     if(!body) return;
     const mass=Math.max(.2,body.mass||1);
     let fx=((target.x-point.x)*stiffness-body.velocity.x*damping)*mass;
-    let fy=((target.y-point.y)*stiffness-body.velocity.y*damping)*mass;
-    const mag=Math.hypot(fx,fy);
-    if(mag>cap){fx*=cap/mag;fy*=cap/mag;}
+    fx=clamp(fx,-cap,cap);
 
-    // Apply at the segment centre. Applying a strong lateral correction at the
-    // foot point itself turns the lower leg into a lever and can catapult it.
-    Body.applyForce(body,body.position,{x:fx,y:fy});
+    // Walking assistance is horizontal only. Gravity and the floor own vertical
+    // motion, so the gait helper cannot kick a leg upward.
+    Body.applyForce(body,body.position,{x:fx,y:0});
   }
 
   function footHeld(input,side){
@@ -239,7 +233,7 @@
     state.step={
       side,
       startedAt:now,
-      duration:360,
+      duration:500,
       fromX,
       toX:endX,
       floorY
@@ -284,9 +278,6 @@
       state.nextFoot=leftPoint.x<=rightPoint.x?'left':'right';
     }
 
-    // The non-stepping foot is not nailed to an old world coordinate. Record its
-    // real ground position and let Matter friction/gravity provide the plant.
-    // This avoids storing spring energy while the torso is dragged sideways.
     if(!state.step || state.step.side!=='left'){
       if(Math.abs(leftPoint.y-floorY)<24) state.feet.left={x:leftPoint.x,y:floorY};
     }
@@ -304,9 +295,9 @@
         const rightBehind=(torso.position.x-rightPoint.x)*dir;
         const trailing=leftBehind>rightBehind?'left':'right';
         const stretch=Math.max(leftBehind,rightBehind);
-        if(stretch>42&&!footHeld(input,trailing)){
+        if(stretch>38&&!footHeld(input,trailing)){
           const from=trailing==='left'?leftPoint:rightPoint;
-          beginStep(state,trailing,from.x,torso.position.x+dir*25,floorY,now);
+          beginStep(state,trailing,from.x,torso.position.x+dir*16,floorY,now);
         }
       }
     }
@@ -319,24 +310,21 @@
       steppingSide=state.step.side;
       stepTarget={
         x:lerp(state.step.fromX,state.step.toX,eased),
-        y:state.step.floorY-Math.sin(Math.PI*t)*12
+        y:state.step.floorY
       };
       if(t>=1){
         state.feet[steppingSide]={x:state.step.toX,y:state.step.floorY};
         state.step=null;
-        state.stepCooldownUntil=now+120;
+        state.stepCooldownUntil=now+220;
         steppingSide=null;
         stepTarget=null;
       }
     }
 
-    // Only the foot that is actually taking a step gets an active positional
-    // assist. A planted foot receives no spring force at all: gravity + floor
-    // collision hold it down, so there is nothing here that can launch a leg.
     if(steppingSide&&stepTarget&&!footHeld(input,steppingSide)){
       const body=footBody(parts,steppingSide);
       const point=footPoint(parts,steppingSide);
-      pullStep(body,point,stepTarget,.00015,.0095,.013);
+      pullStep(body,point,stepTarget,.00008,.0125,.006);
     }
   }
 
@@ -346,5 +334,5 @@
     return rawEngineUpdate(engine,delta,correction);
   };
 
-  window.PuppetalkLocomotion={version:33};
+  window.PuppetalkLocomotion={version:34};
 })();
