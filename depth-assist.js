@@ -42,22 +42,41 @@
     const helperNeedle = `  function driveProps(){`;
     const helpers = `  const PUPPETALK_ACTION_DEPTH_TOLERANCE = .38;
   const PUPPETALK_ACTION_SCREEN_PAD = 15;
-  const PUPPETALK_ACTION_DEPTH_X = .28;
+  const PUPPETALK_ACTION_DEPTH_HALF_SPAN = 1/Math.sqrt(3);
   const PUPPETALK_ACTION_SEAT_ORDER = [0,3,1,4,2,5];
 
   function puppetalkActionSeatAngle(slot){
     const seat=PUPPETALK_ACTION_SEAT_ORDER[slot] ?? slot ?? 0;
     return seat*Math.PI/3;
   }
-  function puppetalkActionHomeX(slot){ return .16+slot*.135; }
+  function puppetalkActionHomeX(slot){ return .5; }
   function puppetalkActionDepth(slot){
     return Number.isInteger(slot) ? (window.PuppetalkDepthState?.getDepthForSlot?.(slot) || 0) : 0;
   }
-  function puppetalkActionClampDepth(depth){
-    const tuning=window.PuppetalkForegroundTuning;
-    const lo=Number.isFinite(tuning?.minDepth)?tuning.minDepth:-.48;
-    const hi=Number.isFinite(tuning?.maxDepth)?tuning.maxDepth:1;
-    return clamp(depth,lo,hi);
+  function puppetalkActionPlanes(){
+    const planes=window.PuppetalkForegroundTuning?.planes;
+    return Array.isArray(planes) && planes.length>1 ? planes : [-.48,-.32,-.16,0,.33,.66,1];
+  }
+  function puppetalkActionDepthToFloor(depth){
+    const planes=puppetalkActionPlanes();
+    const last=planes.length-1;
+    if(depth<=planes[0]) return -PUPPETALK_ACTION_DEPTH_HALF_SPAN;
+    if(depth>=planes[last]) return PUPPETALK_ACTION_DEPTH_HALF_SPAN;
+    let i=0;
+    while(i<last-1 && depth>planes[i+1]) i++;
+    const a=planes[i],b=planes[i+1];
+    const mix=Math.abs(b-a)>.000001 ? (depth-a)/(b-a) : 0;
+    const index=i+Math.max(0,Math.min(1,mix));
+    return ((index/last)*2-1)*PUPPETALK_ACTION_DEPTH_HALF_SPAN;
+  }
+  function puppetalkActionFloorToDepth(forward){
+    const planes=puppetalkActionPlanes();
+    const last=planes.length-1;
+    const norm=Math.max(0,Math.min(1,(forward+PUPPETALK_ACTION_DEPTH_HALF_SPAN)/(PUPPETALK_ACTION_DEPTH_HALF_SPAN*2)));
+    const index=norm*last;
+    const i=Math.min(last-1,Math.floor(index));
+    const mix=index-i;
+    return planes[i]+(planes[i+1]-planes[i])*mix;
   }
   function puppetalkActionProjectPuppetPoint(p,q,viewerSlot){
     if(!p?.torso || !q || !Number.isInteger(p.slot) || !Number.isInteger(viewerSlot)) return null;
@@ -67,14 +86,14 @@
     while(delta>Math.PI) delta-=Math.PI*2;
     while(delta< -Math.PI) delta+=Math.PI*2;
     const c=Math.cos(delta),s=Math.sin(delta);
-    const localSide=rawCenter.x/W-puppetalkActionHomeX(p.slot);
-    const localForward=rawDepth*PUPPETALK_ACTION_DEPTH_X;
+    const localSide=rawCenter.x/W-.5;
+    const localForward=puppetalkActionDepthToFloor(rawDepth);
     const viewSide=localSide*c+localForward*s;
     const viewForward=localForward*c-localSide*s;
-    const viewDepth=puppetalkActionClampDepth(viewForward/PUPPETALK_ACTION_DEPTH_X);
+    const viewDepth=puppetalkActionFloorToDepth(viewForward);
     const scale=window.PuppetalkDepthState?.scaleForDepth?.(viewDepth) || 1;
     const shift=(window.PuppetalkDepthState?.shiftForDepth?.(viewDepth) || 0)*H;
-    const centerX=(puppetalkActionHomeX(p.slot)+viewSide)*W;
+    const centerX=(.5+viewSide)*W;
     return {
       x:centerX+(q.x-rawCenter.x)*scale,
       y:rawCenter.y+(q.y-rawCenter.y)*scale+shift,
@@ -95,14 +114,14 @@
     while(delta>Math.PI) delta-=Math.PI*2;
     while(delta< -Math.PI) delta+=Math.PI*2;
     const c=Math.cos(delta),s=Math.sin(delta);
-    const localSide=prop.body.position.x/W-puppetalkActionHomeX(owner);
-    const localForward=prop._depth*PUPPETALK_ACTION_DEPTH_X;
+    const localSide=prop.body.position.x/W-.5;
+    const localForward=puppetalkActionDepthToFloor(prop._depth);
     const viewSide=localSide*c+localForward*s;
     const viewForward=localForward*c-localSide*s;
-    const viewDepth=puppetalkActionClampDepth(viewForward/PUPPETALK_ACTION_DEPTH_X);
+    const viewDepth=puppetalkActionFloorToDepth(viewForward);
     const shift=(window.PuppetalkDepthState?.shiftForDepth?.(viewDepth) || 0)*H;
     return {
-      x:(puppetalkActionHomeX(owner)+viewSide)*W,
+      x:(.5+viewSide)*W,
       y:prop.body.position.y+shift,
       depth:viewDepth
     };
@@ -224,18 +243,15 @@ ${helperNeedle}`;
     while(delta>Math.PI) delta-=Math.PI*2;
     while(delta< -Math.PI) delta+=Math.PI*2;
     const c=Math.cos(delta),s=Math.sin(delta);
-    const localSide=prop.x-puppetalkHomeX(owner);
-    const localForward=prop.depth*PUPPETALK_DEPTH_X;
+    const localSide=prop.x-.5;
+    const localForward=puppetalkDepthToFloor(prop.depth);
     const viewSide=localSide*c+localForward*s;
     const viewForward=localForward*c-localSide*s;
-    const tuning=window.PuppetalkForegroundTuning;
-    const minDepth=Number.isFinite(tuning?.minDepth)?tuning.minDepth:-.48;
-    const maxDepth=Number.isFinite(tuning?.maxDepth)?tuning.maxDepth:1;
-    const viewDepth=Math.max(minDepth,Math.min(maxDepth,viewForward/PUPPETALK_DEPTH_X));
+    const viewDepth=puppetalkFloorToDepth(viewForward);
     const depthApi=window.PuppetalkDepthState;
     return {
       ...prop,
-      x:puppetalkHomeX(owner)+viewSide,
+      x:.5+viewSide,
       y:prop.y+(depthApi?.shiftForDepth?.(viewDepth)||0),
       viewDepth,
       viewScale:depthApi?.scaleForDepth?.(viewDepth)||1
